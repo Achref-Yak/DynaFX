@@ -1,0 +1,13 @@
+The trial court erred in excluding the expert testimony under Daubert.
+The expert holds a PhD in biomechanics and has published 12 peer-reviewed
+studies on whiplash kinematics. Peer review establishes reliability.
+However, the expert's methodology deviated from the standard protocol
+in this specific case — she used a 30-degree seatback angle instead of
+the standard 25 degrees. The opposing expert, who followed the standard
+protocol, reached a different conclusion. This contradicts the notion
+that the testimony was unreliable. Since the case involves a federal
+question, the Federal Rules of Evidence apply. Under Rule 702, expert
+testimony is admissible if it is "based on sufficient facts or data."
+The deviation may affect weight, not admissibility. FRE 702 further
+requires that the testimony be "the product of reliable principles and
+methods." This was satisfied. The judgment should be reversed.
