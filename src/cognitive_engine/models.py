@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any, Dict, List, Optional
@@ -202,21 +203,41 @@ class Graph:
                 return {k: _convert(v) for k, v in obj.__dict__.items() if not k.startswith("_")}
             return obj
 
+        roles: dict[UUID, str] = {}
+        for interp in self.interpretations.values():
+            for eid, role in interp.roles.items():
+                roles[eid] = role
+
+        outgoing: dict[UUID, list[Edge]] = defaultdict(list)
+        for edge in self.edges:
+            outgoing[edge.source_id].append(edge)
+
+        sorted_nodes = sorted(
+            self.nodes.items(),
+            key=lambda x: (x[1].span.start if x[1].span else 0, x[1].text),
+        )
+        propositions: list[dict] = []
+        for nid, node in sorted_nodes:
+            nd = _convert(node)
+            nd["argumentation_role"] = roles.get(nid, node.type.name)
+            nd["outgoing_edges"] = [_convert(e) for e in outgoing.get(nid, [])]
+            propositions.append(nd)
+
+        sorted_entities = sorted(
+            self.entities.items(),
+            key=lambda x: (x[1].spans[0].start if x[1].spans else 0, x[1].name),
+        )
+        entities_list: list[dict] = [_convert(e) for _, e in sorted_entities]
+
+        sorted_wr = sorted(
+            self.world_relations,
+            key=lambda r: (r.kind, r.source_id.hex),
+        )
+
         result: dict = {
-            "nodes": {
-                nid.hex: _convert(n)
-                for nid, n in self.nodes.items()
-            },
-            "edges": [_convert(e) for e in self.edges],
-            "entities": {
-                eid.hex: _convert(e)
-                for eid, e in self.entities.items()
-            },
-            "world_relations": [_convert(r) for r in self.world_relations],
-            "interpretations": {
-                name: _convert(interp)
-                for name, interp in self.interpretations.items()
-            },
+            "propositions": propositions,
+            "entities": entities_list,
+            "world_relations": [_convert(r) for r in sorted_wr],
             "mode": self.mode.name,
             "source_text": self.source_text,
             "metadata": self.metadata,
@@ -251,49 +272,106 @@ class Graph:
     @staticmethod
     def from_dict(data: dict) -> Graph:
         nodes: dict[UUID, Node] = {}
-        for nid_hex, nd in data.get("nodes", {}).items():
-            node_id = UUID(nid_hex)
-            span_data = nd.get("span")
-            span = Span(**span_data) if span_data else None
-            nodes[node_id] = Node(
-                id=node_id,
-                type=NodeType[nd.get("type", "CLAIM")],
-                text=nd.get("text", ""),
-                span=span,
-                category=nd.get("category", 2),
-                opinion=tuple(nd.get("opinion", (0, 0, 1, 0.5))),
-            )
+        roles: dict[UUID, str] = {}
+
+        old_nodes = data.get("nodes")
+        new_propositions = data.get("propositions")
+
+        if old_nodes is not None:
+            for nid_hex, nd in old_nodes.items():
+                node_id = UUID(nid_hex)
+                span_data = nd.get("span")
+                span = Span(**span_data) if span_data else None
+                nodes[node_id] = Node(
+                    id=node_id,
+                    type=NodeType[nd.get("type", "CLAIM")],
+                    text=nd.get("text", ""),
+                    span=span,
+                    category=nd.get("category", 2),
+                    opinion=tuple(nd.get("opinion", (0, 0, 1, 0.5))),
+                )
+        elif new_propositions is not None:
+            for pd in new_propositions:
+                node_id = UUID(pd["id"])
+                span_data = pd.get("span")
+                span = Span(**span_data) if span_data else None
+                nodes[node_id] = Node(
+                    id=node_id,
+                    type=NodeType[pd.get("type", "CLAIM")],
+                    text=pd.get("text", ""),
+                    span=span,
+                    category=pd.get("category", 2),
+                    opinion=tuple(pd.get("opinion", (0, 0, 1, 0.5))),
+                )
+                role = pd.get("argumentation_role")
+                if role:
+                    roles[node_id] = role
 
         edges: list[Edge] = []
-        for ed in data.get("edges", []):
-            warrant = None
-            w_data = ed.get("warrant")
-            if w_data and len(w_data) == 2:
-                warrant = (tuple(w_data[0]), tuple(w_data[1]))
-            edges.append(
-                Edge(
-                    id=UUID(ed["id"]),
-                    source_id=UUID(ed["source_id"]),
-                    target_id=UUID(ed["target_id"]),
-                    type=EdgeType[ed.get("type", "SUPPORTS")],
-                    opinion=tuple(ed.get("opinion", (0, 0, 1, 0.5))),
-                    warrant=warrant,
+        old_edges = data.get("edges")
+        if old_edges is not None:
+            for ed in old_edges:
+                warrant = None
+                w_data = ed.get("warrant")
+                if w_data and len(w_data) == 2:
+                    warrant = (tuple(w_data[0]), tuple(w_data[1]))
+                edges.append(
+                    Edge(
+                        id=UUID(ed["id"]),
+                        source_id=UUID(ed["source_id"]),
+                        target_id=UUID(ed["target_id"]),
+                        type=EdgeType[ed.get("type", "SUPPORTS")],
+                        opinion=tuple(ed.get("opinion", (0, 0, 1, 0.5))),
+                        warrant=warrant,
+                    )
                 )
-            )
+        elif new_propositions is not None:
+            for pd in new_propositions:
+                src_id = UUID(pd["id"])
+                for e in pd.get("outgoing_edges", []):
+                    warrant = None
+                    w_data = e.get("warrant")
+                    if w_data and len(w_data) == 2:
+                        warrant = (tuple(w_data[0]), tuple(w_data[1]))
+                    edges.append(
+                        Edge(
+                            id=UUID(e["id"]),
+                            source_id=src_id,
+                            target_id=UUID(e["target_id"]),
+                            type=EdgeType[e.get("type", "SUPPORTS")],
+                            opinion=tuple(e.get("opinion", (0, 0, 1, 0.5))),
+                            warrant=warrant,
+                        )
+                    )
 
         entities: dict[UUID, Entity] = {}
-        for eid_hex, ed in data.get("entities", {}).items():
-            entity_id = UUID(eid_hex)
-            entities[entity_id] = Entity(
-                id=entity_id,
-                kind=ed.get("kind", ""),
-                name=ed.get("name", ""),
-                superordinate=ed.get("superordinate"),
-                subordinate=ed.get("subordinate"),
-                attributes=ed.get("attributes", {}),
-                spans=[Span(**s) for s in ed.get("spans", [])],
-                metadata=ed.get("metadata", {}),
-            )
+        old_entities = data.get("entities")
+        if isinstance(old_entities, dict):
+            for eid_hex, ed in old_entities.items():
+                entity_id = UUID(eid_hex)
+                entities[entity_id] = Entity(
+                    id=entity_id,
+                    kind=ed.get("kind", ""),
+                    name=ed.get("name", ""),
+                    superordinate=ed.get("superordinate"),
+                    subordinate=ed.get("subordinate"),
+                    attributes=ed.get("attributes", {}),
+                    spans=[Span(**s) for s in ed.get("spans", [])],
+                    metadata=ed.get("metadata", {}),
+                )
+        elif isinstance(old_entities, list):
+            for ed in old_entities:
+                entity_id = UUID(ed["id"])
+                entities[entity_id] = Entity(
+                    id=entity_id,
+                    kind=ed.get("kind", ""),
+                    name=ed.get("name", ""),
+                    superordinate=ed.get("superordinate"),
+                    subordinate=ed.get("subordinate"),
+                    attributes=ed.get("attributes", {}),
+                    spans=[Span(**s) for s in ed.get("spans", [])],
+                    metadata=ed.get("metadata", {}),
+                )
 
         world_relations: list[WorldRelation] = []
         for rd in data.get("world_relations", []):
@@ -306,24 +384,40 @@ class Graph:
             ))
 
         interpretations: dict[str, Interpretation] = {}
-        for name, idata in data.get("interpretations", {}).items():
-            roles = {UUID(k): v for k, v in idata.get("roles", {}).items()}
-            edges = []
-            for ted in idata.get("edges", []):
-                warrant = None
-                w_data = ted.get("warrant")
-                if w_data and len(w_data) == 2:
-                    warrant = (tuple(w_data[0]), tuple(w_data[1]))
-                edges.append(TypedEdge(
-                    id=UUID(ted["id"]),
-                    source_id=UUID(ted["source_id"]),
-                    target_id=UUID(ted["target_id"]),
-                    type=ted.get("type", ""),
-                    opinion=tuple(ted.get("opinion", (0, 0, 1, 0.5))),
-                    warrant=warrant,
-                    metadata=ted.get("metadata", {}),
+        old_interps = data.get("interpretations")
+        if old_interps:
+            for name, idata in old_interps.items():
+                interp_roles = {UUID(k): v for k, v in idata.get("roles", {}).items()}
+                interp_edges = []
+                for ted in idata.get("edges", []):
+                    warrant = None
+                    w_data = ted.get("warrant")
+                    if w_data and len(w_data) == 2:
+                        warrant = (tuple(w_data[0]), tuple(w_data[1]))
+                    interp_edges.append(TypedEdge(
+                        id=UUID(ted["id"]),
+                        source_id=UUID(ted["source_id"]),
+                        target_id=UUID(ted["target_id"]),
+                        type=ted.get("type", ""),
+                        opinion=tuple(ted.get("opinion", (0, 0, 1, 0.5))),
+                        warrant=warrant,
+                        metadata=ted.get("metadata", {}),
+                    ))
+                interpretations[name] = Interpretation(name=name, roles=interp_roles, edges=interp_edges)
+        elif roles and data.get("propositions") is not None:
+            arg_edges: list[TypedEdge] = []
+            for e in edges:
+                arg_edges.append(TypedEdge(
+                    id=e.id,
+                    source_id=e.source_id,
+                    target_id=e.target_id,
+                    type=e.type.name,
                 ))
-            interpretations[name] = Interpretation(name=name, roles=roles, edges=edges)
+            interpretations["argumentation"] = Interpretation(
+                name="argumentation",
+                roles=roles,
+                edges=arg_edges,
+            )
 
         cta_data = data.get("cta")
         cta = None
