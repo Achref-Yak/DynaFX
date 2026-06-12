@@ -1,20 +1,21 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Set
 from uuid import UUID, uuid4
 
 from cognitive_engine.chunker import chunk_text, merge_propositions, PropSpan
-from cognitive_engine.edge_assigner import SpanKey, assign_edges
-from cognitive_engine.demarcation_rules import assign_demarcations
+from cognitive_engine.argumentation_module import run_argumentation
+from cognitive_engine.entity_module import extract_entities
 from cognitive_engine.models import Graph, Node, NodeType, ReasoningMode, Span as ModelSpan
+from cognitive_engine.module_registry import ModuleDef, ModuleRegistry
 from cognitive_engine.preprocessor import preprocess_chunks
+from cognitive_engine.relation_extractor import extract_relations
 from cognitive_engine.tagger import (
     PropositionTagger,
     RelationClassifier,
     SentenceTagger,
 )
-from cognitive_engine.type_mapper import map_types, Relation
 
 logger = logging.getLogger(__name__)
 
@@ -51,46 +52,28 @@ def run(
     if not spans:
         return Graph(source_text=text, mode=mode)
 
-    span_to_node: Dict[SpanKey, UUID] = {}
-    nodes: Dict[UUID, Node] = {}
-    for s in spans:
-        uid = uuid4()
-        span_to_node[(s.start_char, s.end_char)] = uid
-        nodes[uid] = Node(
-            id=uid,
-            type=NodeType.CLAIM,
-            text=s.text,
-            span=ModelSpan(start=s.start_char, end=s.end_char, text=s.text),
-        )
-
-    relations: List[Relation] = []
-    for i, sa in enumerate(spans):
-        for j, sb in enumerate(spans):
-            if i >= j:
-                continue
-            label = classifier.classify(sa.text, sb.text)
-            if label != "None":
-                relations.append(Relation(source_span=sa, target_span=sb, label=label))
-
     spacy_docs = [pp.doc for pp in preprocessed if pp.doc is not None]
 
-    typed = map_types(spans, spacy_docs, relations)
+    graph = Graph(source_text=text, mode=mode)
 
-    typed_spans: List[Tuple[PropSpan, NodeType]] = typed
-    for s, nt in typed_spans:
-        key = (s.start_char, s.end_char)
-        if key in span_to_node:
-            nodes[span_to_node[key]].type = nt
+    seen_spans: Set[Tuple[int, int]] = set()
+    for s in spans:
+        seen_spans.add((s.start_char, s.end_char))
 
-    graph = Graph(
-        nodes=nodes,
+    registry = ModuleRegistry()
+    registry.register(ModuleDef("entity", [], extract_entities))
+    registry.register(ModuleDef("entity_relation", ["entity"], extract_relations))
+    registry.register(ModuleDef("argumentation", ["entity"], run_argumentation))
+
+    registry.run(
+        ["entity", "entity_relation", "argumentation"],
+        graph,
+        docs=spacy_docs,
         source_text=text,
-        mode=mode,
+        spans=spans,
+        seen_spans=seen_spans,
+        classifier=classifier,
+        tagger=tagger,
     )
-
-    assign_demarcations(graph, spacy_docs)
-
-    edges = assign_edges(typed_spans, relations, span_to_node, nodes)
-    graph.edges = edges
 
     return graph

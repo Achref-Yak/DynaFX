@@ -23,6 +23,7 @@ dev = [
 
 [project.scripts]
 cognitive-engine = "cognitive_engine.cli:main"
+cognitive_engine = "cognitive_engine.cli:main"
 
 [tool.setuptools.package-data]
 cognitive_engine = ["default_priors.json"]

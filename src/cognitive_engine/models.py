@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field, asdict
 from enum import Enum, auto
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
 
@@ -77,6 +77,49 @@ class Edge:
 
 
 @dataclass
+class Entity:
+    """A thing that exists in the world model."""
+    id: UUID = field(default_factory=uuid4)
+    kind: str = ""
+    name: str = ""
+    superordinate: Optional[str] = None
+    subordinate: Optional[str] = None
+    attributes: Dict[str, Any] = field(default_factory=dict)
+    spans: List[Span] = field(default_factory=list)
+    metadata: Dict = field(default_factory=dict)
+
+
+@dataclass
+class WorldRelation:
+    """A domain-agnostic relation between two entities."""
+    id: UUID = field(default_factory=uuid4)
+    source_id: UUID = field(default_factory=uuid4)
+    target_id: UUID = field(default_factory=uuid4)
+    kind: str = ""
+    metadata: Dict = field(default_factory=dict)
+
+
+@dataclass
+class TypedEdge:
+    """An edge within an interpretation (string-typed for any domain)."""
+    id: UUID = field(default_factory=uuid4)
+    source_id: UUID = field(default_factory=uuid4)
+    target_id: UUID = field(default_factory=uuid4)
+    type: str = ""
+    opinion: Opinion = (0.0, 0.0, 1.0, 0.5)
+    warrant: Optional[Warrant] = None
+    metadata: Dict = field(default_factory=dict)
+
+
+@dataclass
+class Interpretation:
+    """A named view over entities + relations produced by one module."""
+    name: str = ""
+    roles: Dict[UUID, str] = field(default_factory=dict)
+    edges: List[TypedEdge] = field(default_factory=list)
+
+
+@dataclass
 class ConversationTree:
     """Conversation Tree Architecture — T = (V, E, r, W).
 
@@ -135,6 +178,9 @@ class ConversationTree:
 class Graph:
     nodes: Dict[UUID, Node] = field(default_factory=dict)
     edges: List[Edge] = field(default_factory=list)
+    entities: Dict[UUID, Entity] = field(default_factory=dict)
+    world_relations: List[WorldRelation] = field(default_factory=list)
+    interpretations: Dict[str, Interpretation] = field(default_factory=dict)
     mode: ReasoningMode = ReasoningMode.ARGUMENT
     source_text: str = ""
     metadata: Dict = field(default_factory=dict)
@@ -147,7 +193,7 @@ class Graph:
             if isinstance(obj, UUID):
                 return obj.hex
             if isinstance(obj, dict):
-                return {k: _convert(v) for k, v in obj.items()}
+                return {_convert(k): _convert(v) for k, v in obj.items()}
             if isinstance(obj, list):
                 return [_convert(i) for i in obj]
             if isinstance(obj, tuple):
@@ -162,6 +208,15 @@ class Graph:
                 for nid, n in self.nodes.items()
             },
             "edges": [_convert(e) for e in self.edges],
+            "entities": {
+                eid.hex: _convert(e)
+                for eid, e in self.entities.items()
+            },
+            "world_relations": [_convert(r) for r in self.world_relations],
+            "interpretations": {
+                name: _convert(interp)
+                for name, interp in self.interpretations.items()
+            },
             "mode": self.mode.name,
             "source_text": self.source_text,
             "metadata": self.metadata,
@@ -183,6 +238,14 @@ class Graph:
                 f"EDGE {edge.source_id.hex[:8]} --{edge.type.name}--> "
                 f"{edge.target_id.hex[:8]}"
             )
+        for eid, entity in self.entities.items():
+            lines.append(f"ENTITY {eid.hex[:8]} kind={entity.kind} \"{entity.name[:60]}\"")
+        for wr in self.world_relations:
+            lines.append(f"REL {wr.source_id.hex[:8]} --{wr.kind}--> {wr.target_id.hex[:8]}")
+        for name, interp in self.interpretations.items():
+            lines.append(f"INTERPRETATION {name}: {len(interp.roles)} roles, {len(interp.edges)} edges")
+            for te in interp.edges:
+                lines.append(f"  TE {te.source_id.hex[:8]} --{te.type}--> {te.target_id.hex[:8]}")
         return "\n".join(lines)
 
     @staticmethod
@@ -218,9 +281,56 @@ class Graph:
                 )
             )
 
+        entities: dict[UUID, Entity] = {}
+        for eid_hex, ed in data.get("entities", {}).items():
+            entity_id = UUID(eid_hex)
+            entities[entity_id] = Entity(
+                id=entity_id,
+                kind=ed.get("kind", ""),
+                name=ed.get("name", ""),
+                superordinate=ed.get("superordinate"),
+                subordinate=ed.get("subordinate"),
+                attributes=ed.get("attributes", {}),
+                spans=[Span(**s) for s in ed.get("spans", [])],
+                metadata=ed.get("metadata", {}),
+            )
+
+        world_relations: list[WorldRelation] = []
+        for rd in data.get("world_relations", []):
+            world_relations.append(WorldRelation(
+                id=UUID(rd["id"]),
+                source_id=UUID(rd["source_id"]),
+                target_id=UUID(rd["target_id"]),
+                kind=rd.get("kind", ""),
+                metadata=rd.get("metadata", {}),
+            ))
+
+        interpretations: dict[str, Interpretation] = {}
+        for name, idata in data.get("interpretations", {}).items():
+            roles = {UUID(k): v for k, v in idata.get("roles", {}).items()}
+            edges = []
+            for ted in idata.get("edges", []):
+                warrant = None
+                w_data = ted.get("warrant")
+                if w_data and len(w_data) == 2:
+                    warrant = (tuple(w_data[0]), tuple(w_data[1]))
+                edges.append(TypedEdge(
+                    id=UUID(ted["id"]),
+                    source_id=UUID(ted["source_id"]),
+                    target_id=UUID(ted["target_id"]),
+                    type=ted.get("type", ""),
+                    opinion=tuple(ted.get("opinion", (0, 0, 1, 0.5))),
+                    warrant=warrant,
+                    metadata=ted.get("metadata", {}),
+                ))
+            interpretations[name] = Interpretation(name=name, roles=roles, edges=edges)
+
         return Graph(
             nodes=nodes,
             edges=edges,
+            entities=entities,
+            world_relations=world_relations,
+            interpretations=interpretations,
             mode=ReasoningMode[data.get("mode", "ARGUMENT")],
             source_text=data.get("source_text", ""),
             metadata=data.get("metadata", {}),

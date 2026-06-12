@@ -1,0 +1,104 @@
+from __future__ import annotations
+
+import logging
+from typing import Dict, List, Optional, Set, Tuple
+from uuid import UUID, uuid4
+
+from cognitive_engine.chunker import PropSpan
+from cognitive_engine.demarcation_rules import assign_demarcations
+from cognitive_engine.edge_assigner import assign_edges, SpanKey
+from cognitive_engine.models import (
+    Edge,
+    EdgeType,
+    Entity,
+    Graph,
+    Interpretation,
+    Node,
+    NodeType,
+    Span as ModelSpan,
+    TypedEdge,
+)
+from cognitive_engine.tagger import RelationClassifier, SentenceTagger
+from cognitive_engine.type_mapper import map_types, Relation
+
+logger = logging.getLogger(__name__)
+
+
+def _find_entity_for_span(
+    graph: Graph, start: int, end: int,
+) -> Optional[UUID]:
+    for eid, entity in graph.entities.items():
+        for s in entity.spans:
+            if s.start == start and s.end == end:
+                return eid
+    return None
+
+
+def run_argumentation(
+    graph: Graph,
+    spans: List[PropSpan],
+    docs: List["spacy.tokens.Doc"],
+    source_text: str,
+    classifier: Optional[RelationClassifier] = None,
+    tagger: Optional[SentenceTagger] = None,
+    **kwargs,
+) -> None:
+    if classifier is None:
+        classifier = RelationClassifier()
+    if tagger is None:
+        tagger = SentenceTagger()
+
+    relations: List[Relation] = []
+    for i, sa in enumerate(spans):
+        for j, sb in enumerate(spans):
+            if i >= j:
+                continue
+            label = classifier.classify(sa.text, sb.text)
+            if label != "None":
+                relations.append(Relation(source_span=sa, target_span=sb, label=label))
+
+    typed = map_types(spans, docs, relations)
+
+    typed_spans: List[Tuple[PropSpan, NodeType]] = typed
+
+    span_to_node: Dict[SpanKey, UUID] = {}
+    nodes: Dict[UUID, Node] = {}
+    for s, nt in typed_spans:
+        uid = uuid4()
+        span_to_node[(s.start_char, s.end_char)] = uid
+        nodes[uid] = Node(
+            id=uid,
+            type=nt,
+            text=s.text,
+            span=ModelSpan(start=s.start_char, end=s.end_char, text=s.text),
+        )
+
+    graph.nodes = nodes
+    graph.edges = assign_edges(typed_spans, relations, span_to_node, nodes)
+
+    assign_demarcations(graph, docs)
+
+    interp = Interpretation(name="argumentation")
+    for s, nt in typed_spans:
+        eid = _find_entity_for_span(graph, s.start_char, s.end_char)
+        if eid is not None:
+            interp.roles[eid] = nt.name
+        elif s.text.strip():
+            eid2 = uuid4()
+            graph.entities[eid2] = Entity(
+                id=eid2,
+                kind="Proposition",
+                name=s.text.strip(),
+                spans=[ModelSpan(start=s.start_char, end=s.end_char, text=s.text)],
+            )
+            interp.roles[eid2] = nt.name
+
+    for edge in graph.edges:
+        interp.edges.append(TypedEdge(
+            id=uuid4(),
+            source_id=edge.source_id,
+            target_id=edge.target_id,
+            type=edge.type.name,
+        ))
+
+    graph.interpretations["argumentation"] = interp
