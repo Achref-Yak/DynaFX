@@ -105,4 +105,16 @@ The resolution tries both orderings `(A, B)` and `(B, A)` against the table. Def
 - Unmapped `Support` → `SUPPORTS`
 - Unmapped `Attack` → `CONTRADICTS`
 
-A demarcation-based refinement rule converts `SUPPORTS` to `QUALIFIES` when the source node is INSTITUTIONAL and the target is EPISTEMIC.
+### Demarcation-based Edge Refinement
+
+After the lookup table, a `_refine_by_demarcation()` step weakens edges when the cognitive-linguistic context suggests the raw classifier polarity is overstated. All 5 demarcation dimensions are checked for both `Support` and `Attack` labels:
+
+| Dimension | Condition | `Support` → | `Attack` → |
+|-----------|-----------|-------------|------------|
+| `epistemic_vs_institutional` | source INSTITUTIONAL → target EPISTEMIC | `QUALIFIES` | `REBUTS` |
+| `cognitive_vs_epistemic` | EPISTEMIC ↔ COGNITIVE (cross) | `QUALIFIES` | `REBUTS` |
+| `affect_vs_cognition` | source is AFFECT | `QUALIFIES` | `REBUTS` |
+| `constraint_vs_enablement` | CONSTRAINT ↔ ENABLEMENT (cross) | `QUALIFIES` | `REBUTS` |
+| `synchronic_vs_diachronic` | SYNCHRONIC ↔ DIACHRONIC (cross) | `QUALIFIES` | `REBUTS` |
+
+The logic: when source and target belong to different modalities (e.g. a constraint supporting an enablement, or evidence attacking a hypothesis), the relationship is inherently weaker than a same-modality one. `SUPPORTS` downgrades to `QUALIFIES`; `ATTACKS`/`CONTRADICTS` downgrade to `REBUTS`.
