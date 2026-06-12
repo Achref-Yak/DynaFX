@@ -1,44 +1,7 @@
 import networkx as nx
 
 from cognitive_engine.models import Graph, Violation, Severity
-
-CATEGORY_RANK = {
-    "Necessity": 1,
-    "Fact": 2,
-    "Belief": 3,
-    "Concept": 4,
-}
-
-
-def product_logic_check(graph: Graph) -> list[Violation]:
-    violations: list[Violation] = []
-    for edge in graph.edges:
-        source = graph.nodes.get(edge.source_id)
-        target = graph.nodes.get(edge.target_id)
-        if source is None or target is None:
-            violations.append(
-                Violation(
-                    type="MISSING_NODE",
-                    severity=Severity.ERROR,
-                    description=f"Edge {edge.id.hex[:8]} references non-existent node",
-                    edge_id=edge.id,
-                )
-            )
-            continue
-        src_cat = getattr(source, "category", 2)
-        tgt_cat = getattr(target, "category", 2)
-        if src_cat > tgt_cat:
-            violations.append(
-                Violation(
-                    type="CATEGORY_ERROR",
-                    severity=Severity.ERROR,
-                    description=f"Cannot imply category {tgt_cat} (target) "
-                    f"from category {src_cat} (source): "
-                    f"'{source.text[:50]}' → '{target.text[:50]}'",
-                    edge_id=edge.id,
-                )
-            )
-    return violations
+from cognitive_engine.product_logic import validate_categories as product_logic_check
 
 
 def level_mapping_check(graph: Graph) -> list[Violation]:

@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from cognitive_engine.config import Priors
-from cognitive_engine.models import Graph, NodeType, Opinion
+from cognitive_engine.models import Graph, NodeType, EdgeType, Opinion
 
 
 def conjunction(omega_x: Opinion, omega_y: Opinion) -> Opinion:
@@ -111,6 +111,32 @@ def _topological_order(graph: Graph) -> list[UUID]:
     return order
 
 
+def _fusion_strategy(
+    contributions: list[Opinion],
+    incoming_edges: list,
+    graph: Graph,
+) -> Opinion:
+    fused = contributions[0]
+    if len(contributions) == 1:
+        return fused
+
+    source_types = set()
+    for e in incoming_edges:
+        if e.source_id in graph.nodes:
+            source_types.add(graph.nodes[e.source_id].type)
+
+    if all(t in (NodeType.CLAIM, NodeType.COUNTERCLAIM) for t in source_types):
+        for op in contributions[1:]:
+            fused = conjunction(fused, op)
+    elif all(t == NodeType.EVIDENCE for t in source_types):
+        for op in contributions[1:]:
+            fused = cumulative_fusion(fused, op)
+    else:
+        for op in contributions[1:]:
+            fused = disjunction(fused, op)
+    return fused
+
+
 def compute_opinions(graph: Graph, priors: Priors | None = None) -> Graph:
     if priors is None:
         priors = Priors()
@@ -138,10 +164,7 @@ def compute_opinions(graph: Graph, priors: Priors | None = None) -> Graph:
         if not contributions:
             continue
 
-        fused = contributions[0]
-        for op in contributions[1:]:
-            fused = cumulative_fusion(fused, op)
-        graph.nodes[nid].opinion = fused
+        graph.nodes[nid].opinion = _fusion_strategy(contributions, incoming, graph)
 
     graph.metadata["priors"] = priors.to_dict()
 

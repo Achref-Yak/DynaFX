@@ -69,3 +69,26 @@ def test_clamp_normalizes():
 def test_clamp_zero_total():
     result = _clamp((0.0, 0.0, 0.0, 0.5))
     assert result[2] == 1.0
+
+
+def test_conjunction_lowers_belief():
+    result = conjunction((0.8, 0.1, 0.1, 0.5), (0.5, 0.3, 0.2, 0.5))
+    assert result[0] < 0.8
+
+
+def test_disjunction_raises_belief():
+    result = disjunction((0.8, 0.1, 0.1, 0.5), (0.5, 0.3, 0.2, 0.5))
+    assert result[0] > 0.8
+
+
+def test_compute_opinions_with_new_node_types():
+    from cognitive_engine.sl_operators import compute_opinions
+    from cognitive_engine.config import Priors
+
+    priors = Priors()
+    assert "COUNTERCLAIM" in priors.source_type_map
+    assert "AXIOM" in priors.source_type_map
+    assert "FALLACY" in priors.source_type_map
+    assert "JUSTIFICATION" in priors.source_type_map
+    assert "ATTACKS" in priors.edge_warrants
+    assert "REBUTS" in priors.edge_warrants

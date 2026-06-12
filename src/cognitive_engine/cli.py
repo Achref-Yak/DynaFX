@@ -1,14 +1,9 @@
 import argparse
-import asyncio
 import logging
 import sys
 from pathlib import Path
 
-from dotenv import load_dotenv
-
-from cognitive_engine.orchestrator import run, CafGenError
-
-load_dotenv()
+from cognitive_engine.orchestrator import run as orchestrator_run
 
 logging.basicConfig(
     level=logging.INFO,
@@ -17,49 +12,31 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-async def run_pipeline(
-    text: str,
-    model: str | None = None,
-    config: str | None = None,
-    sweep: bool = False,
-) -> str:
-    graph = await run(
-        text=text,
-        model_name=model,
-        best_effort=True,
-        config_path=config,
-        sweep=sweep,
-    )
-    return graph.to_json()
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Cognitive Reasoning Graph Engine — CLI"
     )
     parser.add_argument("file", type=str, help="Path to text file to analyze")
     parser.add_argument(
-        "--model",
-        type=str,
-        default=None,
-        help="Groq model name (default: llama-3.3-70b-versatile)",
-    )
-    parser.add_argument(
-        "--output",
-        type=str,
-        default=None,
+        "--output", type=str, default=None,
         help="Output JSON file path (default: print to stdout)",
     )
     parser.add_argument(
-        "--config",
-        type=str,
-        default=None,
+        "--config", type=str, default=None,
         help="Path to priors JSON config file (default: built-in defaults)",
     )
     parser.add_argument(
-        "--sweep",
-        action="store_true",
-        help="Run sensitivity sweep: vary each prior ±0.1 and report opinion ranges",
+        "--mode", type=str, default=None,
+        choices=["causal", "conditional", "argument", "analogy"],
+        help="Reasoning mode to apply (default: all modes computed, argument returned)",
+    )
+    parser.add_argument(
+        "--chunk-size", type=int, default=512,
+        help="Maximum tokens per sliding window chunk (default: 512)",
+    )
+    parser.add_argument(
+        "--chunk-overlap", type=int, default=128,
+        help="Token overlap between adjacent chunks (default: 128)",
     )
     args = parser.parse_args()
 
@@ -72,10 +49,15 @@ def main() -> None:
     logger.info("Processing file: %s (%d chars)", args.file, len(text))
 
     try:
-        result = asyncio.run(
-            run_pipeline(text, args.model, args.config, args.sweep)
+        graph = orchestrator_run(
+            text,
+            config_path=args.config,
+            mode=args.mode,
+            max_tokens=args.chunk_size,
+            overlap=args.chunk_overlap,
         )
-    except CafGenError as e:
+        result = graph.to_json()
+    except Exception as e:
         logger.error("Pipeline failed: %s", e)
         sys.exit(1)
 

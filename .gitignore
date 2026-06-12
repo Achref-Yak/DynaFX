@@ -14,6 +14,16 @@ __pycache__/
 # Build artifacts
 dist/
 build/
+site/
+
+# Generated artifacts
+data/
+models/
+full_plan.md
+fine_tuning.plan
+fine_tune_roberta.ipynb
+graph.mmd
+output.txt
 
 # IDE
 .vscode/

@@ -1,25 +1,27 @@
 # Cognitive Reasoning Graph Engine
 
-A provably uncertainty-bounded pipeline that extracts structured reasoning graphs from unstructured text and computes formal opinions via Subjective Logic.
+A **provably uncertainty-bounded** pipeline that extracts structured reasoning graphs from unstructured text and computes formal opinions via Subjective Logic. Fully deterministic — zero LLM calls.
 
 ```text
-Text → [Creator Agent (LLM)] → [Deterministic Validators] → [Reviewer Agent (LLM)]
-       → [Subjective Logic propagation] → [JSON output]
-       ↻ up to 5 rounds upon rejection
+Text → [Chunker] → [spaCy Preprocessor] → [Sentence Tagger]
+     → [Relation Classifier] → [Type Mapper] → [Demarcation Rules]
+     → [Edge Assigner] → [SL Opinion Propagation] → [Validators]
+     → [JSON Graph]
 ```
 
 ## Features
 
-- **LLM extraction** — Groq-powered (`llama-3.3-70b-versatile`) extraction of typed nodes (CLAIM, EVIDENCE, CONDITION) and edges (SUPPORTS, CONTRADICTS, QUALIFIES, INFERS, JUSTIFIES)
-- **Deterministic validation** — pure-Python validators (category hierarchy, cycle detection, opinion invariant) — zero LLM calls
-- **Subjective Logic math** — opinion propagation via conditional deduction and cumulative fusion, with configurable priors from Jøsang (2016)
-- **Fail-closed loop** — up to 5 correction rounds; `--sweep` flag for sensitivity analysis
-- **No lock-in** — swap the LLM provider by changing one import
+- **Deterministic pipeline** — no LLM dependencies. Sentence boundaries from spaCy, relation classification from DistilRoBERTa, all logic in pure Python.
+- **Structured reasoning graphs** — 7 node types (AXIOM, CLAIM, EVIDENCE, CONDITION, COUNTERCLAIM, FALLACY, JUSTIFICATION) and 7 edge types (SUPPORTS, ATTACKS, CONTRADICTS, INFERS, QUALIFIES, REBUTS, JUSTIFIES).
+- **Subjective Logic opinions** — every node and edge carries `(belief, disbelief, uncertainty, base_rate)` satisfying `b + d + u = 1`. Propagated via fusion and deduction.
+- **Formal verification** — category-theoretic monotonicity checks, cycle detection via networkX, and SL invariant enforcement.
+- **Demarcation dimensions** — each node annotated with cognitive/epistemic, institutional, affect, constraint, and temporal classifications.
+- **4 reasoning modes** — Argument, Causal, Conditional, and Analogy mode filtering.
 
 ## Requirements
 
 - Python 3.12+
-- `GROQ_API_KEY` environment variable (get one at https://console.groq.com)
+- CUDA-capable GPU (optional; falls back to CPU)
 
 ## Install
 
@@ -28,34 +30,40 @@ git clone <repo-url>
 cd reasoning_engine
 python3.12 -m venv .venv && source .venv/bin/activate
 pip install -e .
-cp .env.example .env   # then edit .env with your GROQ_API_KEY
+python -m spacy download en_core_web_trf
 ```
+
+Model weights go in `models/` (see [Development](https://opencode.ai) for training instructions).
 
 ## Usage
 
 ```bash
 # Analyze a document
-cognitive-engine path/to/text.txt
+cognitive-engine demo/complicated.txt
 
-# With custom priors
-cognitive-engine path/to/text.txt --config custom_priors.json
+# Custom chunking
+cognitive-engine demo/complicated.txt --chunk-size 256 --chunk-overlap 64
 
-# Sensitivity sweep (±0.1 on each prior)
-cognitive-engine path/to/text.txt --sweep
+# Reasoning mode filter
+cognitive-engine demo/complicated.txt --mode causal
 
-# Save output to file
-cognitive-engine path/to/text.txt --output result.json
+# Custom priors
+cognitive-engine demo/complicated.txt --config custom_priors.json
+
+# Save output
+cognitive-engine demo/complicated.txt --output result.json
 ```
 
 ## Output
 
-A JSON graph with typed nodes, typed edges, and Subjective Logic opinion tuples `(belief, disbelief, uncertainty, base_rate)` that always satisfy `b + d + u = 1`.
+A JSON graph with typed nodes, typed edges, and Subjective Logic opinion tuples:
 
 ```json
 {
-  "nodes": { "<uuid>": { "type": "CLAIM", "opinion": [0.41, 0.31, 0.28, 0.5], ... } },
-  "edges": [ { "source_id": "...", "target_id": "...", "type": "SUPPORTS", ... } ],
-  "metadata": { "priors": { ... } }
+  "nodes": { "<uuid>": { "type": "AXIOM", "opinion": [0.7, 0.1, 0.2, 0.5], ... } },
+  "edges": [ { "source_id": "...", "target_id": "...", "type": "ATTACKS", ... } ],
+  "metadata": { "priors": { ... }, "modes": { ... } },
+  "cta": { "root_id": "...", "node_ids": [...], "parent_map": {...} }
 }
 ```
 
@@ -63,19 +71,27 @@ A JSON graph with typed nodes, typed edges, and Subjective Logic opinion tuples 
 
 ```
 src/cognitive_engine/
-  __init__.py       — loads GROQ_API_KEY from .env
-  models.py         — Graph, Node, Edge, Opinion, Violation, Span
-  validators.py     — V1, V2, V3 validators (pure Python)
-  sl_operators.py   — Subjective Logic math (conditional_deduction, cumulative_fusion, etc.)
-  config.py         — Priors dataclass, load/sweep utilities
-  extraction.py     — CreatorAgent (LLM → structured graph)
-  reviewers.py      — ReviewerAgent (LLM review with validator context)
-  orchestrator.py   — CAF-Gen orchestrator loop (5 rounds)
-  cli.py            — Command-line entry point
-  default_priors.json — Editable reference copy of all prior constants
-tests/
-  test_validators.py
-  test_sl_operators.py
+  __init__.py           — Public API exports
+  orchestrator.py       — Top-level entry point
+  pipeline.py           — Core extraction pipeline
+  models.py             — Graph, Node, Edge, NodeType, EdgeType, Opinion
+  chunker.py            — Text chunking via sliding window
+  preprocessor.py       — spaCy preprocessing and coreference resolution
+  tagger.py             — SentenceTagger and RelationClassifier
+  type_mapper.py        — Rule-based NodeType assignment
+  demarcation_rules.py  — Five cognitive-linguistic dimensions
+  edge_assigner.py      — Edge type resolution via lookup table
+  product_logic.py      — Category-theoretic validity checks
+  reasoning_modes.py    — Mode-specific edge filtering
+  sl_operators.py       — Subjective Logic calculus
+  validators.py         — Category/cycle/opinion validation
+  config.py             — Priors configuration
+  cli.py                — Command-line entry point
+  default_priors.json   — Built-in default priors
+tests/                  — 161 tests covering all modules
+docs/                   — MKDocs documentation
+scripts/                — Model training scripts
+demo/                   — Example input files
 ```
 
 ## Running Tests
@@ -83,6 +99,15 @@ tests/
 ```bash
 pip install -e ".[dev]"
 pytest tests/ -v
+```
+
+## Documentation
+
+Full documentation is available via MKDocs:
+
+```bash
+pip install mkdocs mkdocs-material
+mkdocs serve
 ```
 
 ## Citation
@@ -93,7 +118,7 @@ If you use this in academic work, please cite:
 @software{cognitive_engine,
   title = {Cognitive Reasoning Graph Engine},
   year = {2026},
-  url = {https://github.com/anomalyco/reasoning_engine}
+  url = {https://github.com/Achref-Yak/reasoning_engine}
 }
 ```
 

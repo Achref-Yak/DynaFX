@@ -1,9 +1,5 @@
-from dotenv import load_dotenv
-
-load_dotenv()
-
-from cognitive_engine.orchestrator import run as caf_gen_run
-from cognitive_engine.orchestrator import CafGenError
+from cognitive_engine.extraction import extract_graph
+from cognitive_engine.orchestrator import run as orchestrator_run
 from cognitive_engine.models import (
     Graph,
     Node,
@@ -14,13 +10,13 @@ from cognitive_engine.models import (
     Warrant,
     Violation,
     Severity,
-    ReviewResult,
     ReasoningMode,
+    ConversationTree,
 )
 
 __all__ = [
-    "caf_gen_run",
-    "CafGenError",
+    "extract_graph",
+    "orchestrator_run",
     "Graph",
     "Node",
     "NodeType",
@@ -30,6 +26,6 @@ __all__ = [
     "Warrant",
     "Violation",
     "Severity",
-    "ReviewResult",
     "ReasoningMode",
+    "ConversationTree",
 ]

@@ -25,7 +25,11 @@ class Priors:
     source_type_map: Dict[str, str] = field(default_factory=lambda: {
         "EVIDENCE": "empirical_pattern",
         "CLAIM": "consensus_principle",
+        "COUNTERCLAIM": "observational_claim",
         "CONDITION": "cognitive_hypothesis",
+        "AXIOM": "consensus_principle",
+        "FALLACY": "observational_claim",
+        "JUSTIFICATION": "empirical_pattern",
     })
 
     edge_warrants: Dict[str, OpinionPair] = field(default_factory=lambda: {
@@ -34,6 +38,8 @@ class Priors:
         "QUALIFIES": ((0.6, 0.2, 0.2, 0.5), (0.4, 0.4, 0.2, 0.5)),
         "INFERS": ((0.9, 0.05, 0.05, 0.5), (0.0, 1.0, 0.0, 0.5)),
         "JUSTIFIES": ((0.8, 0.1, 0.1, 0.5), (0.2, 0.7, 0.1, 0.5)),
+        "ATTACKS": ((0.05, 0.85, 0.1, 0.5), (0.85, 0.1, 0.05, 0.5)),
+        "REBUTS": ((0.6, 0.3, 0.1, 0.5), (0.3, 0.6, 0.1, 0.5)),
     })
 
     default_warrant: OpinionPair = ((0.9, 0.05, 0.05, 0.5), (0.0, 1.0, 0.0, 0.5))
