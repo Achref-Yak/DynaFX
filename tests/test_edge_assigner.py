@@ -174,7 +174,7 @@ class TestFallbackDefaults:
         assert len(edges) == 1
         assert edges[0].type == EdgeType.SUPPORTS
 
-    def test_unknown_attack_falls_back_to_contradicts(self):
+    def test_unknown_attack_falls_back_to_attacks(self):
         uid_a, uid_b = uuid4(), uuid4()
         spans = [_typed("Justification attack.", 0, 20, NodeType.JUSTIFICATION),
                  (_span(21, 40, "Counterclaim text."), NodeType.COUNTERCLAIM)]
@@ -182,7 +182,7 @@ class TestFallbackDefaults:
         nmap = {(0, 20): uid_a, (21, 40): uid_b}
         edges = assign_edges(spans, rels, nmap, {})
         assert len(edges) == 1
-        assert edges[0].type == EdgeType.CONTRADICTS
+        assert edges[0].type == EdgeType.ATTACKS
 
 
 class TestDemarcationRefinement:

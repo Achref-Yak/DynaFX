@@ -5,7 +5,7 @@ from typing import Optional
 
 from cognitive_engine.config import Priors, load_priors
 from cognitive_engine.extraction import extract_graph
-from cognitive_engine.models import Graph, ReasoningMode, Severity
+from cognitive_engine.models import ConversationTree, Graph, ReasoningMode, Severity
 from cognitive_engine.reasoning_modes import apply_mode, compute_mode_views
 from cognitive_engine.sl_operators import compute_opinions
 from cognitive_engine.validators import validate_all
@@ -41,7 +41,6 @@ def run(
         graph = apply_mode(graph, resolved)
         compute_opinions(graph, priors)
 
-    from cognitive_engine.models import ConversationTree
     graph.cta = ConversationTree.from_graph(graph)
 
     return graph

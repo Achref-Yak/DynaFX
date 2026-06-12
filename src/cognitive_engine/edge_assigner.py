@@ -130,7 +130,7 @@ def _resolve_edge_type(
     elif label == "Support":
         edge_type = EdgeType.SUPPORTS
     elif label == "Attack":
-        edge_type = EdgeType.CONTRADICTS
+        edge_type = EdgeType.ATTACKS
     else:
         return None
 
@@ -158,7 +158,7 @@ def _refine_by_demarcation(
 
         src_cog = _get_demarcation(src_id, nodes, "cognitive_vs_epistemic")
         tgt_cog = _get_demarcation(tgt_id, nodes, "cognitive_vs_epistemic")
-        if src_cog == "EPISTEMIC" and tgt_cog == "COGNITIVE":
+        if {src_cog, tgt_cog} == {"EPISTEMIC", "COGNITIVE"}:
             return EdgeType.QUALIFIES
 
         src_aff = _get_demarcation(src_id, nodes, "affect_vs_cognition")
@@ -216,7 +216,9 @@ def assign_edges(
         if resolved is None:
             continue
 
-        if (resolved[0], resolved[1], resolved[2]) == resolved:
+        src_type = typed_map.get(_span_key(rel.source_span))
+        tgt_type = typed_map.get(_span_key(rel.target_span))
+        if resolved == (src_type, tgt_type, rel.label):
             src_key, tgt_key = _span_key(rel.source_span), _span_key(rel.target_span)
         else:
             src_key, tgt_key = _span_key(rel.target_span), _span_key(rel.source_span)

@@ -83,17 +83,15 @@ def _find_antecedent(
             elif token.pos_ == "NOUN":
                 candidates.append((i, i + 1, token.text))
         elif token.pos_ == "PRON" and token.text.lower() in _SUBJECT_PRONOUNS:
-            if token.i < pronoun_index:
-                candidates.append((i, i + 1, token.text))
+            candidates.append((i, i + 1, token.text))
 
     if pronoun_gender in ("neuter", "plural") and not candidates:
         for i in range(0, pronoun_index):
             token = doc[i]
             if token.pos_ in ("NOUN", "PROPN"):
                 candidates.append((i, i + 1, token.text))
-                break
 
-    if pronoun_gender == "demonstrative_sg":
+    if pronoun_gender in ("demonstrative_sg", "demonstrative_pl"):
         for i in range(0, pronoun_index):
             token = doc[i]
             if token.pos_ in ("NOUN", "PROPN", "VERB") and token.dep_ == "ROOT":
@@ -125,11 +123,10 @@ def _expand_noun_phrase(token_index: int, doc: "spacy.tokens.Doc") -> Tuple[int,
         np_start = end + 1
         while np_start < len(doc) and doc[np_start].dep_ == "pobj":
             np_start += 1
-        end = np_start
-        if end == np_start:
-            if doc[end - 1].dep_ == "appos":
-                end += 1
-            break
+        if doc[end].dep_ == "appos":
+            end = np_start + 1
+        else:
+            end = np_start
     return start, end
 
 
@@ -156,8 +153,7 @@ def _resolve_coreferences(
     for j, token in enumerate(tokens):
         result += resolved[j]
         if j < len(tokens) - 1:
-            ws_len = tokens[j + 1].idx - (token.idx + len(token.text))
-            result += " " * ws_len
+            result += doc.text[token.idx + len(token.text):tokens[j + 1].idx]
 
     return result, chains
 

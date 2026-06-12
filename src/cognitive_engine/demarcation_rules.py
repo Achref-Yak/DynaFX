@@ -202,8 +202,9 @@ def _affect_cog(
         return "NA"
 
     for t in tokens:
-        if t.dep_ == "amod" and t.pos_ == "ADJ" and t.lemma_.lower() in _ALL_SENTIMENT:
-            return "AFFECT"
+        if t.pos_ == "ADJ" and t.lemma_.lower() in _ALL_SENTIMENT:
+            if t.dep_ in ("amod", "acomp", "attr", "ROOT"):
+                return "AFFECT"
 
     return "COGNITION"
 

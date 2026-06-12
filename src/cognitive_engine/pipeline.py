@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional, Tuple, Set
+from typing import List, Optional, Tuple, Set
 from uuid import UUID, uuid4
 
 from cognitive_engine.chunker import chunk_text, merge_propositions, PropSpan

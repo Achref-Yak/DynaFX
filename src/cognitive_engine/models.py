@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
@@ -325,6 +325,15 @@ class Graph:
                 ))
             interpretations[name] = Interpretation(name=name, roles=roles, edges=edges)
 
+        cta_data = data.get("cta")
+        cta = None
+        if cta_data:
+            cta = ConversationTree(
+                root_id=UUID(cta_data["root_id"]),
+                node_ids={UUID(n) for n in cta_data.get("node_ids", [])},
+                parent_map={UUID(k): UUID(v) for k, v in cta_data.get("parent_map", {}).items()},
+            )
+
         return Graph(
             nodes=nodes,
             edges=edges,
@@ -334,6 +343,7 @@ class Graph:
             mode=ReasoningMode[data.get("mode", "ARGUMENT")],
             source_text=data.get("source_text", ""),
             metadata=data.get("metadata", {}),
+            cta=cta,
         )
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
@@ -132,7 +133,7 @@ def _is_justification(deps: Dict) -> bool:
 
 def _is_fallacy(span: PropSpan) -> bool:
     text_lower = span.text.lower()
-    return any(kw in text_lower for kw in _FALLACY_KEYWORDS)
+    return any(re.search(r'\b' + re.escape(kw) + r'\b', text_lower) for kw in _FALLACY_KEYWORDS)
 
 
 def _is_root_proposition(

@@ -177,7 +177,7 @@ def _clamp(op: Opinion) -> Opinion:
     d = max(0.0, min(1.0, d))
     u = max(0.0, min(1.0, u))
     total = b + d + u
-    if total > 1.0 and total > 0:
+    if abs(total - 1.0) > 1e-9 and total > 0:
         b /= total
         d /= total
         u /= total
