@@ -18,7 +18,7 @@ _TAGGER_DIR = _MODELS_DIR / "roberta-proposition-detector"
 _CLASSIFIER_DIR = _MODELS_DIR / "roberta-relation-classifier"
 
 TAG_LABELS = ["O", "B-Prop", "I-Prop"]
-REL_LABELS = ["Support", "Attack", "None"]
+REL_LABELS = ["None", "Support", "Attack"]
 
 
 class PropositionTagger:
