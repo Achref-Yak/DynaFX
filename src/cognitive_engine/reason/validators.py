@@ -1,7 +1,7 @@
 import networkx as nx
 
-from cognitive_engine.models import Graph, Violation, Severity
-from cognitive_engine.product_logic import validate_categories as product_logic_check
+from cognitive_engine.core.models import Graph, Violation, Severity
+from cognitive_engine.reason.product_logic import validate_categories as product_logic_check
 
 
 def level_mapping_check(graph: Graph) -> list[Violation]:

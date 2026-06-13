@@ -5,8 +5,8 @@ import re
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
-from cognitive_engine.chunker import PropSpan
-from cognitive_engine.models import NodeType
+from cognitive_engine.nlp.chunker import PropSpan
+from cognitive_engine.core.models import NodeType
 
 logger = logging.getLogger(__name__)
 
@@ -145,10 +145,6 @@ def _is_root_proposition(
     if char_span is None:
         return False
     return any(t.dep_ == "ROOT" for t in char_span)
-
-
-def _spans_overlap(a: PropSpan, b: PropSpan) -> bool:
-    return a.start_char < b.end_char and b.start_char < a.end_char
 
 
 def map_types(

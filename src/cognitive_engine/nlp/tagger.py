@@ -7,8 +7,8 @@ from typing import Dict, List, Optional
 import torch
 from transformers import AutoTokenizer, AutoModelForTokenClassification, AutoModelForSequenceClassification
 
-from cognitive_engine.chunker import Chunk, PropSpan
-from cognitive_engine.preprocessor import PreprocessedChunk
+from cognitive_engine.nlp.chunker import Chunk, PropSpan
+from cognitive_engine.nlp.preprocessor import PreprocessedChunk
 
 logger = logging.getLogger(__name__)
 

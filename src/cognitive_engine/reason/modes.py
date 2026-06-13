@@ -3,7 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Dict, Set
 
-from cognitive_engine.models import Graph, EdgeType, ReasoningMode, NodeType
+from cognitive_engine.core.models import Graph, EdgeType, ReasoningMode, NodeType
 
 MODE_ACTIVE_EDGES: Dict[ReasoningMode, Set[EdgeType]] = {
     ReasoningMode.CAUSAL: {EdgeType.INFERS, EdgeType.SUPPORTS},

@@ -3,10 +3,10 @@ from uuid import uuid4
 
 import pytest
 
-from cognitive_engine.chunker import Chunk, PropSpan
-from cognitive_engine.models import EdgeType, Graph, NodeType, ReasoningMode
-from cognitive_engine.pipeline import run
-from cognitive_engine.tagger import PropositionTagger, RelationClassifier
+from cognitive_engine.nlp.chunker import Chunk, PropSpan
+from cognitive_engine.core.models import EdgeType, Graph, NodeType, ReasoningMode
+from cognitive_engine.pipeline.pipeline import run
+from cognitive_engine.nlp.tagger import PropositionTagger, RelationClassifier
 
 
 class FakeTagger:

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Dict, List, Optional, Set, Tuple
 
-from cognitive_engine.models import Graph, NodeType
+from cognitive_engine.core.models import Graph, NodeType
 
 logger = logging.getLogger(__name__)
 

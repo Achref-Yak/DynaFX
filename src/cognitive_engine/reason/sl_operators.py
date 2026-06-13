@@ -1,7 +1,7 @@
 from uuid import UUID
 
-from cognitive_engine.config import Priors
-from cognitive_engine.models import Graph, NodeType, EdgeType, Opinion
+from cognitive_engine.core.config import Priors
+from cognitive_engine.core.models import Graph, NodeType, EdgeType, Opinion
 
 
 def conjunction(omega_x: Opinion, omega_y: Opinion) -> Opinion:

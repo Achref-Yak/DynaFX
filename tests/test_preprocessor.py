@@ -1,6 +1,6 @@
 import pytest
-from cognitive_engine.chunker import Chunk
-from cognitive_engine.preprocessor import (
+from cognitive_engine.nlp.chunker import Chunk
+from cognitive_engine.nlp.preprocessor import (
     load_spacy_pipeline,
     preprocess_chunks,
     get_dependency_info,
@@ -95,7 +95,7 @@ class TestDependencyInfo:
     def test_verbs_detected(self):
         nlp = load_spacy_pipeline()
         doc = nlp("The system runs the query.")
-        from cognitive_engine.preprocessor import PropSpan
+        from cognitive_engine.nlp.preprocessor import PropSpan
         span = PropSpan(start_char=0, end_char=25, text=doc.text, chunk_offsets=[0])
         info = get_dependency_info(span, doc)
         assert len(info["verbs"]) >= 1
@@ -104,7 +104,7 @@ class TestDependencyInfo:
     def test_modals_detected(self):
         nlp = load_spacy_pipeline()
         doc = nlp("The system must handle 10k requests.")
-        from cognitive_engine.preprocessor import PropSpan
+        from cognitive_engine.nlp.preprocessor import PropSpan
         span = PropSpan(start_char=0, end_char=35, text=doc.text, chunk_offsets=[0])
         info = get_dependency_info(span, doc)
         assert len(info["modals"]) >= 1
@@ -113,7 +113,7 @@ class TestDependencyInfo:
     def test_mark_relations_detected(self):
         nlp = load_spacy_pipeline()
         doc = nlp("If the query fails, retry.")
-        from cognitive_engine.preprocessor import PropSpan
+        from cognitive_engine.nlp.preprocessor import PropSpan
         span = PropSpan(start_char=0, end_char=len(doc.text), text=doc.text, chunk_offsets=[0])
         info = get_dependency_info(span, doc)
         found = any(
@@ -124,7 +124,7 @@ class TestDependencyInfo:
     def test_root_tense_present(self):
         nlp = load_spacy_pipeline()
         doc = nlp("The system processes data.")
-        from cognitive_engine.preprocessor import PropSpan
+        from cognitive_engine.nlp.preprocessor import PropSpan
         span = PropSpan(start_char=0, end_char=25, text=doc.text, chunk_offsets=[0])
         info = get_dependency_info(span, doc)
         assert info["root_verb_tense"] == "present"
@@ -132,7 +132,7 @@ class TestDependencyInfo:
     def test_root_tense_past(self):
         nlp = load_spacy_pipeline()
         doc = nlp("The system processed data.")
-        from cognitive_engine.preprocessor import PropSpan
+        from cognitive_engine.nlp.preprocessor import PropSpan
         span = PropSpan(start_char=0, end_char=26, text=doc.text, chunk_offsets=[0])
         info = get_dependency_info(span, doc)
         assert info["root_verb_tense"] == "past"
@@ -140,7 +140,7 @@ class TestDependencyInfo:
     def test_empty_span_returns_defaults(self):
         nlp = load_spacy_pipeline()
         doc = nlp("")
-        from cognitive_engine.preprocessor import PropSpan
+        from cognitive_engine.nlp.preprocessor import PropSpan
         span = PropSpan(start_char=0, end_char=0, text="", chunk_offsets=[0])
         info = get_dependency_info(span, doc)
         assert info["verbs"] == []

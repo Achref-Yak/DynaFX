@@ -1,12 +1,102 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 from uuid import uuid4
 
-from cognitive_engine.models import Entity, Graph, Span
+from cognitive_engine.core.models import Entity, Graph, Span
 
 logger = logging.getLogger(__name__)
+
+_ADDITIONAL_KINDS: Dict[str, str] = {
+    "access": "Access",
+    "algorithm": "Algorithm",
+    "analysis": "Analysis",
+    "application": "Application",
+    "approach": "Approach",
+    "architecture": "Architecture",
+    "argument": "Argument",
+    "attack": "Attack",
+    "audit": "Audit",
+    "authentication": "Authentication",
+    "client": "Client",
+    "compatibility": "Compatibility",
+    "compliance": "Compliance",
+    "complexity": "Complexity",
+    "component": "Component",
+    "config": "Config",
+    "configuration": "Configuration",
+    "consistency": "Consistency",
+    "data": "Data",
+    "database": "Database",
+    "deadline": "Deadline",
+    "endpoint": "Endpoint",
+    "environment": "Environment",
+    "failure": "Failure",
+    "feature": "Feature",
+    "function": "Function",
+    "gateway": "Gateway",
+    "infrastructure": "Infrastructure",
+    "instance": "Instance",
+    "interface": "Interface",
+    "interval": "Interval",
+    "layer": "Layer",
+    "library": "Library",
+    "limit": "Limit",
+    "middleware": "Middleware",
+    "module": "Module",
+    "network": "Network",
+    "node": "Node",
+    "optimization": "Optimization",
+    "pipeline": "Pipeline",
+    "platform": "Platform",
+    "policy": "Policy",
+    "process": "Process",
+    "protocol": "Protocol",
+    "request": "Request",
+    "resource": "Resource",
+    "role": "Role",
+    "route": "Route",
+    "schema": "Schema",
+    "security": "Security",
+    "server": "Server",
+    "service": "Service",
+    "session": "Session",
+    "strategy": "Strategy",
+    "system": "System",
+    "task": "Task",
+    "team": "Team",
+    "template": "Template",
+    "throttling": "Throttling",
+    "token": "Token",
+    "user": "User",
+    "validator": "Validator",
+    "version": "Version",
+    "worker": "Worker",
+}
+
+
+def _ner_kind_for_span(
+    doc: "spacy.tokens.Doc", chunk_start: int, chunk_abs_start: int, chunk_abs_end: int,
+) -> Optional[str]:
+    for ent in doc.ents:
+        ent_abs_start = chunk_start + ent.start_char
+        ent_abs_end = chunk_start + ent.end_char
+        if chunk_abs_start < ent_abs_end and ent_abs_start < chunk_abs_end:
+            return ent.label_
+    return None
+
+
+def _noun_kind(root: "spacy.tokens.Token") -> str:
+    lemma = root.lemma_.lower()
+    mapped = _ADDITIONAL_KINDS.get(lemma)
+    if mapped is not None:
+        return mapped
+    if root.pos_ == "PROPN":
+        return root.text
+    if root.pos_ == "NOUN":
+        return root.lemma_.title()
+    return "Entity"
 
 
 def extract_entities(
@@ -33,8 +123,8 @@ def extract_entities(
             if not text.strip():
                 continue
 
-            root = chunk.root
-            kind = root.text if root.pos_ in ("PROPN",) else root.lemma_.title() if root.pos_ == "NOUN" else "Entity"
+            ner_label = _ner_kind_for_span(doc, chunk_start, start, end)
+            kind = ner_label if ner_label is not None else _noun_kind(chunk.root)
 
             entity = Entity(
                 id=uuid4(),

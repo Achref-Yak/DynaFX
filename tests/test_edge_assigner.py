@@ -1,9 +1,9 @@
 from uuid import UUID, uuid4
 
-from cognitive_engine.chunker import PropSpan
-from cognitive_engine.edge_assigner import assign_edges
-from cognitive_engine.models import EdgeType, Node, NodeType
-from cognitive_engine.type_mapper import Relation
+from cognitive_engine.nlp.chunker import PropSpan
+from cognitive_engine.extract.edges import assign_edges
+from cognitive_engine.core.models import EdgeType, Node, NodeType
+from cognitive_engine.extract.types import Relation
 
 
 def _span(start: int, end: int, text: str = "") -> PropSpan:

@@ -1,7 +1,7 @@
 {
-  "nodes": {
-    "7cdabbad2971410a8bd7d48d05bf938b": {
-      "id": "7cdabbad2971410a8bd7d48d05bf938b",
+  "propositions": [
+    {
+      "id": "11fd4939d6644f388382d61ca1081ecf",
       "type": "AXIOM",
       "text": "The new authentication service must support OAuth 2.0 and SAML 2.0 protocols.",
       "span": {
@@ -26,10 +26,167 @@
           "constraint_vs_enablement": "ENABLEMENT",
           "synchronic_vs_diachronic": "SYNCHRONIC"
         }
-      }
+      },
+      "argumentation_role": "AXIOM",
+      "outgoing_edges": [
+        {
+          "id": "0956b9c8f9804987b27c5bc93ecdb1fc",
+          "source_id": "11fd4939d6644f388382d61ca1081ecf",
+          "target_id": "5c8f15180f9f4f5d8ec96cfd3767966c",
+          "type": "INFERS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "284fd4d4fe79452d9895d848905fa425",
+          "source_id": "11fd4939d6644f388382d61ca1081ecf",
+          "target_id": "681126b7c1fe429d84d89541f16e37da",
+          "type": "QUALIFIES",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "9fd51762857e4e2990a16f4192a24e81",
+          "source_id": "11fd4939d6644f388382d61ca1081ecf",
+          "target_id": "baad23dfab134f88b2e02d88d536aa2b",
+          "type": "JUSTIFIES",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "d6ee7994386948e491a2fc97779c07be",
+          "source_id": "11fd4939d6644f388382d61ca1081ecf",
+          "target_id": "f7b2cf0f42fe4fa788cac5851df77784",
+          "type": "ATTACKS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "d317c63afd144838ae90228defde04fe",
+          "source_id": "11fd4939d6644f388382d61ca1081ecf",
+          "target_id": "b9a005db960a4cdbb46ae5ecb053423c",
+          "type": "INFERS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "8dd213081a45469c9c64f09852ab2d56",
+          "source_id": "11fd4939d6644f388382d61ca1081ecf",
+          "target_id": "8e623b0221714399890ff927bf23bb09",
+          "type": "INFERS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "7141dcc8fc5e48129de6467e46e175fa",
+          "source_id": "11fd4939d6644f388382d61ca1081ecf",
+          "target_id": "a0977d573c2a4792877af2bace5c7042",
+          "type": "SUPPORTS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "96ba51c1f7ac4322b71415e4b0913f9a",
+          "source_id": "11fd4939d6644f388382d61ca1081ecf",
+          "target_id": "8ca5d81894cf4a32a7a74590ca921136",
+          "type": "SUPPORTS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "7c4a5d93f042490bb939b7e22b6ea843",
+          "source_id": "11fd4939d6644f388382d61ca1081ecf",
+          "target_id": "08ae637db5d8491abc646130b158537a",
+          "type": "JUSTIFIES",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "4e3e5848d6574686baef83c6c54ff344",
+          "source_id": "11fd4939d6644f388382d61ca1081ecf",
+          "target_id": "4621eec088104fc9b26158d61e54bbb7",
+          "type": "SUPPORTS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "eb02da14633e44e095c7123ccf5dac12",
+          "source_id": "11fd4939d6644f388382d61ca1081ecf",
+          "target_id": "b4735d17c1184783b63cdeb8f63e9242",
+          "type": "SUPPORTS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        }
+      ]
     },
-    "83f626da06664419a4615a8171f4a9e5": {
-      "id": "83f626da06664419a4615a8171f4a9e5",
+    {
+      "id": "5c8f15180f9f4f5d8ec96cfd3767966c",
       "type": "CLAIM",
       "text": "Security audits require multi-factor authentication for all administrative access.",
       "span": {
@@ -40,9 +197,9 @@
       "abstraction_level": 1,
       "salience": 0.5,
       "opinion": [
-        0.20833333333333334,
-        0.5916666666666667,
-        0.2,
+        0.6083333333333334,
+        0.19583333333333336,
+        0.19583333333333336,
         0.5
       ],
       "category": 2,
@@ -54,10 +211,83 @@
           "constraint_vs_enablement": "NA",
           "synchronic_vs_diachronic": "SYNCHRONIC"
         }
-      }
+      },
+      "argumentation_role": "CLAIM",
+      "outgoing_edges": [
+        {
+          "id": "e6aefaa4df47421d856870ab2b77454d",
+          "source_id": "5c8f15180f9f4f5d8ec96cfd3767966c",
+          "target_id": "baad23dfab134f88b2e02d88d536aa2b",
+          "type": "SUPPORTS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "7757fae33ae5426d92591fcf17068156",
+          "source_id": "5c8f15180f9f4f5d8ec96cfd3767966c",
+          "target_id": "f7b2cf0f42fe4fa788cac5851df77784",
+          "type": "ATTACKS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "f7d97ddbf40241b1b54410f76435227f",
+          "source_id": "5c8f15180f9f4f5d8ec96cfd3767966c",
+          "target_id": "b9a005db960a4cdbb46ae5ecb053423c",
+          "type": "SUPPORTS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "676e09931a074a4a87b9f4c301d3898e",
+          "source_id": "5c8f15180f9f4f5d8ec96cfd3767966c",
+          "target_id": "8e623b0221714399890ff927bf23bb09",
+          "type": "SUPPORTS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "0cc87b24053945db825ebfe4f8c5251e",
+          "source_id": "5c8f15180f9f4f5d8ec96cfd3767966c",
+          "target_id": "08ae637db5d8491abc646130b158537a",
+          "type": "SUPPORTS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        }
+      ]
     },
-    "08097e69056b4cc88666fc0158982826": {
-      "id": "08097e69056b4cc88666fc0158982826",
+    {
+      "id": "681126b7c1fe429d84d89541f16e37da",
       "type": "CONDITION",
       "text": "If the token refresh interval is set too low, users will experience frequent session timeouts.",
       "span": {
@@ -68,10 +298,10 @@
       "abstraction_level": 1,
       "salience": 0.5,
       "opinion": [
-        0.6007407407407407,
-        0.22689380787037042,
-        0.17236545138888892,
-        0.25
+        0.9390796785371421,
+        0.01445977293261669,
+        0.046460548530241064,
+        0.0625
       ],
       "category": 2,
       "metadata": {
@@ -82,10 +312,97 @@
           "constraint_vs_enablement": "NA",
           "synchronic_vs_diachronic": "SYNCHRONIC"
         }
-      }
+      },
+      "argumentation_role": "CONDITION",
+      "outgoing_edges": [
+        {
+          "id": "32398d2c12474dd6ad49f2437f3b7ebf",
+          "source_id": "681126b7c1fe429d84d89541f16e37da",
+          "target_id": "baad23dfab134f88b2e02d88d536aa2b",
+          "type": "SUPPORTS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "9109b1c2c849414d9a3f2c2467583865",
+          "source_id": "681126b7c1fe429d84d89541f16e37da",
+          "target_id": "f7b2cf0f42fe4fa788cac5851df77784",
+          "type": "ATTACKS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "c4eb7631f6db4558bbf0517082382dd3",
+          "source_id": "681126b7c1fe429d84d89541f16e37da",
+          "target_id": "b9a005db960a4cdbb46ae5ecb053423c",
+          "type": "QUALIFIES",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "e1af661e2f0d4dfca2a37c70ed335716",
+          "source_id": "681126b7c1fe429d84d89541f16e37da",
+          "target_id": "8e623b0221714399890ff927bf23bb09",
+          "type": "QUALIFIES",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "8cea5268d907454f844e2b68b05cecb2",
+          "source_id": "681126b7c1fe429d84d89541f16e37da",
+          "target_id": "08ae637db5d8491abc646130b158537a",
+          "type": "SUPPORTS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "6d569b2af910467c9fa6eeba945ed02e",
+          "source_id": "681126b7c1fe429d84d89541f16e37da",
+          "target_id": "4621eec088104fc9b26158d61e54bbb7",
+          "type": "SUPPORTS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        }
+      ]
     },
-    "9f22a9ad7da4479abf00d0527ae31ee4": {
-      "id": "9f22a9ad7da4479abf00d0527ae31ee4",
+    {
+      "id": "baad23dfab134f88b2e02d88d536aa2b",
       "type": "JUSTIFICATION",
       "text": "Because the legacy system uses a monolithic architecture, scaling it horizontally is difficult.",
       "span": {
@@ -96,24 +413,97 @@
       "abstraction_level": 1,
       "salience": 0.5,
       "opinion": [
-        0.7211714093776846,
-        0.15144691812578193,
-        0.12738167249653334,
-        0.125
+        0.9981501580783542,
+        0.0003333827719691372,
+        0.0015164591496765857,
+        0.015625
       ],
       "category": 2,
       "metadata": {
         "demarcation": {
           "cognitive_vs_epistemic": "EPISTEMIC",
           "epistemic_vs_institutional": "NA",
-          "affect_vs_cognition": "COGNITION",
+          "affect_vs_cognition": "AFFECT",
           "constraint_vs_enablement": "NA",
           "synchronic_vs_diachronic": "SYNCHRONIC"
         }
-      }
+      },
+      "argumentation_role": "JUSTIFICATION",
+      "outgoing_edges": [
+        {
+          "id": "faefb8d71a3e4b64b575a5ec893c677e",
+          "source_id": "baad23dfab134f88b2e02d88d536aa2b",
+          "target_id": "f7b2cf0f42fe4fa788cac5851df77784",
+          "type": "SUPPORTS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "4795ec2892334bf2910b62fbc3998841",
+          "source_id": "baad23dfab134f88b2e02d88d536aa2b",
+          "target_id": "b9a005db960a4cdbb46ae5ecb053423c",
+          "type": "JUSTIFIES",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "490f1a4086fd4defba7316fb77cc5be9",
+          "source_id": "baad23dfab134f88b2e02d88d536aa2b",
+          "target_id": "8e623b0221714399890ff927bf23bb09",
+          "type": "JUSTIFIES",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "b20e294dced4480ea8440dd2eff7890b",
+          "source_id": "baad23dfab134f88b2e02d88d536aa2b",
+          "target_id": "08ae637db5d8491abc646130b158537a",
+          "type": "SUPPORTS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "1824d251e6ea4240a4f87509949db5ff",
+          "source_id": "baad23dfab134f88b2e02d88d536aa2b",
+          "target_id": "4621eec088104fc9b26158d61e54bbb7",
+          "type": "SUPPORTS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        }
+      ]
     },
-    "733329b5708547169cef4d0cd1e4b523": {
-      "id": "733329b5708547169cef4d0cd1e4b523",
+    {
+      "id": "f7b2cf0f42fe4fa788cac5851df77784",
       "type": "FALLACY",
       "text": "The rewrite team recommends a microservices approach, but that argument is flawed because it ignores the complexity of data consistency across services.",
       "span": {
@@ -124,10 +514,10 @@
       "abstraction_level": 1,
       "salience": 0.5,
       "opinion": [
-        0.20266365215793244,
-        0.6136619415675344,
-        0.1836744062745332,
-        0.5
+        0.9838953423149295,
+        0.005093299164842764,
+        0.011011358520227695,
+        0.00390625
       ],
       "category": 2,
       "metadata": {
@@ -138,10 +528,55 @@
           "constraint_vs_enablement": "NA",
           "synchronic_vs_diachronic": "SYNCHRONIC"
         }
-      }
+      },
+      "argumentation_role": "FALLACY",
+      "outgoing_edges": [
+        {
+          "id": "103c36b0b3374d2ea037e69d56ffdb4c",
+          "source_id": "f7b2cf0f42fe4fa788cac5851df77784",
+          "target_id": "b9a005db960a4cdbb46ae5ecb053423c",
+          "type": "ATTACKS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "19c97a6212c74e4da72e91ba76e2e85c",
+          "source_id": "f7b2cf0f42fe4fa788cac5851df77784",
+          "target_id": "8e623b0221714399890ff927bf23bb09",
+          "type": "ATTACKS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "b3250ff1f10b4fc4ae0b612caf5e131b",
+          "source_id": "f7b2cf0f42fe4fa788cac5851df77784",
+          "target_id": "4621eec088104fc9b26158d61e54bbb7",
+          "type": "ATTACKS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        }
+      ]
     },
-    "d4c4f32ad3804d219fea0329412570ef": {
-      "id": "d4c4f32ad3804d219fea0329412570ef",
+    {
+      "id": "b9a005db960a4cdbb46ae5ecb053423c",
       "type": "CLAIM",
       "text": "Traffic analysis shows that 70% of API calls originate from mobile clients.",
       "span": {
@@ -152,37 +587,9 @@
       "abstraction_level": 1,
       "salience": 0.5,
       "opinion": [
-        0.7704165288667846,
-        0.11729845195987501,
-        0.11228501917334033,
-        0.0625
-      ],
-      "category": 2,
-      "metadata": {
-        "demarcation": {
-          "cognitive_vs_epistemic": "EPISTEMIC",
-          "epistemic_vs_institutional": "NA",
-          "affect_vs_cognition": "COGNITION",
-          "constraint_vs_enablement": "NA",
-          "synchronic_vs_diachronic": "SYNCHRONIC"
-        }
-      }
-    },
-    "9f7a0c0b54034c50b17165bf2eea8b71": {
-      "id": "9f7a0c0b54034c50b17165bf2eea8b71",
-      "type": "CLAIM",
-      "text": "The current rate-limiting strategy is too aggressive and blocks legitimate requests.",
-      "span": {
-        "start": 581,
-        "end": 665,
-        "text": "The current rate-limiting strategy is too aggressive and blocks legitimate requests."
-      },
-      "abstraction_level": 1,
-      "salience": 0.5,
-      "opinion": [
-        0.8172756612202337,
-        0.08720235735268002,
-        0.09552198142708629,
+        0.9851055496254407,
+        0.0042479391727858464,
+        0.01064651120177333,
         0.03125
       ],
       "category": 2,
@@ -194,10 +601,86 @@
           "constraint_vs_enablement": "NA",
           "synchronic_vs_diachronic": "SYNCHRONIC"
         }
-      }
+      },
+      "argumentation_role": "CLAIM",
+      "outgoing_edges": [
+        {
+          "id": "70ed6dfba98d4f93823f3545e43bf370",
+          "source_id": "b9a005db960a4cdbb46ae5ecb053423c",
+          "target_id": "8e623b0221714399890ff927bf23bb09",
+          "type": "SUPPORTS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "2f7456b59d554750ac64f10fd0d90881",
+          "source_id": "b9a005db960a4cdbb46ae5ecb053423c",
+          "target_id": "08ae637db5d8491abc646130b158537a",
+          "type": "SUPPORTS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        }
+      ]
     },
-    "582e6695ef8e453aa1d89c5a42677e76": {
-      "id": "582e6695ef8e453aa1d89c5a42677e76",
+    {
+      "id": "8e623b0221714399890ff927bf23bb09",
+      "type": "CLAIM",
+      "text": "The current rate-limiting strategy is too aggressive and blocks legitimate requests.",
+      "span": {
+        "start": 581,
+        "end": 665,
+        "text": "The current rate-limiting strategy is too aggressive and blocks legitimate requests."
+      },
+      "abstraction_level": 1,
+      "salience": 0.5,
+      "opinion": [
+        0.9975337253518204,
+        0.0005929779819799835,
+        0.0018732966661995946,
+        0.015625
+      ],
+      "category": 2,
+      "metadata": {
+        "demarcation": {
+          "cognitive_vs_epistemic": "EPISTEMIC",
+          "epistemic_vs_institutional": "NA",
+          "affect_vs_cognition": "COGNITION",
+          "constraint_vs_enablement": "NA",
+          "synchronic_vs_diachronic": "SYNCHRONIC"
+        }
+      },
+      "argumentation_role": "CLAIM",
+      "outgoing_edges": [
+        {
+          "id": "c34e5aada78442f0a64832a21f4abffb",
+          "source_id": "8e623b0221714399890ff927bf23bb09",
+          "target_id": "08ae637db5d8491abc646130b158537a",
+          "type": "SUPPORTS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "id": "a0977d573c2a4792877af2bace5c7042",
       "type": "AXIOM",
       "text": "However, relaxing rate limits without proper throttling could expose the system to DDoS attacks.",
       "span": {
@@ -208,10 +691,10 @@
       "abstraction_level": 1,
       "salience": 0.5,
       "opinion": [
-        0.852042765115141,
-        0.06615307819980008,
-        0.08180415668505878,
-        0.015625
+        0.5916666666666667,
+        0.20833333333333334,
+        0.2,
+        0.5
       ],
       "category": 2,
       "metadata": {
@@ -222,10 +705,111 @@
           "constraint_vs_enablement": "NA",
           "synchronic_vs_diachronic": "SYNCHRONIC"
         }
-      }
+      },
+      "argumentation_role": "AXIOM",
+      "outgoing_edges": [
+        {
+          "id": "2fb037bf0a7347ed876eff6491b6d41a",
+          "source_id": "a0977d573c2a4792877af2bace5c7042",
+          "target_id": "681126b7c1fe429d84d89541f16e37da",
+          "type": "QUALIFIES",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "21ef554caad1465ab33b42186e5756c4",
+          "source_id": "a0977d573c2a4792877af2bace5c7042",
+          "target_id": "baad23dfab134f88b2e02d88d536aa2b",
+          "type": "JUSTIFIES",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "7e5c4b955fc74fd693134848a08f275c",
+          "source_id": "a0977d573c2a4792877af2bace5c7042",
+          "target_id": "f7b2cf0f42fe4fa788cac5851df77784",
+          "type": "ATTACKS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "b09f5509c257484c9e38f90e4c88d31c",
+          "source_id": "a0977d573c2a4792877af2bace5c7042",
+          "target_id": "8ca5d81894cf4a32a7a74590ca921136",
+          "type": "SUPPORTS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "30e072129203421c93ed4402d9d04427",
+          "source_id": "a0977d573c2a4792877af2bace5c7042",
+          "target_id": "08ae637db5d8491abc646130b158537a",
+          "type": "JUSTIFIES",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "ffc89626ec0745e0b8629c531dc7e136",
+          "source_id": "a0977d573c2a4792877af2bace5c7042",
+          "target_id": "4621eec088104fc9b26158d61e54bbb7",
+          "type": "SUPPORTS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "88a4a047e05145bb9dc3b94d0f16642f",
+          "source_id": "a0977d573c2a4792877af2bace5c7042",
+          "target_id": "b4735d17c1184783b63cdeb8f63e9242",
+          "type": "SUPPORTS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        }
+      ]
     },
-    "6c757216a1924871a8a7151a27c1b992": {
-      "id": "6c757216a1924871a8a7151a27c1b992",
+    {
+      "id": "8ca5d81894cf4a32a7a74590ca921136",
       "type": "AXIOM",
       "text": "A token-bucket algorithm with per-client quotas would balance security and usability.",
       "span": {
@@ -236,10 +820,10 @@
       "abstraction_level": 1,
       "salience": 0.5,
       "opinion": [
-        0.8765283511850197,
-        0.051731182118876055,
-        0.07174046669610418,
-        0.0078125
+        0.8074594907407409,
+        0.0885590277777778,
+        0.1039814814814815,
+        0.25
       ],
       "category": 2,
       "metadata": {
@@ -250,10 +834,97 @@
           "constraint_vs_enablement": "NA",
           "synchronic_vs_diachronic": "SYNCHRONIC"
         }
-      }
+      },
+      "argumentation_role": "AXIOM",
+      "outgoing_edges": [
+        {
+          "id": "8fc76cc73f34447cbd3244001fd26318",
+          "source_id": "8ca5d81894cf4a32a7a74590ca921136",
+          "target_id": "681126b7c1fe429d84d89541f16e37da",
+          "type": "QUALIFIES",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "40ce959b269f4a2e91bd63f37c0adbf6",
+          "source_id": "8ca5d81894cf4a32a7a74590ca921136",
+          "target_id": "baad23dfab134f88b2e02d88d536aa2b",
+          "type": "JUSTIFIES",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "1fdbb748283841fbaa741afea3117404",
+          "source_id": "8ca5d81894cf4a32a7a74590ca921136",
+          "target_id": "f7b2cf0f42fe4fa788cac5851df77784",
+          "type": "ATTACKS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "638d7a02a5a24103b9805381fd95223c",
+          "source_id": "8ca5d81894cf4a32a7a74590ca921136",
+          "target_id": "08ae637db5d8491abc646130b158537a",
+          "type": "JUSTIFIES",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "582af6e18dd0414097d72a23d41bb104",
+          "source_id": "8ca5d81894cf4a32a7a74590ca921136",
+          "target_id": "4621eec088104fc9b26158d61e54bbb7",
+          "type": "ATTACKS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "99a0943c29d84c99a06c7a7285176097",
+          "source_id": "8ca5d81894cf4a32a7a74590ca921136",
+          "target_id": "b4735d17c1184783b63cdeb8f63e9242",
+          "type": "SUPPORTS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        }
+      ]
     },
-    "ff115516d27f46db8bc1a701ffe590b2": {
-      "id": "ff115516d27f46db8bc1a701ffe590b2",
+    {
+      "id": "08ae637db5d8491abc646130b158537a",
       "type": "JUSTIFICATION",
       "text": "Since the compliance deadline is Q3 2026, the team must prioritize authentication features over performance optimizations.",
       "span": {
@@ -264,9 +935,9 @@
       "abstraction_level": 1,
       "salience": 0.5,
       "opinion": [
-        0.9494603693912841,
-        0.015086487118936627,
-        0.03545314348977911,
+        0.9999928901936785,
+        7.649553400212744e-07,
+        6.344850981627051e-06,
         0.001953125
       ],
       "category": 2,
@@ -278,10 +949,41 @@
           "constraint_vs_enablement": "NA",
           "synchronic_vs_diachronic": "SYNCHRONIC"
         }
-      }
+      },
+      "argumentation_role": "JUSTIFICATION",
+      "outgoing_edges": [
+        {
+          "id": "4b6bdcaec1bf4da19f4aa1881fa3c74b",
+          "source_id": "08ae637db5d8491abc646130b158537a",
+          "target_id": "f7b2cf0f42fe4fa788cac5851df77784",
+          "type": "SUPPORTS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "e2e22a46b525470f8000c1d64c495799",
+          "source_id": "08ae637db5d8491abc646130b158537a",
+          "target_id": "4621eec088104fc9b26158d61e54bbb7",
+          "type": "SUPPORTS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        }
+      ]
     },
-    "181dc1f709d8467e83a05659aa2f8eda": {
-      "id": "181dc1f709d8467e83a05659aa2f8eda",
+    {
+      "id": "4621eec088104fc9b26158d61e54bbb7",
       "type": "FALLACY",
       "text": "This prioritization is misleading because compliance does not guarantee security.",
       "span": {
@@ -292,9 +994,9 @@
       "abstraction_level": 1,
       "salience": 0.5,
       "opinion": [
-        0.8794602739105652,
-        0.04440710813149105,
-        0.07613261795794349,
+        0.9993151371386788,
+        0.00017346988746093473,
+        0.0005113929738602331,
         0.00390625
       ],
       "category": 2,
@@ -306,10 +1008,12 @@
           "constraint_vs_enablement": "CONSTRAINT",
           "synchronic_vs_diachronic": "SYNCHRONIC"
         }
-      }
+      },
+      "argumentation_role": "FALLACY",
+      "outgoing_edges": []
     },
-    "e2940ee5723d4c8db64f341f5162f48e": {
-      "id": "e2940ee5723d4c8db64f341f5162f48e",
+    {
+      "id": "b4735d17c1184783b63cdeb8f63e9242",
       "type": "AXIOM",
       "text": "In summary, the architecture must evolve while maintaining backward compatibility and without introducing single points of failure.",
       "span": {
@@ -320,10 +1024,10 @@
       "abstraction_level": 1,
       "salience": 0.5,
       "opinion": [
-        0.9081128105094549,
-        0.034596808158774604,
-        0.05729038133177033,
-        0.001953125
+        0.9385453544921786,
+        0.024185367652606905,
+        0.03726927785521471,
+        0.125
       ],
       "category": 2,
       "metadata": {
@@ -334,779 +1038,980 @@
           "constraint_vs_enablement": "NA",
           "synchronic_vs_diachronic": "SYNCHRONIC"
         }
-      }
+      },
+      "argumentation_role": "AXIOM",
+      "outgoing_edges": [
+        {
+          "id": "0fcf82d864f14b3da647b9a11d21bceb",
+          "source_id": "b4735d17c1184783b63cdeb8f63e9242",
+          "target_id": "681126b7c1fe429d84d89541f16e37da",
+          "type": "QUALIFIES",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "5c1a1795590c4b9d9c7e5d57c72f22e0",
+          "source_id": "b4735d17c1184783b63cdeb8f63e9242",
+          "target_id": "baad23dfab134f88b2e02d88d536aa2b",
+          "type": "JUSTIFIES",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "50b63304e06b45b1b20b718425b3e64f",
+          "source_id": "b4735d17c1184783b63cdeb8f63e9242",
+          "target_id": "f7b2cf0f42fe4fa788cac5851df77784",
+          "type": "ATTACKS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "1c02cd91d4ed4bf3ab75052ef7e33cbe",
+          "source_id": "b4735d17c1184783b63cdeb8f63e9242",
+          "target_id": "08ae637db5d8491abc646130b158537a",
+          "type": "JUSTIFIES",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        },
+        {
+          "id": "1757c731072d46bf8d5674f7de0409fe",
+          "source_id": "b4735d17c1184783b63cdeb8f63e9242",
+          "target_id": "4621eec088104fc9b26158d61e54bbb7",
+          "type": "ATTACKS",
+          "opinion": [
+            0.0,
+            0.0,
+            1.0,
+            0.5
+          ],
+          "warrant": null,
+          "metadata": {}
+        }
+      ]
     }
-  },
-  "edges": [
+  ],
+  "entities": [
     {
-      "id": "633d985a8b8946ab876e5e3bc2c1598d",
-      "source_id": "7cdabbad2971410a8bd7d48d05bf938b",
-      "target_id": "83f626da06664419a4615a8171f4a9e5",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "0c0207796ab3480d8385b62c0019bbd9",
+      "kind": "Service",
+      "name": "The new authentication service",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 0,
+          "end": 30,
+          "text": "The new authentication service"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "1775ba0581774fcaaadd083d9c10f7c9",
-      "source_id": "7cdabbad2971410a8bd7d48d05bf938b",
-      "target_id": "08097e69056b4cc88666fc0158982826",
-      "type": "ATTACKS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "cce285ddeca144ee8054e5d67967f56a",
+      "kind": "LAW",
+      "name": "OAuth 2.0 and SAML 2.0 protocols",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 44,
+          "end": 76,
+          "text": "OAuth 2.0 and SAML 2.0 protocols"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "ed5b96d562f64cfd8e33f5e8feeb4e98",
-      "source_id": "7cdabbad2971410a8bd7d48d05bf938b",
-      "target_id": "9f22a9ad7da4479abf00d0527ae31ee4",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "b81e25940bc2458b9de1e70d77e9464c",
+      "kind": "Audit",
+      "name": "Security audits",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 78,
+          "end": 93,
+          "text": "Security audits"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "a89e68f34d5347018b3037299b316ae4",
-      "source_id": "7cdabbad2971410a8bd7d48d05bf938b",
-      "target_id": "d4c4f32ad3804d219fea0329412570ef",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "92b835c61f5e4eae9e9118e9bc8d9e08",
+      "kind": "Authentication",
+      "name": "multi-factor authentication",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 102,
+          "end": 129,
+          "text": "multi-factor authentication"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "d1dfb4c209c346c6bb0a12d50ebf0d17",
-      "source_id": "7cdabbad2971410a8bd7d48d05bf938b",
-      "target_id": "9f7a0c0b54034c50b17165bf2eea8b71",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "fafb75cf988c42e99e09e8d15d788222",
+      "kind": "Access",
+      "name": "all administrative access",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 134,
+          "end": 159,
+          "text": "all administrative access"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "91b89b218a9341a69c9e2c0c03a505f3",
-      "source_id": "7cdabbad2971410a8bd7d48d05bf938b",
-      "target_id": "582e6695ef8e453aa1d89c5a42677e76",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "602d4e598ad7449599fee330b007df7e",
+      "kind": "Proposition",
+      "name": "If the token refresh interval is set too low, users will experience frequent session timeouts.",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 161,
+          "end": 255,
+          "text": "If the token refresh interval is set too low, users will experience frequent session timeouts."
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "39ec83d06e914fa69e3c390e2fe714dd",
-      "source_id": "7cdabbad2971410a8bd7d48d05bf938b",
-      "target_id": "6c757216a1924871a8a7151a27c1b992",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "d8f1646a82b04763a4d8b65d8f265670",
+      "kind": "Interval",
+      "name": "the token refresh interval",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 164,
+          "end": 190,
+          "text": "the token refresh interval"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "bf915dbec771424fa481b4c8c401b1dd",
-      "source_id": "7cdabbad2971410a8bd7d48d05bf938b",
-      "target_id": "ff115516d27f46db8bc1a701ffe590b2",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "de23154237fa4785932445fee46a45ae",
+      "kind": "User",
+      "name": "users",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 207,
+          "end": 212,
+          "text": "users"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "ad3db905b6ed4202b02c384d6dc43d53",
-      "source_id": "7cdabbad2971410a8bd7d48d05bf938b",
-      "target_id": "181dc1f709d8467e83a05659aa2f8eda",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "1adf893a2abf4565805921f313f62ca0",
+      "kind": "Timeout",
+      "name": "frequent session timeouts",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 229,
+          "end": 254,
+          "text": "frequent session timeouts"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "27613f20a0984632a60864c1258d27ec",
-      "source_id": "7cdabbad2971410a8bd7d48d05bf938b",
-      "target_id": "e2940ee5723d4c8db64f341f5162f48e",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "0638cb7ff3c84bada8a23995358015cd",
+      "kind": "Proposition",
+      "name": "Because the legacy system uses a monolithic architecture, scaling it horizontally is difficult.",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 256,
+          "end": 351,
+          "text": "Because the legacy system uses a monolithic architecture, scaling it horizontally is difficult."
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "8b65f824112b4ab495342d40ae9bc4e1",
-      "source_id": "83f626da06664419a4615a8171f4a9e5",
-      "target_id": "08097e69056b4cc88666fc0158982826",
-      "type": "ATTACKS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "0328208640d840ec9b7215b2e314ce0b",
+      "kind": "System",
+      "name": "the legacy system",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 264,
+          "end": 281,
+          "text": "the legacy system"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "1b60f2578e1441e889d7630a91ef6724",
-      "source_id": "83f626da06664419a4615a8171f4a9e5",
-      "target_id": "9f22a9ad7da4479abf00d0527ae31ee4",
-      "type": "ATTACKS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "a93dea8679a142f1bf8f2dfcf632eb79",
+      "kind": "Architecture",
+      "name": "a monolithic architecture",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 287,
+          "end": 312,
+          "text": "a monolithic architecture"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "86cdec19a1ae463dbe6d4a8778803fb9",
-      "source_id": "83f626da06664419a4615a8171f4a9e5",
-      "target_id": "d4c4f32ad3804d219fea0329412570ef",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "6f7ef2f329a441788c9ff0909cd4828c",
+      "kind": "Entity",
+      "name": "it",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 322,
+          "end": 324,
+          "text": "it"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "c3a41e0dd9554c4085706b299e659910",
-      "source_id": "83f626da06664419a4615a8171f4a9e5",
-      "target_id": "9f7a0c0b54034c50b17165bf2eea8b71",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "6133f45eeecb4fb68b2e09280221dd47",
+      "kind": "Team",
+      "name": "The rewrite team",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 352,
+          "end": 368,
+          "text": "The rewrite team"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "b4f3d7f791c84a84a4e114dfa122c572",
-      "source_id": "83f626da06664419a4615a8171f4a9e5",
-      "target_id": "582e6695ef8e453aa1d89c5a42677e76",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "190546f72b2346f1b5eeadc02e960711",
+      "kind": "Approach",
+      "name": "a microservices approach",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 380,
+          "end": 404,
+          "text": "a microservices approach"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "0347a0cb3c0e4a6a8a335b696845c27a",
-      "source_id": "83f626da06664419a4615a8171f4a9e5",
-      "target_id": "6c757216a1924871a8a7151a27c1b992",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "685db75b6775479b873b165c06bf2670",
+      "kind": "Argument",
+      "name": "that argument",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 410,
+          "end": 423,
+          "text": "that argument"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "0276aabc6e1a4a19acacd416a383ed75",
-      "source_id": "83f626da06664419a4615a8171f4a9e5",
-      "target_id": "ff115516d27f46db8bc1a701ffe590b2",
-      "type": "ATTACKS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "023241a696e342e685d8f06c84d6d3b8",
+      "kind": "Entity",
+      "name": "it",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 442,
+          "end": 444,
+          "text": "it"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "cf594559b36f4be398c7f026ac42ef64",
-      "source_id": "83f626da06664419a4615a8171f4a9e5",
-      "target_id": "181dc1f709d8467e83a05659aa2f8eda",
-      "type": "ATTACKS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "1f8daabe43724d2fb0ad73d2011fa946",
+      "kind": "Complexity",
+      "name": "the complexity",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 453,
+          "end": 467,
+          "text": "the complexity"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "0f39d0e6363b4b3ba1db9d4528614901",
-      "source_id": "83f626da06664419a4615a8171f4a9e5",
-      "target_id": "e2940ee5723d4c8db64f341f5162f48e",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "ee14f6bba5f249489cbb061eb1806802",
+      "kind": "Consistency",
+      "name": "data consistency",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 471,
+          "end": 487,
+          "text": "data consistency"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "867984a870564f3c9f84eb856a787002",
-      "source_id": "08097e69056b4cc88666fc0158982826",
-      "target_id": "9f22a9ad7da4479abf00d0527ae31ee4",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "cd962975695141f8b4a04b8d309ccf53",
+      "kind": "Service",
+      "name": "services",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 495,
+          "end": 503,
+          "text": "services"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "3f77a7f1bab2487b84cafa78c77013a3",
-      "source_id": "08097e69056b4cc88666fc0158982826",
-      "target_id": "d4c4f32ad3804d219fea0329412570ef",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "de22658070154c94b70a9d7523f22154",
+      "kind": "Analysis",
+      "name": "Traffic analysis",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 505,
+          "end": 521,
+          "text": "Traffic analysis"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "c62374031d194e288cb72039911123b4",
-      "source_id": "08097e69056b4cc88666fc0158982826",
-      "target_id": "9f7a0c0b54034c50b17165bf2eea8b71",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "f8766b002cf24ade9d957a102ee64e9b",
+      "kind": "PERCENT",
+      "name": "70%",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 533,
+          "end": 536,
+          "text": "70%"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "6e9bc8691cf24fdca7c1d3afc30c689f",
-      "source_id": "08097e69056b4cc88666fc0158982826",
-      "target_id": "582e6695ef8e453aa1d89c5a42677e76",
-      "type": "ATTACKS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "406ec962aca74cafb5f9fea0c3a00cc7",
+      "kind": "Call",
+      "name": "API calls",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 540,
+          "end": 549,
+          "text": "API calls"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "ebbf6dfadbd340fd91cb7cfa79015043",
-      "source_id": "08097e69056b4cc88666fc0158982826",
-      "target_id": "6c757216a1924871a8a7151a27c1b992",
-      "type": "ATTACKS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "d93317699a374ea8a44289500a066f6f",
+      "kind": "Client",
+      "name": "mobile clients",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 565,
+          "end": 579,
+          "text": "mobile clients"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "2edd01f65ed74988bb791f7fcd9c4f2a",
-      "source_id": "08097e69056b4cc88666fc0158982826",
-      "target_id": "ff115516d27f46db8bc1a701ffe590b2",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "246024d949154a87a9288b322ae964d1",
+      "kind": "Strategy",
+      "name": "The current rate-limiting strategy",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 581,
+          "end": 615,
+          "text": "The current rate-limiting strategy"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "87129c6e8f884908bc73c36d29a89ce6",
-      "source_id": "08097e69056b4cc88666fc0158982826",
-      "target_id": "181dc1f709d8467e83a05659aa2f8eda",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "43d2bb6477684c23b61b408b9634ade0",
+      "kind": "Request",
+      "name": "legitimate requests",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 645,
+          "end": 664,
+          "text": "legitimate requests"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "c237ad124ba7474a81d63685c21968af",
-      "source_id": "08097e69056b4cc88666fc0158982826",
-      "target_id": "e2940ee5723d4c8db64f341f5162f48e",
-      "type": "ATTACKS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "3658623381d94279a070b47a4c0e555a",
+      "kind": "Proposition",
+      "name": "However, relaxing rate limits without proper throttling could expose the system to DDoS attacks.",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 666,
+          "end": 762,
+          "text": "However, relaxing rate limits without proper throttling could expose the system to DDoS attacks."
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "534732b761e84d66ba39d2e9447a212d",
-      "source_id": "9f22a9ad7da4479abf00d0527ae31ee4",
-      "target_id": "733329b5708547169cef4d0cd1e4b523",
-      "type": "ATTACKS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "d5282c04f2504ae095d3734535bdd394",
+      "kind": "Limit",
+      "name": "rate limits",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 684,
+          "end": 695,
+          "text": "rate limits"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "23093c78f40e4eb6b0a1c7a9f46043b8",
-      "source_id": "9f22a9ad7da4479abf00d0527ae31ee4",
-      "target_id": "d4c4f32ad3804d219fea0329412570ef",
-      "type": "ATTACKS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "44b813be5a6b4c50a2e167ce1029ab10",
+      "kind": "Throttling",
+      "name": "proper throttling",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 704,
+          "end": 721,
+          "text": "proper throttling"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "9c48f8e5b8aa4e07b428576b2254db53",
-      "source_id": "9f22a9ad7da4479abf00d0527ae31ee4",
-      "target_id": "9f7a0c0b54034c50b17165bf2eea8b71",
-      "type": "ATTACKS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "7d402e0a6373478aaef61f3edc1d49d9",
+      "kind": "System",
+      "name": "the system",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 735,
+          "end": 745,
+          "text": "the system"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "86ff5d95d6ae4af48036eccd61f21d40",
-      "source_id": "9f22a9ad7da4479abf00d0527ae31ee4",
-      "target_id": "582e6695ef8e453aa1d89c5a42677e76",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "da2e3f6217394752a759de5e75795b4c",
+      "kind": "Attack",
+      "name": "DDoS attacks",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 749,
+          "end": 761,
+          "text": "DDoS attacks"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "52ab6fb75904429fbe8f3846a24a25fc",
-      "source_id": "9f22a9ad7da4479abf00d0527ae31ee4",
-      "target_id": "6c757216a1924871a8a7151a27c1b992",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "20f7df137158476d9e90d802714821c7",
+      "kind": "Algorithm",
+      "name": "A token-bucket algorithm",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 763,
+          "end": 787,
+          "text": "A token-bucket algorithm"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "d2c4c00b859640869d0f9da3bde0665f",
-      "source_id": "9f22a9ad7da4479abf00d0527ae31ee4",
-      "target_id": "ff115516d27f46db8bc1a701ffe590b2",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "850fa7a41ace4da2812de47ecce7231c",
+      "kind": "Client",
+      "name": "client",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 797,
+          "end": 803,
+          "text": "client"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "64264eab23d245959165edbd4debdb3a",
-      "source_id": "9f22a9ad7da4479abf00d0527ae31ee4",
-      "target_id": "181dc1f709d8467e83a05659aa2f8eda",
-      "type": "ATTACKS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "eba51810c10243b49d2bf47c2f0298b4",
+      "kind": "Security",
+      "name": "security",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 825,
+          "end": 833,
+          "text": "security"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "35b1dccde1e14634a31431723b3b6a2e",
-      "source_id": "9f22a9ad7da4479abf00d0527ae31ee4",
-      "target_id": "e2940ee5723d4c8db64f341f5162f48e",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "cf15b9c1575e4d588a9821064fec83d1",
+      "kind": "Usability",
+      "name": "usability",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 838,
+          "end": 847,
+          "text": "usability"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "3ad4a6e971c14a2b82f73c3614f3aaae",
-      "source_id": "733329b5708547169cef4d0cd1e4b523",
-      "target_id": "ff115516d27f46db8bc1a701ffe590b2",
-      "type": "ATTACKS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "06e8bf1dcba341039ca58127a5b60cf8",
+      "kind": "Proposition",
+      "name": "Since the compliance deadline is Q3 2026, the team must prioritize authentication features over performance optimizations.",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 849,
+          "end": 971,
+          "text": "Since the compliance deadline is Q3 2026, the team must prioritize authentication features over performance optimizations."
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "1d0e01f622fd4f9bbd6d62fedbebf568",
-      "source_id": "d4c4f32ad3804d219fea0329412570ef",
-      "target_id": "9f7a0c0b54034c50b17165bf2eea8b71",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "096d09439ac34676b3d6d79428dca514",
+      "kind": "Deadline",
+      "name": "the compliance deadline",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 855,
+          "end": 878,
+          "text": "the compliance deadline"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "da3a74c10aa84179b72dd31ad8afcba3",
-      "source_id": "d4c4f32ad3804d219fea0329412570ef",
-      "target_id": "582e6695ef8e453aa1d89c5a42677e76",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "7d570ec87c1549dda9e69384e51f6202",
+      "kind": "DATE",
+      "name": "Q3",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 882,
+          "end": 884,
+          "text": "Q3"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "86adb09842a441abb5fbf7787ce3e83b",
-      "source_id": "d4c4f32ad3804d219fea0329412570ef",
-      "target_id": "6c757216a1924871a8a7151a27c1b992",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "4f8ca80af6e54013b3d9b0b916813ad4",
+      "kind": "Team",
+      "name": "the team",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 891,
+          "end": 899,
+          "text": "the team"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "258a42e4cd15447e9160837514385200",
-      "source_id": "d4c4f32ad3804d219fea0329412570ef",
-      "target_id": "ff115516d27f46db8bc1a701ffe590b2",
-      "type": "ATTACKS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "5b73ceca98fd4c3eb27c935160c59998",
+      "kind": "Feature",
+      "name": "authentication features",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 916,
+          "end": 939,
+          "text": "authentication features"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "da0c3b2b4a6244cc8c8a3f749ac32cc3",
-      "source_id": "d4c4f32ad3804d219fea0329412570ef",
-      "target_id": "181dc1f709d8467e83a05659aa2f8eda",
-      "type": "ATTACKS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "1d73018362f242f8aeb20dacdf31880d",
+      "kind": "Optimization",
+      "name": "performance optimizations",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 945,
+          "end": 970,
+          "text": "performance optimizations"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "b76bc0181c094b2c97cc50f914723a7e",
-      "source_id": "d4c4f32ad3804d219fea0329412570ef",
-      "target_id": "e2940ee5723d4c8db64f341f5162f48e",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "0cba579267864735b73bc630638ebffb",
+      "kind": "Prioritization",
+      "name": "This prioritization",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 972,
+          "end": 991,
+          "text": "This prioritization"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "d5083a6055d34efd9557d828090639b9",
-      "source_id": "9f7a0c0b54034c50b17165bf2eea8b71",
-      "target_id": "582e6695ef8e453aa1d89c5a42677e76",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "c9499ebc7fe34bc393548729d04ea916",
+      "kind": "Compliance",
+      "name": "compliance",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 1014,
+          "end": 1024,
+          "text": "compliance"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "682fe470eb8d448fb98064ade37c33d6",
-      "source_id": "9f7a0c0b54034c50b17165bf2eea8b71",
-      "target_id": "6c757216a1924871a8a7151a27c1b992",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "9c9d278c560c43b79e4ab7a931a3d85d",
+      "kind": "Security",
+      "name": "security",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 1044,
+          "end": 1052,
+          "text": "security"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "f86f78ab84b3448c9f975b3629de0ce1",
-      "source_id": "9f7a0c0b54034c50b17165bf2eea8b71",
-      "target_id": "ff115516d27f46db8bc1a701ffe590b2",
-      "type": "ATTACKS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "ac460b73c7c749d396d25e4609d99b65",
+      "kind": "Proposition",
+      "name": "In summary, the architecture must evolve while maintaining backward compatibility and without introducing single points of failure.",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 1054,
+          "end": 1185,
+          "text": "In summary, the architecture must evolve while maintaining backward compatibility and without introducing single points of failure."
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "8e4fae2c0b94440d84b1519643265663",
-      "source_id": "9f7a0c0b54034c50b17165bf2eea8b71",
-      "target_id": "181dc1f709d8467e83a05659aa2f8eda",
-      "type": "ATTACKS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "4b95cb75bb734e409440ca3707bd5730",
+      "kind": "Summary",
+      "name": "summary",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 1057,
+          "end": 1064,
+          "text": "summary"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "b7835a0c73b9491e863dcb73a8d0bd91",
-      "source_id": "9f7a0c0b54034c50b17165bf2eea8b71",
-      "target_id": "e2940ee5723d4c8db64f341f5162f48e",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "40f258ecb8ef420faf947c2ce2cad646",
+      "kind": "Architecture",
+      "name": "the architecture",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 1066,
+          "end": 1082,
+          "text": "the architecture"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "2d5766a93d534956b20cf2113552db90",
-      "source_id": "582e6695ef8e453aa1d89c5a42677e76",
-      "target_id": "6c757216a1924871a8a7151a27c1b992",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "afb9cc3c33a7459a9b3757593431538c",
+      "kind": "Compatibility",
+      "name": "backward compatibility",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 1113,
+          "end": 1135,
+          "text": "backward compatibility"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "470b072bff63417f9be814a28ca6bde4",
-      "source_id": "582e6695ef8e453aa1d89c5a42677e76",
-      "target_id": "ff115516d27f46db8bc1a701ffe590b2",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "2d9809dfacb94cf3be53e43028fa9d9a",
+      "kind": "Point",
+      "name": "single points",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 1160,
+          "end": 1173,
+          "text": "single points"
+        }
       ],
-      "warrant": null,
       "metadata": {}
     },
     {
-      "id": "3fdf38a052d2410e8f4a1d030cae2cf1",
-      "source_id": "582e6695ef8e453aa1d89c5a42677e76",
-      "target_id": "181dc1f709d8467e83a05659aa2f8eda",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
+      "id": "b03e58eb92b940819bfa0fcd371ae428",
+      "kind": "Failure",
+      "name": "failure",
+      "superordinate": null,
+      "subordinate": null,
+      "attributes": {},
+      "spans": [
+        {
+          "start": 1177,
+          "end": 1184,
+          "text": "failure"
+        }
       ],
-      "warrant": null,
       "metadata": {}
+    }
+  ],
+  "world_relations": [
+    {
+      "id": "0ffe677fbb7445fb997e5be26b14aaa4",
+      "source_id": "de23154237fa4785932445fee46a45ae",
+      "target_id": "1adf893a2abf4565805921f313f62ca0",
+      "kind": "AFFECTS",
+      "metadata": {
+        "relation_phrase": "will experience",
+        "subject_text": "users",
+        "object_text": "frequent session timeouts",
+        "confidence": 1.0
+      }
     },
     {
-      "id": "369a56db924c4b32a1750a9c05283e33",
-      "source_id": "582e6695ef8e453aa1d89c5a42677e76",
-      "target_id": "e2940ee5723d4c8db64f341f5162f48e",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
-      ],
-      "warrant": null,
-      "metadata": {}
+      "id": "dcd35d5dc9df4888bc84f646796f0eb8",
+      "source_id": "246024d949154a87a9288b322ae964d1",
+      "target_id": "43d2bb6477684c23b61b408b9634ade0",
+      "kind": "CONSTRAINS",
+      "metadata": {
+        "relation_phrase": "block",
+        "subject_text": "The current rate-limiting strategy",
+        "object_text": "legitimate requests",
+        "confidence": 1.0
+      }
     },
     {
-      "id": "5dc89a0fc7c7474b990bb1901ad5bb7d",
-      "source_id": "6c757216a1924871a8a7151a27c1b992",
-      "target_id": "ff115516d27f46db8bc1a701ffe590b2",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
-      ],
-      "warrant": null,
-      "metadata": {}
+      "id": "4dc9383bd41a4db4ba4b67a5bb161713",
+      "source_id": "b81e25940bc2458b9de1e70d77e9464c",
+      "target_id": "92b835c61f5e4eae9e9118e9bc8d9e08",
+      "kind": "DEPENDS_ON",
+      "metadata": {
+        "relation_phrase": "require for",
+        "subject_text": "Security audits",
+        "object_text": "multi-factor authentication",
+        "confidence": 1.0
+      }
     },
     {
-      "id": "898f46a62d6f4502b6e3adb4755040e4",
-      "source_id": "6c757216a1924871a8a7151a27c1b992",
-      "target_id": "e2940ee5723d4c8db64f341f5162f48e",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
-      ],
-      "warrant": null,
-      "metadata": {}
+      "id": "4a74705f5b944f18a0ec6ae178d41a6c",
+      "source_id": "0c0207796ab3480d8385b62c0019bbd9",
+      "target_id": "cce285ddeca144ee8054e5d67967f56a",
+      "kind": "ENABLES",
+      "metadata": {
+        "relation_phrase": "must support",
+        "subject_text": "The new authentication service",
+        "object_text": "OAuth 2.0 and SAML 2.0 protocols",
+        "confidence": 1.0
+      }
     },
     {
-      "id": "124be1fa80844928b4b761014b9a04fb",
-      "source_id": "ff115516d27f46db8bc1a701ffe590b2",
-      "target_id": "181dc1f709d8467e83a05659aa2f8eda",
-      "type": "ATTACKS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
-      ],
-      "warrant": null,
-      "metadata": {}
+      "id": "d214a7c8a4da4bcebd3fcaef31377fef",
+      "source_id": "4f8ca80af6e54013b3d9b0b916813ad4",
+      "target_id": "5b73ceca98fd4c3eb27c935160c59998",
+      "kind": "PRIORITIZES",
+      "metadata": {
+        "relation_phrase": "must prioritize over",
+        "subject_text": "the team",
+        "object_text": "authentication features",
+        "confidence": 1.0
+      }
     },
     {
-      "id": "ffdee6484e3f440b859efc57aa1b270a",
-      "source_id": "ff115516d27f46db8bc1a701ffe590b2",
-      "target_id": "e2940ee5723d4c8db64f341f5162f48e",
-      "type": "CONTRADICTS",
-      "opinion": [
-        0.0,
-        0.0,
-        1.0,
-        0.5
-      ],
-      "warrant": null,
-      "metadata": {}
+      "id": "b659a0aa1589456d84d4c5fd1b8b5d17",
+      "source_id": "6133f45eeecb4fb68b2e09280221dd47",
+      "target_id": "190546f72b2346f1b5eeadc02e960711",
+      "kind": "RECOMMENDS",
+      "metadata": {
+        "relation_phrase": "recommend",
+        "subject_text": "The rewrite team",
+        "object_text": "a microservices approach",
+        "confidence": 1.0
+      }
+    },
+    {
+      "id": "5049d6c483d8419d88c306b1cff2c348",
+      "source_id": "20f7df137158476d9e90d802714821c7",
+      "target_id": "eba51810c10243b49d2bf47c2f0298b4",
+      "kind": "TRADE_OFF",
+      "metadata": {
+        "relation_phrase": "would balance",
+        "subject_text": "A token-bucket algorithm",
+        "object_text": "security",
+        "confidence": 1.0
+      }
+    },
+    {
+      "id": "0484ddd5b8c142da9202d8be7931876f",
+      "source_id": "40f258ecb8ef420faf947c2ce2cad646",
+      "target_id": "4b95cb75bb734e409440ca3707bd5730",
+      "kind": "TRANSITIONS",
+      "metadata": {
+        "relation_phrase": "must evolve in",
+        "subject_text": "the architecture",
+        "object_text": "summary",
+        "confidence": 1.0
+      }
     }
   ],
   "mode": "ARGUMENT",
@@ -1271,28 +2176,49 @@
     },
     "modes": {
       "CAUSAL": {
-        "active_edge_count": 0,
+        "active_edge_count": 26,
         "description": "mechanistic cause-effect chains"
       },
       "CONDITIONAL": {
-        "active_edge_count": 0,
+        "active_edge_count": 9,
         "description": "IF/THEN dependencies and scope conditions"
       },
       "ARGUMENT": {
-        "active_edge_count": 55,
+        "active_edge_count": 34,
         "description": "claims, support, and counterarguments"
       },
       "ANALOGY": {
-        "active_edge_count": 0,
+        "active_edge_count": 33,
         "description": "structural parallels and justificatory relations"
       }
     }
   },
   "cta": {
-    "root_id": "7cdabbad2971410a8bd7d48d05bf938b",
+    "root_id": "11fd4939d6644f388382d61ca1081ecf",
     "node_ids": [
-      "7cdabbad2971410a8bd7d48d05bf938b"
+      "b9a005db960a4cdbb46ae5ecb053423c",
+      "b4735d17c1184783b63cdeb8f63e9242",
+      "8ca5d81894cf4a32a7a74590ca921136",
+      "5c8f15180f9f4f5d8ec96cfd3767966c",
+      "08ae637db5d8491abc646130b158537a",
+      "f7b2cf0f42fe4fa788cac5851df77784",
+      "4621eec088104fc9b26158d61e54bbb7",
+      "11fd4939d6644f388382d61ca1081ecf",
+      "8e623b0221714399890ff927bf23bb09",
+      "a0977d573c2a4792877af2bace5c7042",
+      "baad23dfab134f88b2e02d88d536aa2b"
     ],
-    "parent_map": {}
+    "parent_map": {
+      "5c8f15180f9f4f5d8ec96cfd3767966c": "11fd4939d6644f388382d61ca1081ecf",
+      "baad23dfab134f88b2e02d88d536aa2b": "b4735d17c1184783b63cdeb8f63e9242",
+      "b9a005db960a4cdbb46ae5ecb053423c": "baad23dfab134f88b2e02d88d536aa2b",
+      "8e623b0221714399890ff927bf23bb09": "b9a005db960a4cdbb46ae5ecb053423c",
+      "a0977d573c2a4792877af2bace5c7042": "11fd4939d6644f388382d61ca1081ecf",
+      "8ca5d81894cf4a32a7a74590ca921136": "a0977d573c2a4792877af2bace5c7042",
+      "08ae637db5d8491abc646130b158537a": "b4735d17c1184783b63cdeb8f63e9242",
+      "4621eec088104fc9b26158d61e54bbb7": "08ae637db5d8491abc646130b158537a",
+      "b4735d17c1184783b63cdeb8f63e9242": "8ca5d81894cf4a32a7a74590ca921136",
+      "f7b2cf0f42fe4fa788cac5851df77784": "08ae637db5d8491abc646130b158537a"
+    }
   }
 }

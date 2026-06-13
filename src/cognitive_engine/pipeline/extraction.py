@@ -3,8 +3,8 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from cognitive_engine.models import Graph, ReasoningMode
-from cognitive_engine.pipeline import run as deterministic_run
+from cognitive_engine.core.models import Graph, ReasoningMode
+from cognitive_engine.pipeline.pipeline import run as deterministic_run
 
 logger = logging.getLogger(__name__)
 

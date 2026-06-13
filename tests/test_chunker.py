@@ -1,6 +1,6 @@
 from transformers import AutoTokenizer
 
-from cognitive_engine.chunker import (
+from cognitive_engine.nlp.chunker import (
     Chunk,
     PropSpan,
     chunk_text,

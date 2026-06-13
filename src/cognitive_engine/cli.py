@@ -3,7 +3,7 @@ import logging
 import sys
 from pathlib import Path
 
-from cognitive_engine.orchestrator import run as orchestrator_run
+from cognitive_engine.pipeline.orchestrator import run as orchestrator_run
 
 logging.basicConfig(
     level=logging.INFO,

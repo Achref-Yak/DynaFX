@@ -4,10 +4,10 @@ import logging
 from typing import Dict, List, Optional, Set, Tuple
 from uuid import UUID, uuid4
 
-from cognitive_engine.chunker import PropSpan
-from cognitive_engine.demarcation_rules import assign_demarcations
-from cognitive_engine.edge_assigner import assign_edges, SpanKey
-from cognitive_engine.models import (
+from cognitive_engine.nlp.chunker import PropSpan
+from cognitive_engine.extract.demarcation import assign_demarcations
+from cognitive_engine.extract.edges import assign_edges, SpanKey
+from cognitive_engine.core.models import (
     Edge,
     EdgeType,
     Entity,
@@ -18,8 +18,8 @@ from cognitive_engine.models import (
     Span as ModelSpan,
     TypedEdge,
 )
-from cognitive_engine.tagger import RelationClassifier, SentenceTagger
-from cognitive_engine.type_mapper import map_types, Relation
+from cognitive_engine.nlp.tagger import RelationClassifier, SentenceTagger
+from cognitive_engine.extract.types import map_types, Relation
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ def _find_entity_for_span(
 ) -> Optional[UUID]:
     for eid, entity in graph.entities.items():
         for s in entity.spans:
-            if s.start == start and s.end == end:
+            if s.start <= start <= s.end or s.start <= end <= s.end:
                 return eid
     return None
 

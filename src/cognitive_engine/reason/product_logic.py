@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import IntEnum
 from typing import Tuple
 
-from cognitive_engine.models import Graph, Violation, Severity
+from cognitive_engine.core.models import Graph, Violation, Severity
 
 CATEGORY_NAMES = {1: "Necessity", 2: "Fact", 3: "Belief", 4: "Concept"}
 

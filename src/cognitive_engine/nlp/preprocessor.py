@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
-from cognitive_engine.chunker import Chunk, PropSpan
+from cognitive_engine.nlp.chunker import Chunk, PropSpan
 
 logger = logging.getLogger(__name__)
 

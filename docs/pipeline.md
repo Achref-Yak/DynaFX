@@ -2,12 +2,12 @@
 
 The pipeline is the heart of the engine. This page describes each stage in detail, from raw text to structured graph.
 
-## 1. Chunking (`chunker.py`)
+## 1. Chunking (`nlp/chunker.py`)
 
 Long documents are split into overlapping token windows to fit within the 512-token limit of the underlying transformer tokenizer.
 
 ```python
-from cognitive_engine.chunker import chunk_text
+from cognitive_engine.nlp.chunker import chunk_text
 from transformers import AutoTokenizer
 
 tokenizer = AutoTokenizer.from_pretrained("distilroberta-base")

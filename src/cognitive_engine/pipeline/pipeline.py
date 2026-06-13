@@ -4,14 +4,14 @@ import logging
 from typing import List, Optional, Tuple, Set
 from uuid import UUID, uuid4
 
-from cognitive_engine.chunker import chunk_text, merge_propositions, PropSpan
-from cognitive_engine.argumentation_module import run_argumentation
-from cognitive_engine.entity_module import extract_entities
-from cognitive_engine.models import Graph, Node, NodeType, ReasoningMode, Span as ModelSpan
-from cognitive_engine.module_registry import ModuleDef, ModuleRegistry
-from cognitive_engine.preprocessor import preprocess_chunks
-from cognitive_engine.relation_extractor import extract_relations
-from cognitive_engine.tagger import (
+from cognitive_engine.nlp.chunker import chunk_text, merge_propositions, PropSpan
+from cognitive_engine.pipeline.argumentation import run_argumentation
+from cognitive_engine.extract.entities import extract_entities
+from cognitive_engine.core.models import Graph, Node, NodeType, ReasoningMode, Span as ModelSpan
+from cognitive_engine.pipeline.registry import ModuleDef, ModuleRegistry
+from cognitive_engine.nlp.preprocessor import preprocess_chunks
+from cognitive_engine.extract.relations import extract_relations
+from cognitive_engine.nlp.tagger import (
     PropositionTagger,
     RelationClassifier,
     SentenceTagger,

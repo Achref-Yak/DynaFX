@@ -4,9 +4,9 @@ import logging
 from typing import Dict, List, Optional, Set, Tuple
 from uuid import UUID, uuid4
 
-from cognitive_engine.chunker import PropSpan
-from cognitive_engine.models import Edge, EdgeType, NodeType
-from cognitive_engine.type_mapper import Relation
+from cognitive_engine.nlp.chunker import PropSpan
+from cognitive_engine.core.models import Edge, EdgeType, NodeType
+from cognitive_engine.extract.types import Relation
 
 logger = logging.getLogger(__name__)
 

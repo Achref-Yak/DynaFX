@@ -1,10 +1,10 @@
 import pytest
-from cognitive_engine.chunker import PropSpan
-from cognitive_engine.models import NodeType
-from cognitive_engine.type_mapper import assign_type, map_types, Relation, _char_span_relaxed
+from cognitive_engine.nlp.chunker import PropSpan
+from cognitive_engine.core.models import NodeType
+from cognitive_engine.extract.types import assign_type, map_types, Relation, _char_span_relaxed
 
 pytest.importorskip("spacy")
-from cognitive_engine.preprocessor import load_spacy_pipeline
+from cognitive_engine.nlp.preprocessor import load_spacy_pipeline
 
 nlp = load_spacy_pipeline()
 

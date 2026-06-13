@@ -55,7 +55,7 @@ Missing keys fall back to the built-in defaults.
 The `sweep_priors(base, delta)` function creates ±delta variants of each prior for sensitivity analysis:
 
 ```python
-from cognitive_engine.config import Priors, sweep_priors
+from cognitive_engine.core.config import Priors, sweep_priors
 
 base = Priors()
 variants = sweep_priors(base, delta=0.1)  # 40+ variants

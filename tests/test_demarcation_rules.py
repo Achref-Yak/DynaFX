@@ -3,10 +3,10 @@ from typing import Optional
 from uuid import uuid4
 
 pytest.importorskip("spacy")
-from cognitive_engine.preprocessor import load_spacy_pipeline
+from cognitive_engine.nlp.preprocessor import load_spacy_pipeline
 
-from cognitive_engine.models import Graph, Node, NodeType, Span
-from cognitive_engine.demarcation_rules import assign_demarcations
+from cognitive_engine.core.models import Graph, Node, NodeType, Span
+from cognitive_engine.extract.demarcation import assign_demarcations
 
 nlp = load_spacy_pipeline()
 

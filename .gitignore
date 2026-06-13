@@ -23,6 +23,7 @@ models/
 # IDE
 .vscode/
 .idea/
+*.plan
 
 # OS
 .DS_Store

@@ -187,57 +187,82 @@ class Graph:
     metadata: Dict = field(default_factory=dict)
     cta: Optional[ConversationTree] = None
 
-    def to_dict(self) -> dict:
-        def _convert(obj):
-            if isinstance(obj, Enum):
-                return obj.name
-            if isinstance(obj, UUID):
-                return obj.hex
-            if isinstance(obj, dict):
-                return {_convert(k): _convert(v) for k, v in obj.items()}
-            if isinstance(obj, list):
-                return [_convert(i) for i in obj]
-            if isinstance(obj, tuple):
-                return list(obj)
-            if hasattr(obj, "__dict__"):
-                return {k: _convert(v) for k, v in obj.__dict__.items() if not k.startswith("_")}
-            return obj
+    @staticmethod
+    def _convert_value(obj: Any) -> Any:
+        if isinstance(obj, Enum):
+            return obj.name
+        if isinstance(obj, UUID):
+            return obj.hex
+        if isinstance(obj, dict):
+            return {Graph._convert_value(k): Graph._convert_value(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [Graph._convert_value(i) for i in obj]
+        if isinstance(obj, tuple):
+            return list(obj)
+        if hasattr(obj, "__dict__"):
+            return {k: Graph._convert_value(v) for k, v in obj.__dict__.items() if not k.startswith("_")}
+        return obj
 
+    @staticmethod
+    def _collect_roles(interpretations: Dict[str, Interpretation]) -> Dict[UUID, str]:
         roles: dict[UUID, str] = {}
-        for interp in self.interpretations.values():
+        for interp in interpretations.values():
             for eid, role in interp.roles.items():
                 roles[eid] = role
+        return roles
 
+    @staticmethod
+    def _build_outgoing_map(edges: List[Edge]) -> Dict[UUID, List[Edge]]:
         outgoing: dict[UUID, list[Edge]] = defaultdict(list)
-        for edge in self.edges:
+        for edge in edges:
             outgoing[edge.source_id].append(edge)
+        return outgoing
 
+    @staticmethod
+    def _serialize_nodes(
+        nodes: Dict[UUID, Node],
+        roles: Dict[UUID, str],
+        outgoing: Dict[UUID, List[Edge]],
+    ) -> List[dict]:
         sorted_nodes = sorted(
-            self.nodes.items(),
+            nodes.items(),
             key=lambda x: (x[1].span.start if x[1].span else 0, x[1].text),
         )
         propositions: list[dict] = []
         for nid, node in sorted_nodes:
-            nd = _convert(node)
+            nd = Graph._convert_value(node)
             nd["argumentation_role"] = roles.get(nid, node.type.name)
-            nd["outgoing_edges"] = [_convert(e) for e in outgoing.get(nid, [])]
+            nd["outgoing_edges"] = [Graph._convert_value(e) for e in outgoing.get(nid, [])]
             propositions.append(nd)
+        return propositions
 
+    @staticmethod
+    def _serialize_entities(entities: Dict[UUID, Entity]) -> List[dict]:
         sorted_entities = sorted(
-            self.entities.items(),
+            entities.items(),
             key=lambda x: (x[1].spans[0].start if x[1].spans else 0, x[1].name),
         )
-        entities_list: list[dict] = [_convert(e) for _, e in sorted_entities]
+        return [Graph._convert_value(e) for _, e in sorted_entities]
 
+    @staticmethod
+    def _serialize_world_relations(world_relations: List[WorldRelation]) -> List[dict]:
         sorted_wr = sorted(
-            self.world_relations,
+            world_relations,
             key=lambda r: (r.kind, r.source_id.hex),
         )
+        return [Graph._convert_value(r) for r in sorted_wr]
+
+    def to_dict(self) -> dict:
+        roles = Graph._collect_roles(self.interpretations)
+        outgoing = Graph._build_outgoing_map(self.edges)
+        propositions = Graph._serialize_nodes(self.nodes, roles, outgoing)
+        entities_list = Graph._serialize_entities(self.entities)
+        wr_list = Graph._serialize_world_relations(self.world_relations)
 
         result: dict = {
             "propositions": propositions,
             "entities": entities_list,
-            "world_relations": [_convert(r) for r in sorted_wr],
+            "world_relations": wr_list,
             "mode": self.mode.name,
             "source_text": self.source_text,
             "metadata": self.metadata,
@@ -270,7 +295,42 @@ class Graph:
         return "\n".join(lines)
 
     @staticmethod
-    def from_dict(data: dict) -> Graph:
+    def _parse_warrant(ed: dict) -> Optional[Warrant]:
+        w_data = ed.get("warrant")
+        if w_data and len(w_data) == 2:
+            return (tuple(w_data[0]), tuple(w_data[1]))
+        return None
+
+    @staticmethod
+    def _parse_node(node_id: UUID, nd: dict, with_role: bool = False) -> tuple[Node, Optional[str]]:
+        span_data = nd.get("span")
+        span = Span(**span_data) if span_data else None
+        node = Node(
+            id=node_id,
+            type=NodeType[nd.get("type", "CLAIM")],
+            text=nd.get("text", ""),
+            span=span,
+            category=nd.get("category", 2),
+            opinion=tuple(nd.get("opinion", (0, 0, 1, 0.5))),
+        )
+        role = nd.get("argumentation_role") if with_role else None
+        return node, role
+
+    @staticmethod
+    def _parse_entity(entity_id: UUID, ed: dict) -> Entity:
+        return Entity(
+            id=entity_id,
+            kind=ed.get("kind", ""),
+            name=ed.get("name", ""),
+            superordinate=ed.get("superordinate"),
+            subordinate=ed.get("subordinate"),
+            attributes=ed.get("attributes", {}),
+            spans=[Span(**s) for s in ed.get("spans", [])],
+            metadata=ed.get("metadata", {}),
+        )
+
+    @staticmethod
+    def _parse_nodes(data: dict) -> tuple[dict[UUID, Node], dict[UUID, str]]:
         nodes: dict[UUID, Node] = {}
         roles: dict[UUID, str] = {}
 
@@ -280,41 +340,26 @@ class Graph:
         if old_nodes is not None:
             for nid_hex, nd in old_nodes.items():
                 node_id = UUID(nid_hex)
-                span_data = nd.get("span")
-                span = Span(**span_data) if span_data else None
-                nodes[node_id] = Node(
-                    id=node_id,
-                    type=NodeType[nd.get("type", "CLAIM")],
-                    text=nd.get("text", ""),
-                    span=span,
-                    category=nd.get("category", 2),
-                    opinion=tuple(nd.get("opinion", (0, 0, 1, 0.5))),
-                )
+                node, _ = Graph._parse_node(node_id, nd)
+                nodes[node_id] = node
         elif new_propositions is not None:
             for pd in new_propositions:
                 node_id = UUID(pd["id"])
-                span_data = pd.get("span")
-                span = Span(**span_data) if span_data else None
-                nodes[node_id] = Node(
-                    id=node_id,
-                    type=NodeType[pd.get("type", "CLAIM")],
-                    text=pd.get("text", ""),
-                    span=span,
-                    category=pd.get("category", 2),
-                    opinion=tuple(pd.get("opinion", (0, 0, 1, 0.5))),
-                )
-                role = pd.get("argumentation_role")
+                node, role = Graph._parse_node(node_id, pd, with_role=True)
+                nodes[node_id] = node
                 if role:
                     roles[node_id] = role
 
+        return nodes, roles
+
+    @staticmethod
+    def _parse_edges(data: dict, nodes: dict[UUID, Node]) -> list[Edge]:
         edges: list[Edge] = []
         old_edges = data.get("edges")
+        new_propositions = data.get("propositions")
+
         if old_edges is not None:
             for ed in old_edges:
-                warrant = None
-                w_data = ed.get("warrant")
-                if w_data and len(w_data) == 2:
-                    warrant = (tuple(w_data[0]), tuple(w_data[1]))
                 edges.append(
                     Edge(
                         id=UUID(ed["id"]),
@@ -322,17 +367,13 @@ class Graph:
                         target_id=UUID(ed["target_id"]),
                         type=EdgeType[ed.get("type", "SUPPORTS")],
                         opinion=tuple(ed.get("opinion", (0, 0, 1, 0.5))),
-                        warrant=warrant,
+                        warrant=Graph._parse_warrant(ed),
                     )
                 )
         elif new_propositions is not None:
             for pd in new_propositions:
                 src_id = UUID(pd["id"])
                 for e in pd.get("outgoing_edges", []):
-                    warrant = None
-                    w_data = e.get("warrant")
-                    if w_data and len(w_data) == 2:
-                        warrant = (tuple(w_data[0]), tuple(w_data[1]))
                     edges.append(
                         Edge(
                             id=UUID(e["id"]),
@@ -340,93 +381,112 @@ class Graph:
                             target_id=UUID(e["target_id"]),
                             type=EdgeType[e.get("type", "SUPPORTS")],
                             opinion=tuple(e.get("opinion", (0, 0, 1, 0.5))),
-                            warrant=warrant,
+                            warrant=Graph._parse_warrant(e),
                         )
                     )
 
+        return edges
+
+    @staticmethod
+    def _parse_entities(data: dict) -> dict[UUID, Entity]:
         entities: dict[UUID, Entity] = {}
         old_entities = data.get("entities")
+
         if isinstance(old_entities, dict):
             for eid_hex, ed in old_entities.items():
                 entity_id = UUID(eid_hex)
-                entities[entity_id] = Entity(
-                    id=entity_id,
-                    kind=ed.get("kind", ""),
-                    name=ed.get("name", ""),
-                    superordinate=ed.get("superordinate"),
-                    subordinate=ed.get("subordinate"),
-                    attributes=ed.get("attributes", {}),
-                    spans=[Span(**s) for s in ed.get("spans", [])],
-                    metadata=ed.get("metadata", {}),
-                )
+                entities[entity_id] = Graph._parse_entity(entity_id, ed)
         elif isinstance(old_entities, list):
             for ed in old_entities:
                 entity_id = UUID(ed["id"])
-                entities[entity_id] = Entity(
-                    id=entity_id,
-                    kind=ed.get("kind", ""),
-                    name=ed.get("name", ""),
-                    superordinate=ed.get("superordinate"),
-                    subordinate=ed.get("subordinate"),
-                    attributes=ed.get("attributes", {}),
-                    spans=[Span(**s) for s in ed.get("spans", [])],
-                    metadata=ed.get("metadata", {}),
-                )
+                entities[entity_id] = Graph._parse_entity(entity_id, ed)
 
-        world_relations: list[WorldRelation] = []
+        return entities
+
+    @staticmethod
+    def _parse_world_relations(data: dict) -> list[WorldRelation]:
+        result: list[WorldRelation] = []
         for rd in data.get("world_relations", []):
-            world_relations.append(WorldRelation(
+            result.append(WorldRelation(
                 id=UUID(rd["id"]),
                 source_id=UUID(rd["source_id"]),
                 target_id=UUID(rd["target_id"]),
                 kind=rd.get("kind", ""),
                 metadata=rd.get("metadata", {}),
             ))
+        return result
 
-        interpretations: dict[str, Interpretation] = {}
+    @staticmethod
+    def _parse_interpretations(
+        data: dict, edges: list[Edge], roles: dict[UUID, str],
+    ) -> dict[str, Interpretation]:
         old_interps = data.get("interpretations")
         if old_interps:
-            for name, idata in old_interps.items():
-                interp_roles = {UUID(k): v for k, v in idata.get("roles", {}).items()}
-                interp_edges = []
-                for ted in idata.get("edges", []):
-                    warrant = None
-                    w_data = ted.get("warrant")
-                    if w_data and len(w_data) == 2:
-                        warrant = (tuple(w_data[0]), tuple(w_data[1]))
-                    interp_edges.append(TypedEdge(
-                        id=UUID(ted["id"]),
-                        source_id=UUID(ted["source_id"]),
-                        target_id=UUID(ted["target_id"]),
-                        type=ted.get("type", ""),
-                        opinion=tuple(ted.get("opinion", (0, 0, 1, 0.5))),
-                        warrant=warrant,
-                        metadata=ted.get("metadata", {}),
-                    ))
-                interpretations[name] = Interpretation(name=name, roles=interp_roles, edges=interp_edges)
-        elif roles and data.get("propositions") is not None:
-            arg_edges: list[TypedEdge] = []
-            for e in edges:
-                arg_edges.append(TypedEdge(
-                    id=e.id,
-                    source_id=e.source_id,
-                    target_id=e.target_id,
-                    type=e.type.name,
+            return Graph._parse_interpretations_v1(old_interps)
+        if roles and data.get("propositions") is not None:
+            return Graph._parse_interpretations_v2(edges, roles)
+        return {}
+
+    @staticmethod
+    def _parse_interpretations_v1(
+        old_interps: dict,
+    ) -> dict[str, Interpretation]:
+        result: dict[str, Interpretation] = {}
+        for name, idata in old_interps.items():
+            interp_roles = {UUID(k): v for k, v in idata.get("roles", {}).items()}
+            interp_edges = []
+            for ted in idata.get("edges", []):
+                interp_edges.append(TypedEdge(
+                    id=UUID(ted["id"]),
+                    source_id=UUID(ted["source_id"]),
+                    target_id=UUID(ted["target_id"]),
+                    type=ted.get("type", ""),
+                    opinion=tuple(ted.get("opinion", (0, 0, 1, 0.5))),
+                    warrant=Graph._parse_warrant(ted),
+                    metadata=ted.get("metadata", {}),
                 ))
-            interpretations["argumentation"] = Interpretation(
+            result[name] = Interpretation(name=name, roles=interp_roles, edges=interp_edges)
+        return result
+
+    @staticmethod
+    def _parse_interpretations_v2(
+        edges: list[Edge], roles: dict[UUID, str],
+    ) -> dict[str, Interpretation]:
+        arg_edges: list[TypedEdge] = []
+        for e in edges:
+            arg_edges.append(TypedEdge(
+                id=e.id,
+                source_id=e.source_id,
+                target_id=e.target_id,
+                type=e.type.name,
+            ))
+        return {
+            "argumentation": Interpretation(
                 name="argumentation",
                 roles=roles,
                 edges=arg_edges,
-            )
+            ),
+        }
 
+    @staticmethod
+    def _parse_cta(data: dict) -> Optional[ConversationTree]:
         cta_data = data.get("cta")
-        cta = None
-        if cta_data:
-            cta = ConversationTree(
-                root_id=UUID(cta_data["root_id"]),
-                node_ids={UUID(n) for n in cta_data.get("node_ids", [])},
-                parent_map={UUID(k): UUID(v) for k, v in cta_data.get("parent_map", {}).items()},
-            )
+        if not cta_data:
+            return None
+        return ConversationTree(
+            root_id=UUID(cta_data["root_id"]),
+            node_ids={UUID(n) for n in cta_data.get("node_ids", [])},
+            parent_map={UUID(k): UUID(v) for k, v in cta_data.get("parent_map", {}).items()},
+        )
+
+    @staticmethod
+    def from_dict(data: dict) -> Graph:
+        nodes, roles = Graph._parse_nodes(data)
+        edges = Graph._parse_edges(data, nodes)
+        entities = Graph._parse_entities(data)
+        world_relations = Graph._parse_world_relations(data)
+        interpretations = Graph._parse_interpretations(data, edges, roles)
+        cta = Graph._parse_cta(data)
 
         return Graph(
             nodes=nodes,

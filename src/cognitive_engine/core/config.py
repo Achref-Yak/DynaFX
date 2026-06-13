@@ -7,7 +7,7 @@ from importlib.resources import files as resource_files
 from pathlib import Path
 from typing import Dict, Tuple
 
-from cognitive_engine.models import Opinion
+from cognitive_engine.core.models import Opinion
 
 OpinionPair = Tuple[Opinion, Opinion]
 

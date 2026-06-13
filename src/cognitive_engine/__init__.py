@@ -1,6 +1,6 @@
-from cognitive_engine.extraction import extract_graph
-from cognitive_engine.orchestrator import run as orchestrator_run
-from cognitive_engine.models import (
+from cognitive_engine.pipeline.extraction import extract_graph
+from cognitive_engine.pipeline.orchestrator import run as orchestrator_run
+from cognitive_engine.core.models import (
     Graph,
     Node,
     NodeType,
