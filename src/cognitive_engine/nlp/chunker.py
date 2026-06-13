@@ -43,6 +43,7 @@ def chunk_text(
     if not text:
         return []
 
+    tokenizer.model_max_length = 1 << 30
     encoding = tokenizer(
         text,
         return_offsets_mapping=True,

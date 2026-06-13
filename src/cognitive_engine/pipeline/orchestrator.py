@@ -5,12 +5,46 @@ from typing import Optional
 
 from cognitive_engine.core.config import Priors, load_priors
 from cognitive_engine.pipeline.extraction import extract_graph
-from cognitive_engine.core.models import ConversationTree, Graph, ReasoningMode, Severity
+from cognitive_engine.core.models import ConversationTree, EdgeType, Graph, ReasoningMode, Severity
 from cognitive_engine.reason.modes import apply_mode, compute_mode_views
 from cognitive_engine.reason.sl_operators import compute_opinions
 from cognitive_engine.reason.validators import validate_all
 
 logger = logging.getLogger(__name__)
+
+
+def _break_cycles(graph: Graph) -> None:
+    """Remove minimum positive edges to make CTA parent subgraph acyclic."""
+    import networkx as nx
+
+    positive_edges = [
+        e for e in graph.edges
+        if e.type in (EdgeType.INFERS, EdgeType.SUPPORTS, EdgeType.JUSTIFIES)
+    ]
+    if not positive_edges:
+        return
+
+    nx_graph = nx.DiGraph()
+    for e in positive_edges:
+        nx_graph.add_edge(e.source_id.hex, e.target_id.hex)
+
+    try:
+        list(nx.topological_sort(nx_graph))
+        return
+    except nx.NetworkXUnfeasible:
+        pass
+
+    to_remove = nx.minimum_feedback_arc_set(nx_graph)
+    edge_by_key = {(e.source_id.hex, e.target_id.hex): e for e in positive_edges}
+    remove_ids = {edge_by_key[k].id for k in to_remove if k in edge_by_key}
+
+    removed = [e for e in graph.edges if e.id in remove_ids]
+    if removed:
+        logger.info(
+            "Removed %d edge(s) to resolve %d CTA cycle(s)",
+            len(removed), len(to_remove),
+        )
+        graph.edges = [e for e in graph.edges if e.id not in remove_ids]
 
 
 def run(
@@ -40,6 +74,8 @@ def run(
         resolved = ReasoningMode[mode.upper()]
         graph = apply_mode(graph, resolved)
         compute_opinions(graph, priors)
+
+    _break_cycles(graph)
 
     graph.cta = ConversationTree.from_graph(graph)
 

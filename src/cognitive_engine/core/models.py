@@ -155,8 +155,12 @@ class ConversationTree:
     def get_context(self, node_id: UUID) -> list[UUID]:
         """Window function W — ancestor chain from root to node (inclusive)."""
         chain: list[UUID] = []
+        visited: set[UUID] = set()
         current = node_id
         while current in self.parent_map or current == self.root_id:
+            if current in visited:
+                break
+            visited.add(current)
             chain.append(current)
             if current == self.root_id:
                 break

@@ -1,6 +1,6 @@
 import networkx as nx
 
-from cognitive_engine.core.models import Graph, Violation, Severity
+from cognitive_engine.core.models import Graph, Node, Violation, Severity
 from cognitive_engine.reason.product_logic import validate_categories as product_logic_check
 
 
@@ -13,7 +13,17 @@ def _build_digraph(graph: Graph) -> nx.DiGraph:
     return nx_graph
 
 
-def _detect_cycles(nx_graph: nx.DiGraph) -> list[Violation]:
+def _summarize_node(node_id: str, nodes: dict[str, Node]) -> str:
+    node = nodes.get(node_id)
+    if node is None:
+        return f"{node_id[:8]}"
+    text = node.text[:60].replace("\n", " ")
+    return f"'{text}' [{node.type.name}]"
+
+
+def _detect_cycles(
+    nx_graph: nx.DiGraph, nodes: dict[str, Node],
+) -> list[Violation]:
     try:
         list(nx.topological_sort(nx_graph))
         return []
@@ -22,11 +32,14 @@ def _detect_cycles(nx_graph: nx.DiGraph) -> list[Violation]:
         for component in nx.strongly_connected_components(nx_graph):
             comp_list = list(component)
             if len(comp_list) > 1 or nx_graph.has_edge(comp_list[0], comp_list[0]):
+                samples = [_summarize_node(nid, nodes) for nid in list(component)[:3]]
+                rest = f" … and {len(component) - 3} more" if len(component) > 3 else ""
                 violations.append(
                     Violation(
                         type="CYCLE_DETECTED",
                         severity=Severity.ERROR,
-                        description=f"Cycle detected between nodes: {comp_list}",
+                        description=f"Cycle detected ({len(component)} nodes): "
+                        f"{'; '.join(samples)}{rest}",
                         node_id=None,
                     )
                 )
@@ -38,7 +51,8 @@ def level_mapping_check(graph: Graph) -> list[Violation]:
         return []
     nx_graph = _build_digraph(graph)
 
-    cycle_violations = _detect_cycles(nx_graph)
+    nodes_hex = {n.id.hex: n for n in graph.nodes.values()}
+    cycle_violations = _detect_cycles(nx_graph, nodes_hex)
     if cycle_violations:
         return cycle_violations
 
