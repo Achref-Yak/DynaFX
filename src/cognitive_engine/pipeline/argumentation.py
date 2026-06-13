@@ -34,20 +34,9 @@ def _find_entity_for_span(
     return None
 
 
-def run_argumentation(
-    graph: Graph,
-    spans: List[PropSpan],
-    docs: List["spacy.tokens.Doc"],
-    source_text: str,
-    classifier: Optional[RelationClassifier] = None,
-    tagger: Optional[SentenceTagger] = None,
-    **kwargs,
-) -> None:
-    if classifier is None:
-        classifier = RelationClassifier()
-    if tagger is None:
-        tagger = SentenceTagger()
-
+def _classify_relations(
+    spans: List[PropSpan], classifier: RelationClassifier,
+) -> List[Relation]:
     relations: List[Relation] = []
     for i, sa in enumerate(spans):
         for j, sb in enumerate(spans):
@@ -56,11 +45,12 @@ def run_argumentation(
             label = classifier.classify(sa.text, sb.text)
             if label != "None":
                 relations.append(Relation(source_span=sa, target_span=sb, label=label))
+    return relations
 
-    typed = map_types(spans, docs, relations)
 
-    typed_spans: List[Tuple[PropSpan, NodeType]] = typed
-
+def _build_nodes(
+    typed_spans: List[Tuple[PropSpan, NodeType]],
+) -> Tuple[Dict[SpanKey, UUID], Dict[UUID, Node]]:
     span_to_node: Dict[SpanKey, UUID] = {}
     nodes: Dict[UUID, Node] = {}
     for s, nt in typed_spans:
@@ -72,12 +62,12 @@ def run_argumentation(
             text=s.text,
             span=ModelSpan(start=s.start_char, end=s.end_char, text=s.text),
         )
+    return span_to_node, nodes
 
-    graph.nodes = nodes
-    graph.edges = assign_edges(typed_spans, relations, span_to_node, nodes)
 
-    assign_demarcations(graph, docs)
-
+def _register_interpretation(
+    graph: Graph, typed_spans: List[Tuple[PropSpan, NodeType]],
+) -> Interpretation:
     interp = Interpretation(name="argumentation")
     for s, nt in typed_spans:
         eid = _find_entity_for_span(graph, s.start_char, s.end_char)
@@ -100,5 +90,29 @@ def run_argumentation(
             target_id=edge.target_id,
             type=edge.type.name,
         ))
+    return interp
 
-    graph.interpretations["argumentation"] = interp
+
+def run_argumentation(
+    graph: Graph,
+    spans: List[PropSpan],
+    docs: List["spacy.tokens.Doc"],
+    source_text: str,
+    classifier: Optional[RelationClassifier] = None,
+    tagger: Optional[SentenceTagger] = None,
+    **kwargs,
+) -> None:
+    if classifier is None:
+        classifier = RelationClassifier()
+    if tagger is None:
+        tagger = SentenceTagger()
+
+    relations = _classify_relations(spans, classifier)
+    typed = map_types(spans, docs, relations)
+
+    span_to_node, nodes = _build_nodes(typed)
+    graph.nodes = nodes
+    graph.edges = assign_edges(typed, relations, span_to_node, nodes)
+    assign_demarcations(graph, docs)
+
+    graph.interpretations["argumentation"] = _register_interpretation(graph, typed)

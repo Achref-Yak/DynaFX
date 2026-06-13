@@ -12,7 +12,7 @@ from cognitive_engine.nlp.preprocessor import PreprocessedChunk
 
 logger = logging.getLogger(__name__)
 
-_MODELS_DIR = Path(__file__).resolve().parents[2] / "models"
+_MODELS_DIR = Path(__file__).resolve().parents[3] / "models"
 _TAGGER_DIR = _MODELS_DIR / "roberta-proposition-detector"
 _CLASSIFIER_DIR = _MODELS_DIR / "roberta-relation-classifier"
 
@@ -24,8 +24,8 @@ class PropositionTagger:
     def __init__(self, model_path: Optional[str] = None, device: Optional[str] = None):
         path = model_path or str(_TAGGER_DIR)
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-        self.tokenizer = AutoTokenizer.from_pretrained(path)
-        self.model = AutoModelForTokenClassification.from_pretrained(path).to(self.device)
+        self.tokenizer = AutoTokenizer.from_pretrained(path, local_files_only=True)
+        self.model = AutoModelForTokenClassification.from_pretrained(path, local_files_only=True).to(self.device)
         self.model.eval()
 
     @torch.no_grad()
@@ -53,8 +53,8 @@ class RelationClassifier:
     def __init__(self, model_path: Optional[str] = None, device: Optional[str] = None):
         path = model_path or str(_CLASSIFIER_DIR)
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-        self.tokenizer = AutoTokenizer.from_pretrained(path)
-        self.model = AutoModelForSequenceClassification.from_pretrained(path).to(self.device)
+        self.tokenizer = AutoTokenizer.from_pretrained(path, local_files_only=True)
+        self.model = AutoModelForSequenceClassification.from_pretrained(path, local_files_only=True).to(self.device)
         self.model.eval()
 
     @torch.no_grad()

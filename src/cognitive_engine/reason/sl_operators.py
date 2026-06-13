@@ -1,7 +1,8 @@
+from typing import Callable, Optional
 from uuid import UUID
 
 from cognitive_engine.core.config import Priors
-from cognitive_engine.core.models import Graph, NodeType, EdgeType, Opinion
+from cognitive_engine.core.models import Edge, Graph, NodeType, EdgeType, Opinion
 
 
 def conjunction(omega_x: Opinion, omega_y: Opinion) -> Opinion:
@@ -111,30 +112,55 @@ def _topological_order(graph: Graph) -> list[UUID]:
     return order
 
 
+_FUSION_RULES: list[tuple[Callable[[set[NodeType]], bool], Callable]] = [
+    (lambda st: st.issubset({NodeType.CLAIM, NodeType.COUNTERCLAIM}), conjunction),
+    (lambda st: st == {NodeType.EVIDENCE}, cumulative_fusion),
+]
+
+
+def _select_fusion_fn(source_types: set[NodeType]) -> Callable:
+    for predicate, fn in _FUSION_RULES:
+        if predicate(source_types):
+            return fn
+    return disjunction
+
+
 def _fusion_strategy(
     contributions: list[Opinion],
     incoming_edges: list,
     graph: Graph,
 ) -> Opinion:
-    fused = contributions[0]
     if len(contributions) == 1:
-        return fused
+        return contributions[0]
 
-    source_types = set()
-    for e in incoming_edges:
-        if e.source_id in graph.nodes:
-            source_types.add(graph.nodes[e.source_id].type)
+    source_types = {graph.nodes[e.source_id].type for e in incoming_edges
+                    if e.source_id in graph.nodes}
+    fusion_fn = _select_fusion_fn(source_types)
 
-    if all(t in (NodeType.CLAIM, NodeType.COUNTERCLAIM) for t in source_types):
-        for op in contributions[1:]:
-            fused = conjunction(fused, op)
-    elif all(t == NodeType.EVIDENCE for t in source_types):
-        for op in contributions[1:]:
-            fused = cumulative_fusion(fused, op)
-    else:
-        for op in contributions[1:]:
-            fused = disjunction(fused, op)
+    fused = contributions[0]
+    for op in contributions[1:]:
+        fused = fusion_fn(fused, op)
     return fused
+
+
+def _compute_node_opinion(
+    nid: UUID, incoming: list[Edge], graph: Graph, priors: Priors,
+) -> Optional[Opinion]:
+    contributions: list[Opinion] = []
+    for edge in incoming:
+        source = graph.nodes.get(edge.source_id)
+        if source is None:
+            continue
+        warrant = edge.warrant or priors.edge_warrants.get(
+            edge.type.name, priors.default_warrant
+        )
+        result = conditional_deduction(source.opinion, warrant)
+        contributions.append(result)
+
+    if not contributions:
+        return None
+
+    return _fusion_strategy(contributions, incoming, graph)
 
 
 def compute_opinions(graph: Graph, priors: Priors | None = None) -> Graph:
@@ -149,22 +175,9 @@ def compute_opinions(graph: Graph, priors: Priors | None = None) -> Graph:
         incoming = [e for e in graph.edges if e.target_id == nid]
         if not incoming:
             continue
-
-        contributions: list[Opinion] = []
-        for edge in incoming:
-            source = graph.nodes.get(edge.source_id)
-            if source is None:
-                continue
-            warrant = edge.warrant or priors.edge_warrants.get(
-                edge.type.name, priors.default_warrant
-            )
-            result = conditional_deduction(source.opinion, warrant)
-            contributions.append(result)
-
-        if not contributions:
-            continue
-
-        graph.nodes[nid].opinion = _fusion_strategy(contributions, incoming, graph)
+        opinion = _compute_node_opinion(nid, incoming, graph, priors)
+        if opinion is not None:
+            graph.nodes[nid].opinion = opinion
 
     graph.metadata["priors"] = priors.to_dict()
 

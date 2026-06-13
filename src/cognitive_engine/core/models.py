@@ -274,24 +274,42 @@ class Graph:
     def to_json(self, indent: int = 2) -> str:
         return json.dumps(self.to_dict(), indent=indent, default=str)
 
+    @staticmethod
+    def _compact_node(nid: UUID, node: Node) -> str:
+        text = node.text[:60].replace("\n", " ")
+        return f"NODE {nid.hex[:8]} {node.type.name} [{node.category}] \"{text}\""
+
+    @staticmethod
+    def _compact_edge(edge: Edge) -> str:
+        return f"EDGE {edge.source_id.hex[:8]} --{edge.type.name}--> {edge.target_id.hex[:8]}"
+
+    @staticmethod
+    def _compact_entity(eid: UUID, entity: Entity) -> str:
+        return f"ENTITY {eid.hex[:8]} kind={entity.kind} \"{entity.name[:60]}\""
+
+    @staticmethod
+    def _compact_world_relation(wr: WorldRelation) -> str:
+        return f"REL {wr.source_id.hex[:8]} --{wr.kind}--> {wr.target_id.hex[:8]}"
+
+    @staticmethod
+    def _compact_interpretation(name: str, interp: Interpretation) -> list[str]:
+        lines = [f"INTERPRETATION {name}: {len(interp.roles)} roles, {len(interp.edges)} edges"]
+        for te in interp.edges:
+            lines.append(f"  TE {te.source_id.hex[:8]} --{te.type}--> {te.target_id.hex[:8]}")
+        return lines
+
     def to_compact_str(self) -> str:
         lines: list[str] = []
         for nid, node in self.nodes.items():
-            text = node.text[:60].replace("\n", " ")
-            lines.append(f"NODE {nid.hex[:8]} {node.type.name} [{node.category}] \"{text}\"")
+            lines.append(Graph._compact_node(nid, node))
         for edge in self.edges:
-            lines.append(
-                f"EDGE {edge.source_id.hex[:8]} --{edge.type.name}--> "
-                f"{edge.target_id.hex[:8]}"
-            )
+            lines.append(Graph._compact_edge(edge))
         for eid, entity in self.entities.items():
-            lines.append(f"ENTITY {eid.hex[:8]} kind={entity.kind} \"{entity.name[:60]}\"")
+            lines.append(Graph._compact_entity(eid, entity))
         for wr in self.world_relations:
-            lines.append(f"REL {wr.source_id.hex[:8]} --{wr.kind}--> {wr.target_id.hex[:8]}")
+            lines.append(Graph._compact_world_relation(wr))
         for name, interp in self.interpretations.items():
-            lines.append(f"INTERPRETATION {name}: {len(interp.roles)} roles, {len(interp.edges)} edges")
-            for te in interp.edges:
-                lines.append(f"  TE {te.source_id.hex[:8]} --{te.type}--> {te.target_id.hex[:8]}")
+            lines.extend(Graph._compact_interpretation(name, interp))
         return "\n".join(lines)
 
     @staticmethod

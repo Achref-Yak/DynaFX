@@ -64,12 +64,13 @@ _POSSESSIVE_PRONOUNS = {"his", "her", "its", "their"}
 _DEMONSTRATIVES = {"this", "that", "these", "those"}
 _ALL_PRONOUNS = set(PRONOUN_MAP)
 
+_NP_LEFT_DEPS = {"det", "amod", "nummod", "poss"}
+_NP_RIGHT_DEPS = {"prep", "pobj", "appos"}
 
-def _find_antecedent(
-    pronoun_index: int,
-    doc: "spacy.tokens.Doc",
-    pronoun_gender: str,
-) -> Optional[Tuple[int, int, str]]:
+
+def _candidates_by_gender(
+    pronoun_index: int, doc: "spacy.tokens.Doc", pronoun_gender: str,
+) -> List[Tuple[int, int, str]]:
     candidates: List[Tuple[int, int, str]] = []
     for i in range(0, pronoun_index):
         token = doc[i]
@@ -84,42 +85,73 @@ def _find_antecedent(
                 candidates.append((i, i + 1, token.text))
         elif token.pos_ == "PRON" and token.text.lower() in _SUBJECT_PRONOUNS:
             candidates.append((i, i + 1, token.text))
+    return candidates
+
+
+def _all_noun_candidates(
+    pronoun_index: int, doc: "spacy.tokens.Doc",
+) -> List[Tuple[int, int, str]]:
+    candidates: List[Tuple[int, int, str]] = []
+    for i in range(0, pronoun_index):
+        token = doc[i]
+        if token.pos_ in ("NOUN", "PROPN"):
+            candidates.append((i, i + 1, token.text))
+    return candidates
+
+
+def _first_noun_candidate(
+    pronoun_index: int, doc: "spacy.tokens.Doc",
+) -> List[Tuple[int, int, str]]:
+    for i in range(0, pronoun_index):
+        token = doc[i]
+        if token.pos_ in ("NOUN", "PROPN"):
+            return [(i, i + 1, token.text)]
+    return []
+
+
+def _demonstrative_candidate(
+    pronoun_index: int, doc: "spacy.tokens.Doc",
+) -> Optional[Tuple[int, int, str]]:
+    for i in range(0, pronoun_index):
+        token = doc[i]
+        if token.pos_ in ("NOUN", "PROPN", "VERB") and token.dep_ == "ROOT":
+            np_start, np_end = _expand_noun_phrase(i, doc)
+            if np_end > np_start:
+                return (np_start, np_end, doc[np_start:np_end].text)
+            break
+    return None
+
+
+def _find_antecedent(
+    pronoun_index: int,
+    doc: "spacy.tokens.Doc",
+    pronoun_gender: str,
+) -> Optional[Tuple[int, int, str]]:
+    candidates = _candidates_by_gender(pronoun_index, doc, pronoun_gender)
 
     if pronoun_gender in ("neuter", "plural") and not candidates:
-        for i in range(0, pronoun_index):
-            token = doc[i]
-            if token.pos_ in ("NOUN", "PROPN"):
-                candidates.append((i, i + 1, token.text))
+        candidates = _all_noun_candidates(pronoun_index, doc)
 
     if pronoun_gender in ("demonstrative_sg", "demonstrative_pl"):
-        for i in range(0, pronoun_index):
-            token = doc[i]
-            if token.pos_ in ("NOUN", "PROPN", "VERB") and token.dep_ == "ROOT":
-                np_start, np_end = _expand_noun_phrase(i, doc)
-                if np_end > np_start:
-                    candidates.append((np_start, np_end, doc[np_start:np_end].text))
-                break
+        cand = _demonstrative_candidate(pronoun_index, doc)
+        if cand is not None:
+            candidates.append(cand)
 
     if not candidates:
-        for i in range(0, pronoun_index):
-            token = doc[i]
-            if token.pos_ in ("NOUN", "PROPN"):
-                candidates.append((i, i + 1, token.text))
-                break
+        candidates = _first_noun_candidate(pronoun_index, doc)
 
     if not candidates:
         return None
 
-    best = candidates[-1]
-    return best
+    return candidates[-1]
 
 
 def _expand_noun_phrase(token_index: int, doc: "spacy.tokens.Doc") -> Tuple[int, int]:
     start = token_index
-    while start > 0 and doc[start - 1].dep_ in ("det", "amod", "nummod", "poss"):
+    while start > 0 and doc[start - 1].dep_ in _NP_LEFT_DEPS:
         start -= 1
     end = token_index + 1
-    while end < len(doc) and doc[end].dep_ in ("prep", "pobj", "appos"):
+    while end < len(doc) and doc[end].dep_ in _NP_RIGHT_DEPS:
         np_start = end + 1
         while np_start < len(doc) and doc[np_start].dep_ == "pobj":
             np_start += 1

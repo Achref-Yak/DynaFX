@@ -142,6 +142,36 @@ def _resolve_edge_type(
     return edge_type
 
 
+def _qualifies_by_demarcation(
+    src_id: UUID, tgt_id: UUID, nodes: Dict[UUID, Node],
+) -> bool:
+    src_dem = _get_demarcation(src_id, nodes, "epistemic_vs_institutional")
+    tgt_dem = _get_demarcation(tgt_id, nodes, "epistemic_vs_institutional")
+    if src_dem == "INSTITUTIONAL" and tgt_dem == "EPISTEMIC":
+        return True
+
+    src_cog = _get_demarcation(src_id, nodes, "cognitive_vs_epistemic")
+    tgt_cog = _get_demarcation(tgt_id, nodes, "cognitive_vs_epistemic")
+    if {src_cog, tgt_cog} == {"EPISTEMIC", "COGNITIVE"}:
+        return True
+
+    src_aff = _get_demarcation(src_id, nodes, "affect_vs_cognition")
+    if src_aff == "AFFECT":
+        return True
+
+    src_con = _get_demarcation(src_id, nodes, "constraint_vs_enablement")
+    tgt_con = _get_demarcation(tgt_id, nodes, "constraint_vs_enablement")
+    if {src_con, tgt_con} == {"CONSTRAINT", "ENABLEMENT"}:
+        return True
+
+    src_syn = _get_demarcation(src_id, nodes, "synchronic_vs_diachronic")
+    tgt_syn = _get_demarcation(tgt_id, nodes, "synchronic_vs_diachronic")
+    if {src_syn, tgt_syn} == {"SYNCHRONIC", "DIACHRONIC"}:
+        return True
+
+    return False
+
+
 def _refine_by_demarcation(
     edge_type: EdgeType,
     label: str,
@@ -149,55 +179,12 @@ def _refine_by_demarcation(
     tgt_id: UUID,
     nodes: Dict[UUID, Node],
 ) -> EdgeType:
-    src_dem = _get_demarcation(src_id, nodes, "epistemic_vs_institutional")
-    tgt_dem = _get_demarcation(tgt_id, nodes, "epistemic_vs_institutional")
-
+    if not _qualifies_by_demarcation(src_id, tgt_id, nodes):
+        return edge_type
     if edge_type == EdgeType.SUPPORTS:
-        if src_dem == "INSTITUTIONAL" and tgt_dem == "EPISTEMIC":
-            return EdgeType.QUALIFIES
-
-        src_cog = _get_demarcation(src_id, nodes, "cognitive_vs_epistemic")
-        tgt_cog = _get_demarcation(tgt_id, nodes, "cognitive_vs_epistemic")
-        if {src_cog, tgt_cog} == {"EPISTEMIC", "COGNITIVE"}:
-            return EdgeType.QUALIFIES
-
-        src_aff = _get_demarcation(src_id, nodes, "affect_vs_cognition")
-        if src_aff == "AFFECT":
-            return EdgeType.QUALIFIES
-
-        src_con = _get_demarcation(src_id, nodes, "constraint_vs_enablement")
-        tgt_con = _get_demarcation(tgt_id, nodes, "constraint_vs_enablement")
-        if {src_con, tgt_con} == {"CONSTRAINT", "ENABLEMENT"}:
-            return EdgeType.QUALIFIES
-
-        src_syn = _get_demarcation(src_id, nodes, "synchronic_vs_diachronic")
-        tgt_syn = _get_demarcation(tgt_id, nodes, "synchronic_vs_diachronic")
-        if {src_syn, tgt_syn} == {"SYNCHRONIC", "DIACHRONIC"}:
-            return EdgeType.QUALIFIES
-
+        return EdgeType.QUALIFIES
     if label == "Attack" and edge_type in (EdgeType.ATTACKS, EdgeType.CONTRADICTS):
-        if src_dem == "INSTITUTIONAL" and tgt_dem == "EPISTEMIC":
-            return EdgeType.REBUTS
-
-        src_cog = _get_demarcation(src_id, nodes, "cognitive_vs_epistemic")
-        tgt_cog = _get_demarcation(tgt_id, nodes, "cognitive_vs_epistemic")
-        if {src_cog, tgt_cog} == {"EPISTEMIC", "COGNITIVE"}:
-            return EdgeType.REBUTS
-
-        src_aff = _get_demarcation(src_id, nodes, "affect_vs_cognition")
-        if src_aff == "AFFECT":
-            return EdgeType.REBUTS
-
-        src_con = _get_demarcation(src_id, nodes, "constraint_vs_enablement")
-        tgt_con = _get_demarcation(tgt_id, nodes, "constraint_vs_enablement")
-        if {src_con, tgt_con} == {"CONSTRAINT", "ENABLEMENT"}:
-            return EdgeType.REBUTS
-
-        src_syn = _get_demarcation(src_id, nodes, "synchronic_vs_diachronic")
-        tgt_syn = _get_demarcation(tgt_id, nodes, "synchronic_vs_diachronic")
-        if {src_syn, tgt_syn} == {"SYNCHRONIC", "DIACHRONIC"}:
-            return EdgeType.REBUTS
-
+        return EdgeType.REBUTS
     return edge_type
 
 

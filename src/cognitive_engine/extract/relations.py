@@ -168,10 +168,11 @@ def _find_object(verb):
         if child.dep_ in ("dobj", "attr", "ccomp"):
             return child
     for child in verb.children:
-        if child.dep_ == "prep":
-            for grandchild in child.children:
-                if grandchild.dep_ == "pobj":
-                    return grandchild
+        if child.dep_ != "prep":
+            continue
+        for grandchild in child.children:
+            if grandchild.dep_ == "pobj":
+                return grandchild
     return None
 
 
@@ -181,23 +182,6 @@ def _extract_triple(doc, verb):
         return None
 
     obj = _find_object(verb)
-    if obj is None:
-        return None
-
-    obj = None
-    for child in verb.children:
-        if child.dep_ in ("dobj", "attr", "ccomp"):
-            obj = child
-            break
-    if obj is None:
-        for child in verb.children:
-            if child.dep_ == "prep":
-                for grandchild in child.children:
-                    if grandchild.dep_ == "pobj":
-                        obj = grandchild
-                        break
-                if obj is not None:
-                    break
     if obj is None:
         return None
 

@@ -4,37 +4,46 @@ from cognitive_engine.core.models import Graph, Violation, Severity
 from cognitive_engine.reason.product_logic import validate_categories as product_logic_check
 
 
-def level_mapping_check(graph: Graph) -> list[Violation]:
-    if not graph.nodes:
-        return []
+def _build_digraph(graph: Graph) -> nx.DiGraph:
     nx_graph = nx.DiGraph()
     for node_id in graph.nodes:
         nx_graph.add_node(node_id.hex)
     for edge in graph.edges:
         nx_graph.add_edge(edge.source_id.hex, edge.target_id.hex)
+    return nx_graph
 
-    violations: list[Violation] = []
+
+def _detect_cycles(nx_graph: nx.DiGraph) -> list[Violation]:
     try:
         list(nx.topological_sort(nx_graph))
+        return []
     except nx.NetworkXUnfeasible:
+        violations: list[Violation] = []
         for component in nx.strongly_connected_components(nx_graph):
-            if len(component) > 1 or (
-                len(component) == 1
-                and nx_graph.has_edge(list(component)[0], list(component)[0])
-            ):
+            comp_list = list(component)
+            if len(comp_list) > 1 or nx_graph.has_edge(comp_list[0], comp_list[0]):
                 violations.append(
                     Violation(
                         type="CYCLE_DETECTED",
                         severity=Severity.ERROR,
-                        description=f"Cycle detected between nodes: {list(component)}",
+                        description=f"Cycle detected between nodes: {comp_list}",
                         node_id=None,
                     )
                 )
         return violations
 
-    level_map: dict[str, int] = {}
-    for pos, node_id in enumerate(nx.topological_sort(nx_graph)):
-        level_map[node_id] = pos
+
+def level_mapping_check(graph: Graph) -> list[Violation]:
+    if not graph.nodes:
+        return []
+    nx_graph = _build_digraph(graph)
+
+    cycle_violations = _detect_cycles(nx_graph)
+    if cycle_violations:
+        return cycle_violations
+
+    violations: list[Violation] = []
+    level_map = {node_id: pos for pos, node_id in enumerate(nx.topological_sort(nx_graph))}
     for edge in graph.edges:
         src_lvl = level_map.get(edge.source_id.hex, 0)
         tgt_lvl = level_map.get(edge.target_id.hex, 0)

@@ -78,6 +78,22 @@ def assign_demarcations(graph: Graph, docs: List["spacy.tokens.Doc"]) -> None:
         }
 
 
+def _match_span_to_doc(
+    start: int, end: int, docs: List["spacy.tokens.Doc"],
+) -> Optional["spacy.tokens.Doc"]:
+    for doc in docs:
+        doc_start = doc.user_data.get("chunk_start_char", 0)
+        doc_end = doc.user_data.get("chunk_end_char", len(doc.text))
+        if start >= doc_start and end <= doc_end:
+            return doc
+    for doc in docs:
+        doc_start = doc.user_data.get("chunk_start_char", 0)
+        doc_end = doc.user_data.get("chunk_end_char", len(doc.text))
+        if start < doc_end and end > doc_start:
+            return doc
+    return None
+
+
 def _find_doc_for_node(
     node,
     docs: List["spacy.tokens.Doc"],
@@ -87,23 +103,7 @@ def _find_doc_for_node(
             if node.text in doc.text:
                 return doc
         return None
-
-    start = node.span.start
-    end = node.span.end
-
-    for doc in docs:
-        doc_start = doc.user_data.get("chunk_start_char", 0)
-        doc_end = doc.user_data.get("chunk_end_char", len(doc.text))
-        if start >= doc_start and end <= doc_end:
-            return doc
-
-    for doc in docs:
-        doc_start = doc.user_data.get("chunk_start_char", 0)
-        doc_end = doc.user_data.get("chunk_end_char", len(doc.text))
-        if start < doc_end and end > doc_start:
-            return doc
-
-    return None
+    return _match_span_to_doc(node.span.start, node.span.end, docs)
 
 
 def _get_tokens(

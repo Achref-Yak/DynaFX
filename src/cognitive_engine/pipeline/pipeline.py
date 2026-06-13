@@ -20,6 +20,32 @@ from cognitive_engine.nlp.tagger import (
 logger = logging.getLogger(__name__)
 
 
+def _ensure_tagger(
+    tagger: Optional[PropositionTagger | SentenceTagger],
+) -> PropositionTagger | SentenceTagger:
+    return tagger if tagger is not None else SentenceTagger()
+
+
+def _ensure_classifier(
+    classifier: Optional[RelationClassifier],
+) -> RelationClassifier:
+    return classifier if classifier is not None else RelationClassifier()
+
+
+def _extract_spans(
+    text: str,
+    chunks: List,
+    preprocessed: List,
+    tagger: PropositionTagger | SentenceTagger,
+    merge_margin: int,
+) -> Optional[List[PropSpan]]:
+    if isinstance(tagger, SentenceTagger):
+        return tagger.extract_spans(preprocessed, text)
+
+    tags_per_chunk = [tagger.tag_chunk(chunk) for chunk in chunks]
+    return merge_propositions(chunks, tags_per_chunk, text, merge_margin_chars=merge_margin)
+
+
 def run(
     text: str,
     tagger: Optional[PropositionTagger | SentenceTagger] = None,
@@ -29,10 +55,8 @@ def run(
     merge_margin: int = 20,
     mode: ReasoningMode = ReasoningMode.ARGUMENT,
 ) -> Graph:
-    if tagger is None:
-        tagger = SentenceTagger()
-    if classifier is None:
-        classifier = RelationClassifier()
+    tagger = _ensure_tagger(tagger)
+    classifier = _ensure_classifier(classifier)
 
     chunks = chunk_text(text, tokenizer=classifier.tokenizer, max_tokens=max_tokens, overlap=overlap)
     if not chunks:
@@ -40,25 +64,14 @@ def run(
 
     preprocessed = preprocess_chunks(chunks)
 
-    if isinstance(tagger, SentenceTagger):
-        spans = tagger.extract_spans(preprocessed, text)
-    else:
-        tags_per_chunk: List[List[str]] = []
-        for chunk in chunks:
-            tags = tagger.tag_chunk(chunk)
-            tags_per_chunk.append(tags)
-        spans = merge_propositions(chunks, tags_per_chunk, text, merge_margin_chars=merge_margin)
-
+    spans = _extract_spans(text, chunks, preprocessed, tagger, merge_margin)
     if not spans:
         return Graph(source_text=text, mode=mode)
 
     spacy_docs = [pp.doc for pp in preprocessed if pp.doc is not None]
 
     graph = Graph(source_text=text, mode=mode)
-
-    seen_spans: Set[Tuple[int, int]] = set()
-    for s in spans:
-        seen_spans.add((s.start_char, s.end_char))
+    seen_spans = {(s.start_char, s.end_char) for s in spans}
 
     registry = ModuleRegistry()
     registry.register(ModuleDef("entity", [], extract_entities))

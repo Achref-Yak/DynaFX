@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Tuple
 
 from cognitive_engine.nlp.chunker import PropSpan
 from cognitive_engine.core.models import NodeType
+from cognitive_engine.extract.demarcation import _match_span_to_doc
 
 logger = logging.getLogger(__name__)
 
@@ -174,16 +175,4 @@ def _find_doc_for_span(
     span: PropSpan,
     docs: List["spacy.tokens.Doc"],
 ) -> Optional["spacy.tokens.Doc"]:
-    for doc in docs:
-        doc_start = doc.user_data.get("chunk_start_char", 0)
-        doc_end = doc.user_data.get("chunk_end_char", len(doc.text))
-        if span.start_char >= doc_start and span.end_char <= doc_end:
-            return doc
-
-    for doc in docs:
-        doc_start = doc.user_data.get("chunk_start_char", 0)
-        doc_end = doc.user_data.get("chunk_end_char", len(doc.text))
-        if span.start_char < doc_end and span.end_char > doc_start:
-            return doc
-
-    return None
+    return _match_span_to_doc(span.start_char, span.end_char, docs)
