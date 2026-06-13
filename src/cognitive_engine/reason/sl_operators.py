@@ -1,8 +1,21 @@
-from typing import Callable, Optional
+from typing import Optional
 from uuid import UUID
 
 from cognitive_engine.core.config import Priors
-from cognitive_engine.core.models import Edge, Graph, NodeType, EdgeType, Opinion
+from cognitive_engine.core.models import (
+    Edge,
+    FusionSituation,
+    Graph,
+    NodeType,
+    EdgeType,
+    Opinion,
+)
+from cognitive_engine.reason.fusion import (
+    classify_fusion_situation,
+    consensus_compromise,
+    cumulative_fusion,
+    weighted_belief_fusion,
+)
 
 
 def conjunction(omega_x: Opinion, omega_y: Opinion) -> Opinion:
@@ -41,21 +54,6 @@ def disjunction(omega_x: Opinion, omega_y: Opinion) -> Opinion:
     )
     a = a_x * a_y
     return _clamp((b, d, u, a))
-
-
-def cumulative_fusion(omega_a: Opinion, omega_b: Opinion) -> Opinion:
-    b_a, d_a, u_a, a_a = omega_a
-    b_b, d_b, u_b, _ = omega_b
-    kappa = u_a + u_b - u_a * u_b
-    if kappa == 0:
-        b = (b_a + b_b) / 2
-        d = (d_a + d_b) / 2
-        u = 0.0
-        return _clamp((b, d, u, a_a))
-    b = (b_a * u_b + b_b * u_a) / kappa
-    d = (d_a * u_b + d_b * u_a) / kappa
-    u = (u_a * u_b) / kappa
-    return _clamp((b, d, u, a_a))
 
 
 def conditional_deduction(
@@ -112,17 +110,16 @@ def _topological_order(graph: Graph) -> list[UUID]:
     return order
 
 
-_FUSION_RULES: list[tuple[Callable[[set[NodeType]], bool], Callable]] = [
-    (lambda st: st.issubset({NodeType.CLAIM, NodeType.COUNTERCLAIM}), conjunction),
-    (lambda st: st == {NodeType.EVIDENCE}, cumulative_fusion),
-]
-
-
-def _select_fusion_fn(source_types: set[NodeType]) -> Callable:
-    for predicate, fn in _FUSION_RULES:
-        if predicate(source_types):
-            return fn
-    return disjunction
+def _select_fusion_fn(situation: FusionSituation):
+    match situation:
+        case FusionSituation.CONFLICTING_VIEWS:
+            return consensus_compromise
+        case FusionSituation.DEPENDENT_SOURCES:
+            return weighted_belief_fusion
+        case FusionSituation.SAME_SOURCE:
+            return cumulative_fusion
+        case FusionSituation.INDEPENDENT_SOURCES:
+            return cumulative_fusion
 
 
 def _fusion_strategy(
@@ -133,14 +130,40 @@ def _fusion_strategy(
     if len(contributions) == 1:
         return contributions[0]
 
-    source_types = {graph.nodes[e.source_id].type for e in incoming_edges
-                    if e.source_id in graph.nodes}
-    fusion_fn = _select_fusion_fn(source_types)
+    situation = classify_fusion_situation(contributions, incoming_edges, graph)
+    fusion_fn = _select_fusion_fn(situation)
+
+    if fusion_fn is weighted_belief_fusion:
+        weights = _compute_trust_weights(incoming_edges, graph)
+        fused = contributions[0]
+        for idx, op in enumerate(contributions[1:], start=1):
+            fused = weighted_belief_fusion(
+                fused, op, weights[0], weights[idx],
+            )
+        return fused
 
     fused = contributions[0]
     for op in contributions[1:]:
         fused = fusion_fn(fused, op)
     return fused
+
+
+def _compute_trust_weights(
+    incoming_edges: list[Edge],
+    graph: Graph,
+) -> list[float]:
+    weights: list[float] = []
+    for edge in incoming_edges:
+        source = graph.nodes.get(edge.source_id)
+        if source is None:
+            weights.append(1.0)
+        else:
+            b, d, u, _ = source.opinion
+            weights.append(b + 0.5 * u)
+    total = sum(weights)
+    if total > 0:
+        return [w / total for w in weights]
+    return [1.0 / len(weights)] * len(weights)
 
 
 def _compute_node_opinion(

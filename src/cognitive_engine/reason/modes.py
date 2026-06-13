@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Dict, Set
+from typing import Dict, Optional, Set
 
+from cognitive_engine.core.config import Priors
 from cognitive_engine.core.models import Graph, EdgeType, ReasoningMode, NodeType
+from cognitive_engine.reason.mode_operators import apply_mode_operator
 
 MODE_ACTIVE_EDGES: Dict[ReasoningMode, Set[EdgeType]] = {
     ReasoningMode.CAUSAL: {EdgeType.INFERS, EdgeType.SUPPORTS},
@@ -16,10 +18,10 @@ MODE_ACTIVE_EDGES: Dict[ReasoningMode, Set[EdgeType]] = {
 }
 
 MODE_DESCRIPTIONS = {
-    ReasoningMode.CAUSAL: "mechanistic cause-effect chains",
+    ReasoningMode.CAUSAL: "mechanistic cause-effect chains with forward propagation",
     ReasoningMode.CONDITIONAL: "IF/THEN dependencies and scope conditions",
-    ReasoningMode.ARGUMENT: "claims, support, and counterarguments",
-    ReasoningMode.ANALOGY: "structural parallels and justificatory relations",
+    ReasoningMode.ARGUMENT: "diagnostic reasoning via reverse-warrant propagation",
+    ReasoningMode.ANALOGY: "structural parallels with elevated uncertainty",
 }
 
 
@@ -37,11 +39,31 @@ def apply_mode(graph: Graph, mode: ReasoningMode) -> Graph:
     return result
 
 
-def compute_mode_views(graph: Graph) -> Graph:
+def _compute_mode_view(
+    graph: Graph,
+    priors: Priors,
+    mode: ReasoningMode,
+) -> Graph:
+    return apply_mode_operator(graph, priors, mode)
+
+
+def compute_mode_views(
+    graph: Graph,
+    priors: Optional[Priors] = None,
+) -> Graph:
+    if priors is None:
+        priors = Priors()
+
     for mode in ReasoningMode:
-        view = apply_mode(graph, mode)
+        view = _compute_mode_view(graph, priors, mode)
         graph.metadata.setdefault("modes", {})[mode.name] = {
             "active_edge_count": len(view.edges),
             "description": MODE_DESCRIPTIONS[mode],
         }
+        # Store projected opinions per mode
+        opinions = {}
+        for nid, node in view.nodes.items():
+            p = node.opinion[0] + node.opinion[2] * node.opinion[3]
+            opinions[nid.hex] = round(p, 4)
+        graph.metadata["modes"][mode.name]["opinions"] = opinions
     return graph

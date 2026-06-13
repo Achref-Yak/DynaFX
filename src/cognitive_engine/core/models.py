@@ -35,6 +35,13 @@ class ReasoningMode(Enum):
     ANALOGY = auto()
 
 
+class FusionSituation(Enum):
+    INDEPENDENT_SOURCES = auto()
+    CONFLICTING_VIEWS = auto()
+    DEPENDENT_SOURCES = auto()
+    SAME_SOURCE = auto()
+
+
 class Severity(Enum):
     ERROR = auto()
     WARNING = auto()
@@ -521,6 +528,13 @@ class Graph:
             metadata=data.get("metadata", {}),
             cta=cta,
         )
+
+
+@dataclass
+class EvidenceCounts:
+    positive: int = 0
+    negative: int = 0
+    uncertainty_pseudocount: float = 2.0
 
 
 @dataclass

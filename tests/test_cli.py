@@ -27,7 +27,7 @@ def mock_graph() -> Graph:
 
 @pytest.fixture(autouse=True)
 def mock_orchestrator(mock_graph: Graph) -> MagicMock:
-    with patch("cognitive_engine.cli.orchestrator_run") as m:
+    with patch("cognitive_engine.pipeline.orchestrator.run") as m:
         m.return_value = mock_graph
         yield m
 
@@ -89,7 +89,7 @@ def _run(args: list[str], expect_exit: bool = False) -> tuple[int, str, str]:
 
 class TestCliMinimal:
     def test_minimal_invocation(self, sample_file: Path, mock_orchestrator: MagicMock):
-        code, stdout, stderr = _run([str(sample_file)])
+        code, stdout, stderr = _run(["analyze", str(sample_file)])
         assert code == 0
         mock_orchestrator.assert_called_once_with(
             "Test text for analysis.",
@@ -101,19 +101,19 @@ class TestCliMinimal:
         assert "Processing file:" in stderr
 
     def test_output_to_stdout(self, sample_file: Path, mock_graph: Graph):
-        code, stdout, stderr = _run([str(sample_file)])
+        code, stdout, stderr = _run(["analyze", str(sample_file)])
         assert code == 0
         parsed = json.loads(stdout)
         assert parsed["mode"] == "ARGUMENT"
         assert parsed["source_text"] == "test"
 
     def test_chunk_size_default(self, sample_file: Path, mock_orchestrator: MagicMock):
-        _run([str(sample_file)])
+        _run(["analyze", str(sample_file)])
         kwargs = mock_orchestrator.call_args[1]
         assert kwargs["max_tokens"] == 512
 
     def test_chunk_overlap_default(self, sample_file: Path, mock_orchestrator: MagicMock):
-        _run([str(sample_file)])
+        _run(["analyze", str(sample_file)])
         kwargs = mock_orchestrator.call_args[1]
         assert kwargs["overlap"] == 128
 
@@ -121,7 +121,7 @@ class TestCliMinimal:
 class TestCliFlags:
     def test_output_to_file(self, sample_file: Path, tmp_path: Path, mock_graph: Graph):
         out = tmp_path / "out.json"
-        code, stdout, stderr = _run([str(sample_file), "--output", str(out)])
+        code, stdout, stderr = _run(["analyze", str(sample_file), "--output", str(out)])
         assert code == 0
         assert stdout == ""
         assert out.exists()
@@ -129,30 +129,30 @@ class TestCliFlags:
         assert parsed["source_text"] == "test"
 
     def test_config_flag(self, sample_file: Path, mock_orchestrator: MagicMock):
-        _run([str(sample_file), "--config", "/some/priors.json"])
+        _run(["analyze", str(sample_file), "--config", "/some/priors.json"])
         kwargs = mock_orchestrator.call_args[1]
         assert kwargs["config_path"] == "/some/priors.json"
 
     @pytest.mark.parametrize("mode", ["causal", "conditional", "argument", "analogy"])
     def test_mode_flag(self, sample_file: Path, mock_orchestrator: MagicMock, mode: str):
-        _run([str(sample_file), "--mode", mode])
+        _run(["analyze", str(sample_file), "--mode", mode])
         kwargs = mock_orchestrator.call_args[1]
         assert kwargs["mode"] == mode
 
     def test_chunk_size(self, sample_file: Path, mock_orchestrator: MagicMock):
-        _run([str(sample_file), "--chunk-size", "256"])
+        _run(["analyze", str(sample_file), "--chunk-size", "256"])
         kwargs = mock_orchestrator.call_args[1]
         assert kwargs["max_tokens"] == 256
 
     def test_chunk_overlap(self, sample_file: Path, mock_orchestrator: MagicMock):
-        _run([str(sample_file), "--chunk-overlap", "64"])
+        _run(["analyze", str(sample_file), "--chunk-overlap", "64"])
         kwargs = mock_orchestrator.call_args[1]
         assert kwargs["overlap"] == 64
 
     def test_all_flags_combined(self, sample_file: Path, tmp_path: Path, mock_orchestrator: MagicMock):
         out = tmp_path / "result.json"
         _run([
-            str(sample_file),
+            "analyze", str(sample_file),
             "--output", str(out),
             "--config", "/opt/priors.json",
             "--mode", "causal",
@@ -171,17 +171,17 @@ class TestCliFlags:
 
 class TestCliErrors:
     def test_file_not_found(self):
-        code, stdout, stderr = _run(["/nonexistent/input.txt"], expect_exit=True)
+        code, stdout, stderr = _run(["analyze", "/nonexistent/input.txt"], expect_exit=True)
         assert code == 1
         assert "File not found" in stderr
 
     def test_pipeline_error(self, sample_file: Path, mock_orchestrator: MagicMock):
         mock_orchestrator.side_effect = RuntimeError("model crash")
-        code, stdout, stderr = _run([str(sample_file)], expect_exit=True)
+        code, stdout, stderr = _run(["analyze", str(sample_file)], expect_exit=True)
         assert code == 1
         assert "Pipeline failed" in stderr
 
     def test_invalid_mode(self, sample_file: Path):
-        code, stdout, stderr = _run([str(sample_file), "--mode", "bogus"], expect_exit=True)
+        code, stdout, stderr = _run(["analyze", str(sample_file), "--mode", "bogus"], expect_exit=True)
         assert code == 2
         assert "invalid choice" in stderr

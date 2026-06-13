@@ -4,9 +4,9 @@ import logging
 from typing import Optional
 
 from cognitive_engine.core.config import Priors, load_priors
-from cognitive_engine.pipeline.extraction import extract_graph
 from cognitive_engine.core.models import ConversationTree, EdgeType, Graph, ReasoningMode, Severity
 from cognitive_engine.reason.modes import apply_mode, compute_mode_views
+from cognitive_engine.reason.mode_operators import apply_mode_operator
 from cognitive_engine.reason.sl_operators import compute_opinions
 from cognitive_engine.reason.validators import validate_all
 
@@ -57,7 +57,8 @@ def run(
 ) -> Graph:
     priors = load_priors(config_path)
 
-    graph = extract_graph(text, max_tokens=max_tokens, overlap=overlap, merge_margin=merge_margin)
+    from cognitive_engine.pipeline.extraction import extract_graph as _extract_graph
+    graph = _extract_graph(text, max_tokens=max_tokens, overlap=overlap, merge_margin=merge_margin)
 
     compute_opinions(graph, priors)
 
@@ -68,11 +69,11 @@ def run(
         for v in errors:
             logger.warning("  %s", v.description)
 
-    compute_mode_views(graph)
+    compute_mode_views(graph, priors)
 
     if mode is not None:
         resolved = ReasoningMode[mode.upper()]
-        graph = apply_mode(graph, resolved)
+        graph = apply_mode_operator(graph, priors, resolved)
         compute_opinions(graph, priors)
 
     _break_cycles(graph)

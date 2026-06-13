@@ -70,6 +70,12 @@ def load_priors(path: str | Path | None = None) -> Priors:
         raise FileNotFoundError(f"Priors config not found: {p}")
 
     data = json.loads(p.read_text())
+
+    if "node_counts" in data or "graph_count" in data:
+        from cognitive_engine.reason.evidence import CorpusResult
+        result = CorpusResult.load(p)
+        return result.to_priors()
+
     default_opinions = {
         k: tuple(v) for k, v in data.get("default_opinions", {}).items()
     }
