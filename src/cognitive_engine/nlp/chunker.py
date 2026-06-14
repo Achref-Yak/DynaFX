@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_MAX_SPAN_CHARS = 200
 
 DEFAULT_MAX_TOKENS = 512
 DEFAULT_OVERLAP = 128
@@ -95,11 +97,48 @@ def _resolve_tag(tag: str | int) -> str:
     return tag
 
 
+def _split_long_propositions(
+    spans: List[PropSpan],
+    source_text: str,
+    max_chars: int = DEFAULT_MAX_SPAN_CHARS,
+) -> List[PropSpan]:
+    """Split propositions longer than max_chars at sentence boundaries."""
+    if not spans:
+        return spans
+
+    try:
+        import spacy
+        nlp = spacy.load("en_core_web_sm", disable=["ner", "lemmatizer"])
+    except Exception:
+        return spans
+
+    result: List[PropSpan] = []
+    for span in spans:
+        if span.end_char - span.start_char <= max_chars:
+            result.append(span)
+            continue
+        doc = nlp(span.text)
+        current_start = span.start_char
+        for sent in doc.sents:
+            sent_start = span.start_char + sent.start_char
+            sent_end = span.start_char + sent.end_char
+            result.append(PropSpan(
+                start_char=sent_start,
+                end_char=sent_end,
+                text=source_text[sent_start:sent_end],
+                chunk_offsets=span.chunk_offsets,
+            ))
+            current_start = sent_end
+
+    return result
+
+
 def merge_propositions(
     chunks: List[Chunk],
     tags_per_chunk: List[List[str | int]],
     source_text: str,
     merge_margin_chars: int = DEFAULT_MERGE_MARGIN_CHARS,
+    max_span_chars: int = DEFAULT_MAX_SPAN_CHARS,
 ) -> List[PropSpan]:
     if not chunks or not tags_per_chunk:
         return []
@@ -173,4 +212,4 @@ def merge_propositions(
             chunk_offsets=chunk_offsets,
         ))
 
-    return result
+    return _split_long_propositions(result, source_text, max_chars=max_span_chars)

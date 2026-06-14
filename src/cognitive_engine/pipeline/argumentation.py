@@ -19,7 +19,9 @@ from cognitive_engine.core.models import (
     TypedEdge,
 )
 from cognitive_engine.nlp.tagger import RelationClassifier, SentenceTagger
+from cognitive_engine.nlp.heuristic_classifier import HeuristicClassifier
 from cognitive_engine.extract.types import map_types, Relation
+from cognitive_engine.domain import domain
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +37,7 @@ def _find_entity_for_span(
 
 
 def _classify_relations(
-    spans: List[PropSpan], classifier: RelationClassifier,
+    spans: List[PropSpan], classifier,
 ) -> List[Relation]:
     relations: List[Relation] = []
     for i, sa in enumerate(spans):
@@ -98,12 +100,16 @@ def run_argumentation(
     spans: List[PropSpan],
     docs: List["spacy.tokens.Doc"],
     source_text: str,
-    classifier: Optional[RelationClassifier] = None,
+    classifier=None,
     tagger: Optional[SentenceTagger] = None,
+    use_heuristic_classifier: bool = True,
     **kwargs,
 ) -> None:
     if classifier is None:
-        classifier = RelationClassifier()
+        if use_heuristic_classifier:
+            classifier = HeuristicClassifier()
+        else:
+            classifier = RelationClassifier()
     if tagger is None:
         tagger = SentenceTagger()
 
@@ -113,6 +119,14 @@ def run_argumentation(
     span_to_node, nodes = _build_nodes(typed)
     graph.nodes = nodes
     graph.edges = assign_edges(typed, relations, span_to_node, nodes)
+
+    # Populate warrants on edges using DomainConfig defaults
+    config = domain.active()
+    for edge in graph.edges:
+        edge_type_name = edge.type.name
+        if edge_type_name in config.edge_warrants:
+            edge.warrant = config.edge_warrants[edge_type_name]
+
     assign_demarcations(graph, docs)
 
     graph.interpretations["argumentation"] = _register_interpretation(graph, typed)

@@ -24,8 +24,9 @@ models/
 .vscode/
 .idea/
 *.plan
-*
 
 # OS
 .DS_Store
 Thumbs.db
+
+*.yaml

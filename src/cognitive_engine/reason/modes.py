@@ -6,16 +6,54 @@ from typing import Dict, Optional, Set
 from cognitive_engine.core.config import Priors
 from cognitive_engine.core.models import Graph, EdgeType, ReasoningMode, NodeType
 from cognitive_engine.reason.mode_operators import apply_mode_operator
+from cognitive_engine.domain import domain as _domain
 
-MODE_ACTIVE_EDGES: Dict[ReasoningMode, Set[EdgeType]] = {
-    ReasoningMode.CAUSAL: {EdgeType.INFERS, EdgeType.SUPPORTS},
-    ReasoningMode.CONDITIONAL: {EdgeType.QUALIFIES, EdgeType.INFERS},
-    ReasoningMode.ARGUMENT: {
-        EdgeType.SUPPORTS, EdgeType.CONTRADICTS,
-        EdgeType.ATTACKS, EdgeType.REBUTS,
-    },
-    ReasoningMode.ANALOGY: {EdgeType.JUSTIFIES, EdgeType.SUPPORTS},
-}
+
+class _ModeEdgeLookup:
+    """Lazily resolves mode→edge mappings from the active domain config.
+
+    Supports dict-style access so existing callers (MODE_ACTIVE_EDGES[mode])
+    continue to work, but reads the current domain config on each access,
+    making it safe to switch domains at runtime (e.g. with Domain(...)).
+    """
+
+    def _resolve(self) -> dict[ReasoningMode, set[EdgeType]]:
+        cfg = _domain.active().mode_active_edges
+        result: dict[ReasoningMode, set[EdgeType]] = {}
+        for mode in ReasoningMode:
+            names = cfg.get(mode.name, set())
+            result[mode] = {EdgeType[n] for n in names}
+        return result
+
+    def __getitem__(self, mode: ReasoningMode) -> set[EdgeType]:
+        return self._resolve()[mode]
+
+    def get(self, mode: ReasoningMode, default: Optional[set[EdgeType]] = None) -> Optional[set[EdgeType]]:
+        try:
+            return self[mode]
+        except (KeyError, ValueError):
+            return default
+
+    def values(self):
+        return self._resolve().values()
+
+    def keys(self):
+        return self._resolve().keys()
+
+    def items(self):
+        return self._resolve().items()
+
+    def __iter__(self):
+        return iter(self._resolve())
+
+    def __len__(self):
+        return len(self._resolve())
+
+    def __contains__(self, mode):
+        return mode in self._resolve()
+
+
+MODE_ACTIVE_EDGES: _ModeEdgeLookup = _ModeEdgeLookup()
 
 MODE_DESCRIPTIONS = {
     ReasoningMode.CAUSAL: "mechanistic cause-effect chains with forward propagation",

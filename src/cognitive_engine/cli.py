@@ -6,6 +6,7 @@ from pathlib import Path
 
 from cognitive_engine.reason.evidence import CorpusResult
 from cognitive_engine.reason.store import CorpusStore
+from cognitive_engine.domain import Domain, domain as _domain_module
 
 logging.basicConfig(
     level=logging.INFO,
@@ -15,6 +16,11 @@ logger = logging.getLogger(__name__)
 
 
 def _add_common_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--domain", type=str, default=None,
+        choices=["default", "legal"],
+        help="Domain configuration to use (default: built-in defaults)",
+    )
     parser.add_argument(
         "--config", type=str, default=None,
         help="Path to priors JSON config file (default: built-in defaults)",
@@ -29,6 +35,15 @@ def _add_common_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _resolve_domain(name: str | None) -> Domain | None:
+    if name is None or name == "default":
+        return None
+    if name == "legal":
+        from cognitive_engine.domains.legal import LegalConfig
+        return Domain("cli_legal", LegalConfig)
+    raise ValueError(f"Unknown domain: {name}")
+
+
 def cmd_analyze(args: argparse.Namespace) -> None:
     path = Path(args.file)
     if not path.exists():
@@ -38,7 +53,12 @@ def cmd_analyze(args: argparse.Namespace) -> None:
     text = path.read_text(encoding="utf-8")
     logger.info("Processing file: %s (%d chars)", args.file, len(text))
 
+    domain_obj = _resolve_domain(args.domain)
+
     try:
+        if domain_obj is not None:
+            domain_obj.__enter__()
+
         from cognitive_engine.pipeline.orchestrator import run as _orchestrator_run
         graph = _orchestrator_run(
             text,
@@ -47,10 +67,26 @@ def cmd_analyze(args: argparse.Namespace) -> None:
             max_tokens=args.chunk_size,
             overlap=args.chunk_overlap,
         )
+
+        if args.lens:
+            from cognitive_engine.lenses import apply_lens as _apply_lens
+            import json as _json
+            lens_params = {}
+            if args.lens_params:
+                try:
+                    lens_params = _json.loads(args.lens_params)
+                except _json.JSONDecodeError as e:
+                    logger.error("Invalid --lens-params JSON: %s", e)
+                    sys.exit(1)
+            graph = _apply_lens(graph, args.lens, **lens_params)
+
         result = graph.to_json()
     except Exception as e:
         logger.error("Pipeline failed: %s", e)
         sys.exit(1)
+    finally:
+        if domain_obj is not None:
+            domain_obj.__exit__(None, None, None)
 
     if args.output:
         Path(args.output).write_text(result)
@@ -184,6 +220,15 @@ def main() -> None:
         "--mode", type=str, default=None,
         choices=["causal", "conditional", "argument", "analogy"],
         help="Reasoning mode to apply (default: all modes computed, argument returned)",
+    )
+    analyze_p.add_argument(
+        "--lens", type=str, default=None,
+        choices=["classification", "funnel", "decision-tree", "outlier", "aggregation"],
+        help="Analytical lens to apply after pipeline (default: none)",
+    )
+    analyze_p.add_argument(
+        "--lens-params", type=str, default=None,
+        help='JSON string of lens parameters (e.g., \'{"outlier_threshold": 0.4}\')',
     )
     _add_common_args(analyze_p)
     analyze_p.set_defaults(func=cmd_analyze)

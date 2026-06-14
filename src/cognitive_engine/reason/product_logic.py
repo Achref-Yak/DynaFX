@@ -4,8 +4,17 @@ from enum import IntEnum
 from typing import Tuple
 
 from cognitive_engine.core.models import Graph, Violation, Severity
+from cognitive_engine.domain import domain as _domain
 
-CATEGORY_NAMES = {1: "Necessity", 2: "Fact", 3: "Belief", 4: "Concept"}
+
+class _CategoryNameLookup:
+    """Lazily resolves category names from the active domain config."""
+
+    def get(self, key: int, default: str = "?") -> str:
+        return _domain.active().category_levels.get(key, default)
+
+
+CATEGORY_NAMES: _CategoryNameLookup = _CategoryNameLookup()
 
 
 class Category(IntEnum):

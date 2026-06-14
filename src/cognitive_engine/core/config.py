@@ -5,44 +5,34 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from importlib.resources import files as resource_files
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 from cognitive_engine.core.models import Opinion
+from cognitive_engine.domain import domain as _domain
 
 OpinionPair = Tuple[Opinion, Opinion]
 
 
 @dataclass
 class Priors:
-    default_opinions: Dict[str, Opinion] = field(default_factory=lambda: {
-        "empirical_pattern": (0.8, 0.1, 0.1, 0.5),
-        "cognitive_hypothesis": (0.5, 0.2, 0.3, 0.5),
-        "consensus_principle": (0.7, 0.1, 0.2, 0.5),
-        "observational_claim": (0.4, 0.3, 0.3, 0.5),
-        "total_ignorance": (0.0, 0.0, 1.0, 0.5),
-    })
+    default_opinions: Dict[str, Opinion] = field(default_factory=dict)
 
-    source_type_map: Dict[str, str] = field(default_factory=lambda: {
-        "EVIDENCE": "empirical_pattern",
-        "CLAIM": "consensus_principle",
-        "COUNTERCLAIM": "observational_claim",
-        "CONDITION": "cognitive_hypothesis",
-        "AXIOM": "consensus_principle",
-        "FALLACY": "observational_claim",
-        "JUSTIFICATION": "empirical_pattern",
-    })
+    source_type_map: Dict[str, str] = field(default_factory=dict)
 
-    edge_warrants: Dict[str, OpinionPair] = field(default_factory=lambda: {
-        "SUPPORTS": ((0.85, 0.1, 0.05, 0.5), (0.15, 0.8, 0.05, 0.5)),
-        "CONTRADICTS": ((0.1, 0.85, 0.05, 0.5), (0.8, 0.15, 0.05, 0.5)),
-        "QUALIFIES": ((0.6, 0.2, 0.2, 0.5), (0.4, 0.4, 0.2, 0.5)),
-        "INFERS": ((0.9, 0.05, 0.05, 0.5), (0.0, 1.0, 0.0, 0.5)),
-        "JUSTIFIES": ((0.8, 0.1, 0.1, 0.5), (0.2, 0.7, 0.1, 0.5)),
-        "ATTACKS": ((0.05, 0.85, 0.1, 0.5), (0.85, 0.1, 0.05, 0.5)),
-        "REBUTS": ((0.6, 0.3, 0.1, 0.5), (0.3, 0.6, 0.1, 0.5)),
-    })
+    edge_warrants: Dict[str, OpinionPair] = field(default_factory=dict)
 
-    default_warrant: OpinionPair = ((0.9, 0.05, 0.05, 0.5), (0.0, 1.0, 0.0, 0.5))
+    default_warrant: Optional[OpinionPair] = None
+
+    def __post_init__(self) -> None:
+        cfg = _domain.active()
+        if not self.default_opinions:
+            self.default_opinions = dict(cfg.default_opinions)
+        if not self.source_type_map:
+            self.source_type_map = dict(cfg.source_type_map)
+        if not self.edge_warrants:
+            self.edge_warrants = dict(cfg.edge_warrants)
+        if self.default_warrant is None:
+            self.default_warrant = cfg.default_warrant
 
     def to_dict(self) -> dict:
         return {

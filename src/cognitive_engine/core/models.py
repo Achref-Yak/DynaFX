@@ -26,6 +26,9 @@ class EdgeType(Enum):
     QUALIFIES = auto()
     JUSTIFIES = auto()
     CONTRADICTS = auto()
+    DIRECT = auto()
+    CIRCUMSTANTIAL = auto()
+    HEARSAY = auto()
 
 
 class ReasoningMode(Enum):
