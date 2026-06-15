@@ -108,7 +108,7 @@ class CorpusStore:
                 (source_id, node.type.name, pos, neg),
             )
 
-        for edge in graph.edges:
+        for edge in graph.edges.values():
             if edge.warrant is None:
                 continue
             (b1, d1, u1, a1), (b2, d2, u2, a2) = edge.warrant

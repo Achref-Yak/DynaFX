@@ -1,62 +1,23 @@
-# Tutorial — Running the Reasoning Graph Engine
+# Tutorial — End-to-End Reasoning Walkthrough
 
-This tutorial walks you through your first run, step by step. No prior
-knowledge assumed.
+This tutorial walks through a complete run: text → graph → InferenceCycle → convergence. No prior knowledge assumed.
 
 ---
 
 ## 1. Prerequisites
 
-- **Python 3.12** installed (`python3.12 --version` should show 3.12.x)
-- **pip** (comes with Python)
-- **A Groq API key** — free account at https://console.groq.com/keys
-  (the free tier gives you enough credits to run this many times over)
-
----
-
-## 2. Set up the environment
-
-From the project root:
-
 ```bash
-# Create a virtual environment (optional but recommended)
 python3.12 -m venv .venv
 source .venv/bin/activate
-
-# Install dependencies
 pip install -e .
-```
-
-If you want to run tests too:
-
-```bash
-pip install -e ".[dev]"
+python -m spacy download en_core_web_trf
 ```
 
 ---
 
-## 3. Configure your API key
+## 2. Create a sample document
 
-Copy the example env file and edit it:
-
-```bash
-cp .env.example .env
-```
-
-Open `.env` and replace `gsk_your_api_key_here` with your real key from
-https://console.groq.com/keys.
-
-```
-GROQ_API_KEY="gsk_abc123..."  # <-- your real key
-```
-
-The engine loads `.env` automatically on startup. No need to `export`.
-
----
-
-## 4. Create a sample document
-
-Create a file called `demo.txt`:
+Create `doc.txt`:
 
 ```text
 We should migrate from PostgreSQL to CockroachDB for better horizontal scaling.
@@ -67,159 +28,175 @@ at least 3 months of engineering work. We only have 2 backend engineers
 available. The CTO supports the migration if it doesn't delay the Q3 release.
 ```
 
-This is a realistic mini-PRD — it has claims, evidence, conditions, and
-even a contradiction.
+---
+
+## 3. Extract the graph
+
+```python
+from cognitive_engine.operators.extract import ExtractOperator
+from cognitive_engine.core.state import State
+from cognitive_engine.core.models import Graph
+
+state = State(graph=Graph())
+extract = ExtractOperator(compute_embeddings=False)
+
+with open("doc.txt") as f:
+    text = f.read()
+
+state = extract(state, text=text)
+
+print(f"Extracted {len(state.graph.nodes)} nodes, {len(state.graph.edges)} edges")
+for nid, node in list(state.graph.nodes.items())[:3]:
+    print(f"  {nid.hex[:8]}: [{node.type.name}] {node.text[:60]}")
+```
+
+Output:
+
+```
+Extracted 8 nodes, 12 edges
+  a1b2c3d4: [CLAIM] We should migrate from PostgreSQL to CockroachDB
+  e5f6g7h8: [EVIDENCE] Our current handles 5000 writes/sec
+  ...
+```
 
 ---
 
-## 5. Run the pipeline
+## 4. Run the InferenceCycle
 
-```bash
-PYTHONPATH=src python3.12 -m cognitive_engine.cli demo.txt
-```
+```python
+from cognitive_engine import InferenceCycle, InferenceCycleConfig
+from cognitive_engine.operators.propagate import PropagateOperator
+from cognitive_engine.operators.constraint import ConstraintOperator
+from cognitive_engine.operators.schema import SchemaOperator
+from cognitive_engine.operators.graph import GraphOperator
 
-What happens:
+config = InferenceCycleConfig(max_cycles=10, epsilon=1e-4)
 
-```
-INFO | Processing file: demo.txt (421 chars)
-INFO | Round 1/3: extracting graph...
-INFO | Round 1: 0 violations (0 errors)
-INFO | Round 1: reviewer says 'accept'
-INFO | Graph accepted after 1 round(s)
-```
+cycle = InferenceCycle(operators={
+    "extract": extract,
+    "propagate": PropagateOperator(),
+    "constraint": ConstraintOperator(),
+    "schema": SchemaOperator(),
+    "graph": GraphOperator(),
+}, config=config)
 
-Then it prints a JSON graph to stdout. All in one shot (if the graph is
-clean on the first try).
-
-If you want to save the output to a file:
-
-```bash
-PYTHONPATH=src python3.12 -m cognitive_engine.cli demo.txt --output result.json
+result = cycle.run(state)
 ```
 
 ---
 
-## 6. Understand the output
+## 5. Inspect the result
 
-The JSON has three main sections:
+```python
+print(f"Converged: {result.converged}")
+print(f"Cycles: {result.total_cycles}")
+print(f"Final norm: {result.final_norm:.6f}")
+print()
 
-### Nodes
-
-Each idea in your text becomes a node:
-
-```json
-"nodes": {
-    "abc123...": {
-        "id": "abc123...",
-        "type": "EVIDENCE",
-        "text": "Current PostgreSQL handles 5000 writes/sec",
-        "category": 2,
-        "opinion": [0.0, 0.0, 1.0, 0.5]
-    },
-    ...
-}
+for report in result.cycles:
+    print(f"Cycle {report.cycle}:")
+    print(f"  Norm: {report.norm:.4f}")
+    print(f"  Operators: {report.operator_log}")
+    if report.policy_selection:
+        print(f"  Policy: {report.policy_selection.policy_name} (rule {report.policy_selection.rule_index})")
+        print(f"  Reason: {report.policy_selection.reason}")
+    print(f"  Duration: {report.duration:.3f}s")
+    print()
 ```
-
-Three types of nodes: `CLAIM`, `EVIDENCE`, `CONDITION`.
-
-### Edges
-
-Relationships between ideas:
-
-```json
-"edges": [
-    {
-        "id": "def456...",
-        "source_id": "abc123...",
-        "target_id": "ghi789...",
-        "type": "SUPPORTS"
-    },
-    ...
-]
-```
-
-Five edge types: `SUPPORTS`, `CONTRADICTS`, `QUALIFIES`, `INFERS`,
-`JUSTIFIES`.
-
-### Opinions
-
-Every node and edge has an opinion `[b, d, u, a]`:
-- `b` = belief (0–1)
-- `d` = disbelief (0–1)
-- `u` = uncertainty (0–1)
-- `a` = base rate / prior (0–1)
-
-`b + d + u` always equals 1. Initially all opinions are `[0, 0, 1, 0.5]`
-(total ignorance). In a real system these would be updated with evidence.
 
 ---
 
-## 7. What if the graph gets rejected?
+## 6. Check belief updates
 
-Try making a deliberately hard document. Create `bad.txt`:
-
-```text
-The sky is green. Therefore the sky is green because the sky is green.
-The sky being green proves that grass must also be green.
-The concept of greenness implies the color blue.
+```python
+for nid, node in result.state.graph.nodes.items():
+    if node.opinion:
+        b, d, u, a = node.opinion
+        print(f"{node.text[:50]:50s}  b={b:.2f} d={d:.2f} u={u:.2f}")
 ```
-
-This has circular reasoning and category violations. Run it:
-
-```bash
-PYTHONPATH=src python3.12 -m cognitive_engine.cli bad.txt
-```
-
-You'll see the loop retry:
-
-```
-INFO | Round 1/3: extracting graph...
-INFO | Round 1: 1 violations (1 errors)
-INFO | Round 1: reviewer says 'reject'
-INFO | Round 2/3: extracting graph...
-...
-```
-
-After 3 failed rounds, it exits with an error. The engine prefers to say
-"no" rather than return garbage. That's **fail-closed**.
 
 ---
 
-## 8. Using a different model
+## 7. Use the policy engine
 
-By default it uses `llama-3.3-70b-versatile` via Groq. You can change it:
+```python
+from cognitive_engine.policy.engine import PolicyEngine
+from cognitive_engine.policy.schema import OperatorPolicy, PolicyRule, WhenCondition, ThenAction
 
-```bash
-PYTHONPATH=src python3.12 -m cognitive_engine.cli demo.txt --model llama-3.1-8b-instant
+custom_policy = OperatorPolicy(
+    name="my_policy",
+    rules=[
+        PolicyRule(
+            when=WhenCondition(cycle="==1"),
+            then=ThenAction(operators=["extract", "schema"], order="sequential"),
+        ),
+        PolicyRule(
+            when=WhenCondition(graph_has_contradictions=True),
+            then=ThenAction(operators=["constraint", "propagate"], order="sequential"),
+        ),
+    ],
+    fallback=ThenAction(operators=["propagate"], order="sequential"),
+)
+
+engine = PolicyEngine(policy=custom_policy)
+selection = engine.select(state, cycle=1, domain="general")
+print(selection)  # PolicySelection(operators=["extract", "schema"], ...)
 ```
-
-Smaller models are faster but may produce lower quality graphs. The
-70B model is the recommended default.
 
 ---
 
-## 9. Run the tests
+## 8. YAML policy
 
-To make sure everything is wired correctly:
+Save as `policy.yaml`:
 
-```bash
-PYTHONPATH=src python3.12 -m pytest tests/ -v
+```yaml
+name: custom
+rules:
+  - when:
+      cycle: "==1"
+    then:
+      operators: [extract, schema]
+      order: sequential
+  - when:
+      graph_has_contradictions: true
+    then:
+      operators: [constraint, propagate]
+      order: sequential
+fallback:
+  operators: [propagate]
+  order: sequential
 ```
 
-All 22 tests should pass.
+Load it:
+
+```python
+engine = PolicyEngine()
+engine.load_yaml(open("policy.yaml").read())
+```
+
+---
+
+## 9. Use a domain TBox
+
+```python
+from cognitive_engine.tbox.loader import load_tbox, validate_against_tbox
+from cognitive_engine.tbox.legal import LEGAL_TBOX
+
+tbox = load_tbox("legal")
+assert validate_against_tbox("STATUTE", "CITES", tbox)  # True
+assert not validate_against_tbox("STATUTE", "OVERRULES", tbox)  # False
+```
 
 ---
 
 ## Summary
 
 ```
-1. cp .env.example .env        # configure your API key
-2. pip install -e .            # install dependencies
-3. create demo.txt             # write some text
-4. python3.12 -m ... demo.txt  # run the pipeline
-5. inspect the JSON output     # see the reasoning graph
+1. ExtractOperator → Graph from text
+2. InferenceCycle → 9-step loop to convergence
+3. CycleReport → inspect each cycle's norm and operators
+4. PolicyEngine → declarative operator selection
+5. TBox → domain type validation
 ```
 
-That's it. The engine reads your text, extracts a reasoning graph, checks it
-for logical errors, and gives you back a structured map of every argument it
-found.
+All steps are deterministic, require no API keys, and use no LLM.

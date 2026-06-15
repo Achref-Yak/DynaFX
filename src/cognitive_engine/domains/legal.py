@@ -12,8 +12,32 @@ Usage:
         cfg = domain.active()
         assert cfg.conflict_threshold == 0.25
 """
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
 from cognitive_engine.domain import DomainConfig
-from cognitive_engine.unified.coefficients import Coefficients
+
+
+@dataclass
+class LegalCoefficients:
+    """Legal-domain specific coefficients for cognitive reasoning.
+
+    Replaces the old Coefficients dataclass from unified.coefficients.
+    """
+    alpha: float = 0.25
+    beta: float = 0.35
+    gamma: float = 0.25
+    delta: float = 0.15
+    level0_rule_strength_threshold: float = 0.6
+    level4_max_iterations: int = 30
+    level4_convergence_threshold: float = 1e-4
+    level5_discount_factor: float = 0.85
+    level5_acceptance_threshold: float = 0.1
+    level6_lambda_neural: float = 0.4
+    level6_logic_penalty_weight: float = 0.15
+    level7_lambda_violations: float = 0.15
+    level7_max_iterations: int = 50
 
 # ── Legal Logic Rules (Level 0) ──────────────────────────────────
 # These rules are loaded into the SymbolicLevel for constraint checking.
@@ -49,33 +73,9 @@ legal_logic_rules = [
     {"antecedents": ["expert_qualification", "methodology_invalid"], "consequent": "expert_unreliable", "strength": 0.8},
 ]
 
-# ── Legal Coefficients (optimized for legal reasoning) ────────────
-LegalCoefficients = Coefficients(
-    # Master equation weights (legal-specific)
-    alpha=0.25,   # Probability evidence (lower weight — legal relies more on rules)
-    beta=0.35,    # Graph propagation (higher weight — evidence chains matter)
-    gamma=0.25,   # Logic consistency (higher weight — rules are critical)
-    delta=0.15,   # Adversarial contradiction (moderate weight)
-
-    # Level 0: Symbolic Logic
-    level0_rule_strength_threshold=0.6,  # Higher threshold for legal rules
-
-    # Level 4: Graph Propagation
-    level4_max_iterations=30,  # Legal graphs are typically smaller
-    level4_convergence_threshold=1e-4,
-
-    # Level 5: Argumentation
-    level5_discount_factor=0.85,  # Slightly more discounting for legal arguments
-    level5_acceptance_threshold=0.1,  # Require positive acceptability
-
-    # Level 6: Neuro-Symbolic
-    level6_lambda_neural=0.4,  # Trust symbolic more in legal domain
-    level6_logic_penalty_weight=0.15,  # Higher penalty for rule violations
-
-    # Level 7: Unified
-    level7_lambda_violations=0.15,  # Higher penalty for constraint violations
-    level7_max_iterations=50,
-)
+# LegalCoefficients is defined as the dataclass above.
+# Instantiate with defaults: LegalCoefficients()
+# Override per-field: LegalCoefficients(alpha=0.3, ...)
 
 # ── Legal Domain Config ───────────────────────────────────────────
 LegalConfig = DomainConfig(
@@ -123,13 +123,13 @@ LegalConfig = DomainConfig(
 
     # ── Legal mode→edge mappings ──────────────────────────────────
     mode_active_edges={
-        "CAUSAL": {"INFERS", "SUPPORTS"},
-        "CONDITIONAL": {"QUALIFIES", "INFERS"},
+        "CAUSAL": {"INFERS", "SUPPORTS", "SUPPORT", "ENABLES", "TEMPORAL", "PART_OF", "FLOWS_TO"},
+        "CONDITIONAL": {"QUALIFIES", "INFERS", "DEPENDS", "ENABLES"},
         "ARGUMENT": {
-            "SUPPORTS", "CONTRADICTS", "ATTACKS", "REBUTS",
-            "DIRECT", "CIRCUMSTANTIAL", "HEARSAY",
+            "SUPPORTS", "SUPPORT", "CONTRADICTS", "ATTACKS", "REBUTS",
+            "DIRECT", "CIRCUMSTANTIAL", "HEARSAY", "EVIDENCE", "CITES",
         },
-        "ANALOGY": {"JUSTIFIES", "SUPPORTS"},
+        "ANALOGY": {"JUSTIFIES", "SUPPORTS", "SIMILAR"},
     },
 
     # ── Legal edge roles ──────────────────────────────────────────

@@ -42,7 +42,7 @@ class TestGraphDefaults:
     def test_empty_graph(self):
         g = Graph()
         assert g.nodes == {}
-        assert g.edges == []
+        assert g.edges == {}
         assert g.entities == {}
         assert g.world_relations == []
         assert g.interpretations == {}
@@ -107,7 +107,7 @@ class TestGraphFromDict:
     def test_empty_data(self):
         g = Graph.from_dict({})
         assert g.nodes == {}
-        assert g.edges == []
+        assert g.edges == {}
         assert g.entities == {}
 
     def test_with_nodes_old_format(self):
@@ -162,8 +162,8 @@ class TestGraphFromDict:
         }
         g = Graph.from_dict(data)
         assert len(g.edges) == 1
-        assert g.edges[0].source_id == sid
-        assert g.edges[0].type == EdgeType.INFERS
+        assert g.edges[eid].source_id == sid
+        assert g.edges[eid].type == EdgeType.INFERS
 
     def test_with_edges_new_format(self):
         sid, tid = uuid4(), uuid4()
@@ -193,8 +193,8 @@ class TestGraphFromDict:
         }
         g = Graph.from_dict(data)
         assert len(g.edges) == 1
-        assert g.edges[0].source_id == sid
-        assert g.edges[0].target_id == tid
+        assert g.edges[eid].source_id == sid
+        assert g.edges[eid].target_id == tid
 
     def test_with_entities_dict(self):
         eid = uuid4()

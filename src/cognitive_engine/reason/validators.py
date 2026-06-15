@@ -8,7 +8,7 @@ def _build_digraph(graph: Graph) -> nx.DiGraph:
     nx_graph = nx.DiGraph()
     for node_id in graph.nodes:
         nx_graph.add_node(node_id.hex)
-    for edge in graph.edges:
+    for edge in graph.edges.values():
         nx_graph.add_edge(edge.source_id.hex, edge.target_id.hex)
     return nx_graph
 
@@ -58,7 +58,7 @@ def level_mapping_check(graph: Graph) -> list[Violation]:
 
     violations: list[Violation] = []
     level_map = {node_id: pos for pos, node_id in enumerate(nx.topological_sort(nx_graph))}
-    for edge in graph.edges:
+    for edge in graph.edges.values():
         src_lvl = level_map.get(edge.source_id.hex, 0)
         tgt_lvl = level_map.get(edge.target_id.hex, 0)
         if src_lvl >= tgt_lvl:
@@ -97,7 +97,7 @@ def opinion_invariant_check(graph: Graph) -> list[Violation]:
                     node_id=node.id,
                 )
             )
-    for edge in graph.edges:
+    for edge in graph.edges.values():
         b, d, u, a = edge.opinion
         total = b + d + u
         if abs(total - 1.0) > 0.01:

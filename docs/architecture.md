@@ -1,77 +1,137 @@
 # Architecture
 
-The engine is a deterministic, modular pipeline that transforms raw text into a formally-verified reasoning graph. There are no LLM calls — every stage is either a rule-based Python function or a small transformer model.
+The engine is organized into three zones, a formula layer, and a domain layer:
+
+```
+cognitive_engine/
+│
+├── core/                    # Formula layer (zero imports from other modules)
+│   ├── math.py              # All formal formulas: SL, Bayes, GNN, convergence, ...
+│   ├── models.py            # Data models: Graph, Node, Edge, Opinion, ...
+│   ├── state.py             # State dataclass with trace, metadata, abox, tbox
+│   └── trace.py             # StateDelta and TraceBuffer for cycle recording
+│
+├── nlp/                     # Zone 1: Perception — NLP extraction
+│   ├── chunker.py           # Sliding-window text chunking (RoBERTa tokenizer)
+│   ├── preprocessor.py      # spaCy pipeline + coreference resolution
+│   ├── tagger.py            # SentenceTagger + RelationClassifier (DistilRoBERTa)
+│   ├── heuristic_classifier.py  # Rule-based fallback classifier
+│   └── deposition_parser.py # Deposition Q/A structure parser
+│
+├── extract/                 # Zone 1: Perception — graph construction
+│   ├── entities.py          # Entity extraction
+│   ├── relations.py         # Relation extraction
+│   ├── edges.py             # Edge assignment + causal inference
+│   ├── types.py             # NodeType mapping + demarcation
+│   └── demarcation.py       # 5 cognitive-linguistic dimensions
+│
+├── perception/              # Zone 1: Perception — hypothesis generation
+│   └── hypothesis_generator.py  # NLI-based candidate missing links
+│
+├── kernel/                  # Zone 2: Kernel — reasoning governor
+│   ├── assertion_gate.py    # Hard boundary: type check → opinion → invariant
+│   └── inference_cycle.py   # 9-step loop: structural → evidential → conflict
+│
+├── policy/                  # Zone 3: Policy — operator selection
+│   ├── schema.py            # WhenCondition, ThenAction, PolicyRule, OperatorPolicy
+│   ├── builtin.py           # Default, legal, scientific policies
+│   └── engine.py            # PolicyEngine: evaluate, select, YAML load
+│
+├── tbox/                    # Domain TBox — type hierarchies and axioms
+│   ├── loader.py            # TBox dataclass, GENERAL_TBOX, load_tbox()
+│   └── legal.py             # LEGAL_TBOX with legal-specific types
+│
+├── operators/               # Reasoning operators (Zone 2 + 3)
+│   ├── extract.py           # Text → Graph (inlines the extraction pipeline)
+│   ├── propagate.py         # Belief propagation via Master Equation
+│   ├── constraint.py        # Constraint violation detection
+│   ├── plan.py              # Policy-based operator sequence planning
+│   ├── simulate.py          # What-if graph modification + re-propagation
+│   └── ...                  # abduce, induce, analogy, debate, compare, etc.
+│
+├── memory/                  # Short-term / long-term memory
+│   ├── store.py             # SQLite-backed graph storage
+│   ├── retrieval.py         # Similarity-based retrieval (Jaccard + count proximity)
+│   └── consolidate.py        # STM → LTM consolidation
+│
+├── reason/                  # Reasoning utilities
+│   ├── sl_operators.py      # Subjective Logic operators
+│   ├── fusion.py            # Opinion fusion strategies
+│   ├── modes.py             # Reasoning mode definitions
+│   ├── mode_operators.py    # Mode-specific graph transforms
+│   ├── evidence.py          # CorpusResult, opinion_from_counts
+│   └── validators.py        # Graph validation
+│
+├── domain.py                # Domain configuration framework (contextvars)
+├── domains/
+│   └── legal.py             # LegalDomainConfig and coefficients
+└── schemas/                  # Domain schemas (legal, research, debate)
+```
 
 ## Data Flow
 
 ```mermaid
-flowchart TD
-    subgraph Input
-        T[Raw Text]
-    end
-
-    subgraph Pipeline
-        C[Chunker] --> P[spaCy Preprocessor]
-        P --> S[SentenceTagger]
-        P --> RC[RelationClassifier]
-        S --> TM[Type Mapper]
+flowchart TB
+    subgraph P1[Zone 1: Perception]
+        T[Raw Text] --> C[Chunker]
+        C --> PP[spaCy Preprocessor]
+        PP --> ST[SentenceTagger]
+        PP --> RC[RelationClassifier]
+        ST --> TM[Type Mapper]
         RC --> TM
-        TM --> D[Demarcation Rules]
-        D --> EA[Edge Assigner]
+        TM --> EA[Edge Assigner]
+        EA --> G[Graph]
     end
 
-    subgraph Post-Processing
-        EA --> O[SL Opinion Propagation]
-        O --> V[Validators]
-        V --> M[Mode Filtering]
-        M --> CTA[Conversation Tree]
+    subgraph P2[Zone 2: Kernel]
+        G --> AG[Assertion Gate]
+        AG --> IC[InferenceCycle]
+        IC --> |Structural Pass| SCHEMA
+        IC --> |Evidential Pass| PROP
+        IC --> |Conflict Pass| CNSTR
+        IC --> |Delta / Convergence| CONV
     end
 
-    T --> C
-    CTA --> JSON[JSON Output]
+    subgraph P3[Zone 3: Policy]
+        PE[PolicyEngine] --> |selects operators| IC
+        POL[YAML Policies] --> PE
+    end
+
+    subgraph FM[Formula Layer]
+        MATH[core/math.py]
+    end
+
+    subgraph DM[Domain Layer]
+        TBOX[TBox loader]
+        DOM[DomainConfig]
+    end
+
+    MATH -.-> IC
+    MATH -.-> AG
+    TBOX -.-> AG
+    DOM -.-> PE
 ```
 
-## Component Overview
+## Three-Zone Design
 
-| Stage | Module | Description |
-|-------|--------|-------------|
-| Chunking | `chunker.py` | Splits text into overlapping 512-token windows using a DistilRoBERTa tokenizer |
-| Preprocessing | `preprocessor.py` | Runs spaCy `en_core_web_trf` on each chunk; extracts syntax, dependencies, and resolves pronoun coreferences |
-| Sentence Detection | `tagger.py` (SentenceTagger) | Extracts sentence boundaries from spaCy `Doc.sents` as proposition spans |
-| Relation Classification | `tagger.py` (RelationClassifier) | Scores every proposition pair as Support/Attack/None using a fine-tuned DistilRoBERTa model |
-| Type Mapping | `type_mapper.py` | Assigns NodeType (AXIOM, CLAIM, CONDITION, etc.) via rule-based checks on dependency patterns, modals, and adversatives |
-| Demarcation | `demarcation_rules.py` | Annotates each node with five cognitive-linguistic dimensions |
-| Edge Assignment | `edge_assigner.py` | Resolves undirected classifier relations into directed Edge objects using a 3D lookup table |
-| Opinion Propagation | `sl_operators.py` | Computes Subjective Logic opinions across the graph via topological-order fusion and deduction |
-| Validation | `validators.py` | Checks category monotonicity, cycle absence, and opinion invariants |
-| Mode Filtering | `reasoning_modes.py` | Filters edges to a specific reasoning mode (Argument/Causal/Conditional/Analogy) |
+### Zone 1: Perception
+Converts raw text to a structured graph. Every output passes through the **Assertion Gate** before entering the reasoning kernel. No raw probabilities or embeddings reach Zone 2.
 
-## Determinism Guarantee
+### Zone 2: Kernel
+Runs the **InferenceCycle** — a 9-step iterative loop:
+1. Extract (idempotent)
+2. Structural pass (schema, graph, constraint)
+3. Policy evaluation
+4. Evidential pass (propagate, abduce, induce)
+5. Conflict pass (debate, verify, constraint)
+6. State delta computation
+7. Memory consolidation
+8. Convergence check (‖Δs‖ < ε)
+9. Tick
 
-Every stage is deterministic given the same input text and model weights:
-- No random seeds (except UUID generation for node/edge IDs)
-- No LLM calls or API dependencies
-- All rule-based logic has no branching on non-deterministic state
+### Zone 3: Policy
+Declarative YAML policies define which operators run and in what order, based on state conditions. Replaces the old NeuralProgrammer heuristic controller.
 
-## Directory Layout
+## Determinism
 
-```
-src/cognitive_engine/
-    __init__.py          Public API exports
-    cli.py               Command-line entry point
-    orchestrator.py      Top-level orchestration
-    pipeline.py          Core extraction pipeline
-    models.py            Data models and enums
-    chunker.py           Text chunking
-    preprocessor.py      spaCy preprocessing and coreference
-    tagger.py            SentenceTagger and RelationClassifier
-    type_mapper.py       NodeType assignment
-    demarcation_rules.py Demarcation dimensions
-    edge_assigner.py     Edge creation
-    product_logic.py     Category-theoretic validity
-    reasoning_modes.py   Mode filtering
-    sl_operators.py      Subjective Logic operators
-    validators.py        Graph validation
-    config.py            Priors configuration
-    default_priors.json  Built-in default priors
-```
+Every stage is deterministic given the same input. No random seeds, no LLM calls, no API dependencies. UUID generation for node/edge IDs is the only non-deterministic operation (and does not affect reasoning outcomes).

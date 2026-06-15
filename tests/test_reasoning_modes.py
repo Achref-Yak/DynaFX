@@ -22,28 +22,28 @@ class TestApplyMode:
         g = _make_graph()
         result = apply_mode(g, ReasoningMode.CAUSAL)
         assert result.mode == ReasoningMode.CAUSAL
-        for e in result.edges:
+        for e in result.edges.values():
             assert e.type in MODE_ACTIVE_EDGES[ReasoningMode.CAUSAL]
 
     def test_conditional_mode_filters_edges(self):
         g = _make_graph()
         result = apply_mode(g, ReasoningMode.CONDITIONAL)
         assert result.mode == ReasoningMode.CONDITIONAL
-        for e in result.edges:
+        for e in result.edges.values():
             assert e.type in MODE_ACTIVE_EDGES[ReasoningMode.CONDITIONAL]
 
     def test_argument_mode_filters_edges(self):
         g = _make_graph()
         result = apply_mode(g, ReasoningMode.ARGUMENT)
         assert result.mode == ReasoningMode.ARGUMENT
-        for e in result.edges:
+        for e in result.edges.values():
             assert e.type in MODE_ACTIVE_EDGES[ReasoningMode.ARGUMENT]
 
     def test_analogy_mode_filters_edges(self):
         g = _make_graph()
         result = apply_mode(g, ReasoningMode.ANALOGY)
         assert result.mode == ReasoningMode.ANALOGY
-        for e in result.edges:
+        for e in result.edges.values():
             assert e.type in MODE_ACTIVE_EDGES[ReasoningMode.ANALOGY]
 
     def test_original_graph_unchanged(self):

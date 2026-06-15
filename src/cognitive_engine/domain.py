@@ -118,11 +118,12 @@ class DomainConfig:
 
     # ── Mode → active edge string names ───────────────────────────
     mode_active_edges: dict[str, set[str]] = field(default_factory=lambda: {
-        "CAUSAL": {"INFERS", "SUPPORTS"},
-        "CONDITIONAL": {"QUALIFIES", "INFERS"},
-        "ARGUMENT": {"SUPPORTS", "CONTRADICTS", "ATTACKS", "REBUTS",
-                     "DIRECT", "CIRCUMSTANTIAL", "HEARSAY"},
-        "ANALOGY": {"JUSTIFIES", "SUPPORTS"},
+        "CAUSAL": {"INFERS", "SUPPORTS", "SUPPORT", "CAUSES",
+                    "ENABLES", "TEMPORAL", "PART_OF", "FLOWS_TO"},
+        "CONDITIONAL": {"QUALIFIES", "INFERS", "DEPENDS", "ENABLES"},
+        "ARGUMENT": {"SUPPORTS", "SUPPORT", "CONTRADICTS", "ATTACKS", "REBUTS",
+                     "DIRECT", "CIRCUMSTANTIAL", "HEARSAY", "EVIDENCE", "CITES"},
+        "ANALOGY": {"JUSTIFIES", "SUPPORTS", "SIMILAR"},
     })
 
     # ── Edge role definitions ─────────────────────────────────────

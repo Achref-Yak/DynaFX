@@ -68,10 +68,10 @@ def apply_mode(graph: Graph, mode: ReasoningMode) -> Graph:
     result.mode = mode
 
     active = MODE_ACTIVE_EDGES[mode]
-    result.edges = [e for e in result.edges if e.type in active]
+    result.edges = {e.id: e for e in result.edges.values() if e.type in active}
 
     for node in result.nodes.values():
-        node.metadata["active_edges"] = [e.type.name for e in result.edges
+        node.metadata["active_edges"] = [e.type.name for e in result.edges.values()
                                          if e.source_id == node.id or e.target_id == node.id]
 
     return result

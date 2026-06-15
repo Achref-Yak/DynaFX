@@ -70,7 +70,7 @@ def _collect_edge_counts(
 ) -> dict[str, list[tuple[Opinion, Opinion]]]:
     warrants: dict[str, list[tuple[Opinion, Opinion]]] = defaultdict(list)
     for graph in graphs:
-        for edge in graph.edges:
+        for edge in graph.edges.values():
             key = edge.type.name
             if edge.warrant is not None:
                 warrants[key].append(edge.warrant)
@@ -105,9 +105,9 @@ class CorpusResult:
         graphs: list[Graph] = []
         for f in txt_files:
             try:
-                from cognitive_engine.pipeline.orchestrator import run as _pipeline_run
+                from cognitive_engine.operators.extract import _extract_graph
                 text = f.read_text(encoding="utf-8")
-                graph = _pipeline_run(text, config_path=config_path)
+                graph = _extract_graph(text)
                 graphs.append(graph)
                 logger.info("  Processed %s (%d nodes, %d edges)", f.name, len(graph.nodes), len(graph.edges))
             except Exception as e:

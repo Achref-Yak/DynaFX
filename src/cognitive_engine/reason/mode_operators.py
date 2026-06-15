@@ -81,7 +81,7 @@ def subjective_abduction(
 def _reverse_graph_for_diagnostic(graph: Graph) -> Graph:
     """Reverse all edges and invert warrants for diagnostic ARGUMENT mode."""
     new_edges: list[Edge] = []
-    for edge in graph.edges:
+    for edge in graph.edges.values():
         source = graph.nodes.get(edge.source_id)
         target = graph.nodes.get(edge.target_id)
         if source is None or target is None:
@@ -102,13 +102,13 @@ def _reverse_graph_for_diagnostic(graph: Graph) -> Graph:
             type=edge.type,
             warrant=rev,
         ))
-    graph.edges = new_edges
+    graph.edges = {e.id: e for e in new_edges}
     return graph
 
 
 def _apply_analogy_warrants(graph: Graph, priors: Priors) -> Graph:
     """Increase uncertainty in warrants for ANALOGY mode."""
-    for edge in graph.edges:
+    for edge in graph.edges.values():
         if edge.warrant is not None:
             (b1, d1, u1, a1), (b2, d2, u2, a2) = edge.warrant
             delta1 = b1 * 0.2
@@ -132,7 +132,7 @@ def apply_mode_operator(
     view.mode = mode
 
     active = MODE_ACTIVE_EDGES[mode]
-    view.edges = [e for e in view.edges if e.type in active]
+    view.edges = {e.id: e for e in view.edges.values() if e.type in active}
 
     if mode == ReasoningMode.ARGUMENT:
         view = _reverse_graph_for_diagnostic(view)

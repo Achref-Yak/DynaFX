@@ -85,14 +85,14 @@ def attach_opinions(graph: Graph, priors: Priors) -> Graph:
     for node in graph.nodes.values():
         key = priors.source_type_map.get(node.type.name, "observational_claim")
         node.opinion = priors.default_opinions.get(key, priors.default_opinions["total_ignorance"])
-    for edge in graph.edges:
+    for edge in graph.edges.values():
         edge.opinion = priors.default_opinions["total_ignorance"]
     return graph
 
 
 def _topological_order(graph: Graph) -> list[UUID]:
     indeg: dict[UUID, int] = {nid: 0 for nid in graph.nodes}
-    for e in graph.edges:
+    for e in graph.edges.values():
         if e.target_id in indeg:
             indeg[e.target_id] += 1
     queue = [nid for nid, d in indeg.items() if d == 0]
@@ -100,7 +100,7 @@ def _topological_order(graph: Graph) -> list[UUID]:
     while queue:
         nid = queue.pop(0)
         order.append(nid)
-        for e in graph.edges:
+        for e in graph.edges.values():
             if e.source_id == nid and e.target_id in indeg:
                 indeg[e.target_id] -= 1
                 if indeg[e.target_id] == 0:
@@ -195,7 +195,7 @@ def compute_opinions(graph: Graph, priors: Priors | None = None) -> Graph:
     order = _topological_order(graph)
 
     for nid in order:
-        incoming = [e for e in graph.edges if e.target_id == nid]
+        incoming = [e for e in graph.edges.values() if e.target_id == nid]
         if not incoming:
             continue
         opinion = _compute_node_opinion(nid, incoming, graph, priors)

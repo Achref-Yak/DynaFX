@@ -1,37 +1,57 @@
-# Cognitive Reasoning Graph Engine
+# Cognitive Reasoning Engine
 
-A **provably uncertainty-bounded** pipeline that extracts structured reasoning graphs from unstructured text and computes formal opinions via [Subjective Logic](https://doi.org/10.1007/978-3-319-42337-1).
+A **deterministic reasoning engine** that transforms unstructured text into a structured reasoning graph and iterates it to convergence via formal semantics — no LLM in the loop.
 
-```mermaid
-flowchart LR
-    A[Input Text] --> B[Chunker]
-    B --> C[spaCy Preprocessor]
-    C --> D[Sentence Tagger]
-    D --> E[Relation Classifier]
-    E --> F[Type Mapper]
-    F --> G[Demarcation Rules]
-    G --> H[Edge Assigner]
-    H --> I[SL Opinion Propagation]
-    I --> J[Validators]
-    J --> K{{JSON Graph}}
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Perception (Zone 1)     Kernel (Zone 2)     Policy (Z3)   │
+│                           ┌──────────────────┐              │
+│  chunker ──→ tagger ──→  │  InferenceCycle  │ ←── policy   │
+│  classifier ──→ mapper   │  9-step loop     │    engine    │
+│  extract_entities ──→    │  AssertionGate   │              │
+│  HypothesisGenerator     │  TBox / ABox     │              │
+│                           └──────────────────┘              │
+│                                │                            │
+│                          core/math.py (formulas)            │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Quick Example
+
+```python
+from cognitive_engine import InferenceCycle, InferenceCycleConfig
+from cognitive_engine.core.state import State
+from cognitive_engine.core.models import Graph, Node, NodeType
+
+g = Graph(nodes={
+    nid: Node(type=NodeType.CLAIM, text="Example"),
+})
+state = State(graph=g)
+config = InferenceCycleConfig(max_cycles=5)
+
+cycle = InferenceCycle(operators={}, config=config)
+result = cycle.run(state)
+
+print(f"Converged: {result.converged}, cycles: {result.total_cycles}")
 ```
 
 ## Key Features
 
-- **Fully deterministic pipeline** — zero LLM calls. Sentence boundaries from spaCy, relations from a DistilRoBERTa classifier, all logic in pure Python.
-- **Structured reasoning graphs** — typed nodes (CLAIM, AXIOM, EVIDENCE, CONDITION, FALLACY, COUNTERCLAIM, JUSTIFICATION) connected by typed edges (SUPPORTS, ATTACKS, CONTRADICTS, INFERS, QUALIFIES, REBUTS, JUSTIFIES).
-- **Subjective Logic opinions** — every node and edge carries a 4-tuple `(belief, disbelief, uncertainty, base_rate)` satisfying `b + d + u = 1`, propagated via fusion and deduction operators.
-- **Formal verification** — category-theoretic monotonicity checks, topological cycle detection, and opinion invariant enforcement.
-- **Five demarcation dimensions** — each node is annotated with cognitive/epistemic, institutional, affect, constraint, and temporal classifications.
+- **Zero LLM calls** — all reasoning is rule-based symbolic logic and formal semantics
+- **3-zone architecture** — perception (extraction), kernel (inference), policy (operator selection)
+- **Hard assertion gate** — every neural output is converted to an SL opinion before entering the kernel
+- **Declarative YAML policies** — operator selection rules readable by domain experts
+- **TBox/ABox** — OWL2-style domain type hierarchies with SWRL-like axioms
+- **426+ tests** — fully deterministic test suite
 
-## Quick Example
+## Where to Start
 
-```bash
-cognitive-engine demo/complicated.txt
-```
-
-Outputs a JSON graph with typed nodes, edges, opinions, and metadata. See [Getting Started](getting-started.md) for a full walkthrough.
-
-## Project Status
-
-Alpha. The pipeline produces correct structural output; the relation classifier and some type assignments depend on model quality and are actively being improved through retraining.
+| Page | What it covers |
+|------|---------------|
+| [Getting Started](getting-started.md) | Install, first run, basic Python API |
+| [Architecture](architecture.md) | 3-zone design, module map, data flow |
+| [Pipeline](pipeline.md) | InferenceCycle 9-step loop + extraction sub-pipeline |
+| [Models](models.md) | Data types: State, Assertion, TBox, Opinion, policies |
+| [Theory](theory.md) | Formal semantics: SL, category theory, Dung, convergence |
+| [Configuration](configuration.md) | DomainConfig, LegalCoefficients, YAML policies, TBox |
+| [Development](development.md) | Running tests, adding modules, conventions |

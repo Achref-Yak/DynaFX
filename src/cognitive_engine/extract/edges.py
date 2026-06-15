@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Dict, List, Optional, Set, Tuple
 from uuid import UUID, uuid4
 
@@ -13,6 +14,102 @@ logger = logging.getLogger(__name__)
 SpanKey = Tuple[int, int]
 
 _UNSET = object()
+
+# ── CAUSES edge inference patterns ───────────────────────────────
+
+_TEMPORAL_MARKERS = {
+    "last night", "last night", "earlier", "before", "previously",
+    "yesterday", "this morning", "last week", "last month",
+}
+
+_CAUSAL_VERBS = {
+    "cause", "caused", "leads", "led", "result", "results",
+    "made", "makes", "produce", "produced", "create", "created",
+    "bring", "brought", "trigger", "triggered", "start", "started",
+    "begin", "began", "initiate", "initiated",
+}
+
+_CAUSAL_PARTICLES = {
+    "because", "since", "due to", "from", "as a result",
+    "consequently", "therefore", "thus", "hence",
+}
+
+_EFFECT_INDICATORS = {
+    "wet", "wetness", "water", "moisture", "damp", "dampness",
+    "puddle", "puddles", "flood", "flooding", "overflow",
+}
+
+_CAUSE_INDICATORS = {
+    "rain", "rained", "raining", "sprinkler", "sprinklers",
+    "pipe", "pipes", "burst", "break", "leak", "leaking",
+    "hose", "water", "spill", "spilled", "spilling",
+}
+
+
+def _detect_causal_keywords(text: str) -> Tuple[bool, bool]:
+    """Detect if text contains causal or effect keywords."""
+    text_lower = text.lower()
+    has_cause = any(kw in text_lower for kw in _CAUSE_INDICATORS)
+    has_effect = any(kw in text_lower for kw in _EFFECT_INDICATORS)
+    return has_cause, has_effect
+
+
+def _detect_temporal_order(src_text: str, tgt_text: str) -> bool:
+    """Check if source text likely happened before target text."""
+    src_lower = src_text.lower()
+    tgt_lower = tgt_text.lower()
+
+    src_has_temporal = any(m in src_lower for m in _TEMPORAL_MARKERS)
+    tgt_has_temporal = any(m in tgt_lower for m in _TEMPORAL_MARKERS)
+
+    if src_has_temporal and not tgt_has_temporal:
+        return True
+    if not src_has_temporal and tgt_has_temporal:
+        return False
+
+    past_tense_indicators = {"was", "were", "had", "did", "ran", "fell"}
+    present_indicators = {"is", "are", "has", "have", "does"}
+
+    src_past = any(w in src_lower.split() for w in past_tense_indicators)
+    tgt_present = any(w in tgt_lower.split() for w in present_indicators)
+
+    if src_past and tgt_present:
+        return True
+
+    return False
+
+
+def infer_causal_edges(nodes: Dict[UUID, Node]) -> Dict[UUID, Edge]:
+    """Infer CAUSES edges between nodes based on causal/temporal patterns."""
+    edges: Dict[UUID, Edge] = {}
+    node_list = list(nodes.values())
+
+    for i, src_node in enumerate(node_list):
+        for j, tgt_node in enumerate(node_list):
+            if i >= j:
+                continue
+
+            src_cause, src_effect = _detect_causal_keywords(src_node.text)
+            tgt_cause, tgt_effect = _detect_causal_keywords(tgt_node.text)
+
+            if src_cause and tgt_effect:
+                if _detect_temporal_order(src_node.text, tgt_node.text):
+                    e = Edge(
+                        source_id=src_node.id,
+                        target_id=tgt_node.id,
+                        type=EdgeType.CAUSES,
+                    )
+                    edges[e.id] = e
+            elif tgt_cause and src_effect:
+                if _detect_temporal_order(tgt_node.text, src_node.text):
+                    e = Edge(
+                        source_id=tgt_node.id,
+                        target_id=src_node.id,
+                        type=EdgeType.CAUSES,
+                    )
+                    edges[e.id] = e
+
+    return edges
 
 
 def _span_key(span: PropSpan) -> SpanKey:
@@ -193,9 +290,9 @@ def assign_edges(
     relations: List[Relation],
     node_map: Dict[SpanKey, UUID],
     existing_nodes: Dict[UUID, Node],
-) -> List[Edge]:
+) -> Dict[UUID, Edge]:
     typed_map: Dict[SpanKey, NodeType] = {_span_key(s): t for s, t in typed_spans}
-    edges: List[Edge] = []
+    edges: Dict[UUID, Edge] = {}
     seen: Set[Tuple[UUID, UUID]] = set()
 
     for rel in relations:
@@ -226,12 +323,11 @@ def assign_edges(
             continue
         seen.add(pair)
 
-        edges.append(
-            Edge(
-                source_id=src_id,
-                target_id=tgt_id,
-                type=edge_type,
-            )
+        e = Edge(
+            source_id=src_id,
+            target_id=tgt_id,
+            type=edge_type,
         )
+        edges[e.id] = e
 
     return edges

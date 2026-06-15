@@ -14,7 +14,7 @@ def _make_graph() -> Graph:
     g = Graph(nodes={root.id: root, child.id: child, leaf.id: leaf})
     e1 = Edge(source_id=root.id, target_id=child.id, type=EdgeType.SUPPORTS)
     e2 = Edge(source_id=child.id, target_id=leaf.id, type=EdgeType.INFERS)
-    g.edges = [e1, e2]
+    g.edges = {e1.id: e1, e2.id: e2}
     return g
 
 

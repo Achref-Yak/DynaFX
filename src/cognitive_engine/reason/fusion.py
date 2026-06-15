@@ -143,7 +143,7 @@ def _shared_ancestor(
             continue
         visited.add(nid)
         ancestors_a.add(nid)
-        for e in graph.edges:
+        for e in graph.edges.values():
             if e.target_id == nid:
                 stack.append(e.source_id)
     stack = [uid_b]
@@ -155,7 +155,7 @@ def _shared_ancestor(
         visited_b.add(nid)
         if nid in ancestors_a:
             return True
-        for e in graph.edges:
+        for e in graph.edges.values():
             if e.target_id == nid:
                 stack.append(e.source_id)
     return False

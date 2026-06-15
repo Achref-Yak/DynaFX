@@ -1,120 +1,99 @@
-# Pipeline
+# InferenceCycle and Extraction Pipeline
 
-The pipeline is the heart of the engine. This page describes each stage in detail, from raw text to structured graph.
+## The 9-Step InferenceCycle
 
-## 1. Chunking (`nlp/chunker.py`)
+The `InferenceCycle` (`kernel/inference_cycle.py`) is the main reasoning loop. Each cycle runs three passes in sequence:
 
-Long documents are split into overlapping token windows to fit within the 512-token limit of the underlying transformer tokenizer.
+### Pass 1 — Structural (steps 1-3)
+
+| Step | Operator | Purpose |
+|------|----------|---------|
+| 1. Extract | `Ξ` (extract) | Text → Graph (idempotent, runs only once) |
+| 2. Schema | `Σ` (schema) | Apply domain schema / TBox validation |
+| 3. Structural | `graph`, `constraint`, `temporal` | Build graph structure, check constraints |
+
+### Pass 2 — Evidential (step 4)
+
+| Operator | Purpose |
+|----------|---------|
+| `propagate` | Belief propagation via Master Equation (mandatory) |
+| `abduce`, `induce`, `analogy` | Abductive / inductive inference |
+| `reason`, `align`, `attention` | Evidence alignment and attention |
+| `merge`, `simulate` | Graph merge and what-if simulation |
+
+Selected by the PolicyEngine based on current state metrics.
+
+### Pass 3 — Conflict (step 5)
+
+| Operator | Purpose |
+|----------|---------|
+| `debate` | Adversarial argument evaluation |
+| `verify` | Verification of inference chains |
+| `constraint` | Logical constraint violation detection |
+| `compress` | Graph compression / simplification |
+
+### Convergence Check (steps 6-9)
+
+6. **State delta** — compute ‖Δs‖ = G_dist + A_dist + H_dist + op_change
+7. **Memory consolidation** — STM → LTM if capacity exceeded
+8. **Convergence** — ‖Δs‖ < ε or stall_count ≥ window
+9. **Tick** — increment cycle, emit `CycleReport`
+
+```python
+for cycle in range(1, max_cycles + 1):
+    # Step 1-2: Extract + Schema
+    # Step 3: Structural pass
+    # Step 4: Evidential pass (policy-selected operators)
+    # Step 5: Conflict pass (policy-selected operators)
+    # Step 6: Δs = snapshot diff
+    # Step 7: Memory store
+    # Step 8: converged = ‖Δs‖ < ε
+    # Step 9: CycleReport + state.record()
+```
+
+## The Extraction Sub-Pipeline
+
+Text → Graph conversion happens in `operators/extract.py` (inlined from the old `pipeline/` module). It runs once and is idempotent.
+
+### 1. Chunking (`nlp/chunker.py`)
+
+Long documents split into overlapping 512-token windows using a RoBERTa tokenizer.
 
 ```python
 from cognitive_engine.nlp.chunker import chunk_text
-from transformers import AutoTokenizer
-
-tokenizer = AutoTokenizer.from_pretrained("distilroberta-base")
 chunks = chunk_text(text, tokenizer, max_tokens=512, overlap=128)
 ```
 
-Each `Chunk` records its character offsets, token IDs, and offset mapping for later reconstruction.
+### 2. Preprocessing (`nlp/preprocessor.py`)
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `max_tokens` | 512 | Tokens per sliding window |
-| `overlap` | 128 | Overlap between adjacent windows |
+Each chunk processed with spaCy `en_core_web_trf` for tokenization, POS tagging, dependency parsing, NER. A lightweight coreference resolver replaces pronouns.
 
-## 2. Preprocessing (`preprocessor.py`)
+### 3. Sentence Detection (`nlp/tagger.py` — SentenceTagger)
 
-Each chunk is processed with spaCy `en_core_web_trf` for tokenization, POS tagging, dependency parsing, and named entity recognition.
+Propositions extracted as sentence boundaries from spaCy `Doc.sents`. Duplicate spans across chunk boundaries deduplicated by character range.
 
-A lightweight rule-based coreference resolver replaces pronouns with their most likely antecedents:
+### 4. Relation Classification (`nlp/tagger.py` — RelationClassifier)
 
-- **Subject pronouns** (he/she/it/they) → preceding NOUN or PROPN
-- **Possessive pronouns** (his/her/its/their) → preceding NOUN or PROPN
-- **Demonstratives** (this/that/these/those) → preceding clause root
-- Gender/plurality matching narrows candidate search
+Every pair `(A, B)` classified as Support / Attack / None using a fine-tuned DistilRoBERTa model.
 
-The output is a `PreprocessedChunk` containing the original text, the coreference-resolved text, the spaCy `Doc`, and a list of coreference chains.
+### 5. Type Mapping (`extract/types.py`)
 
-## 3. Sentence Detection (`tagger.py` — SentenceTagger)
+Rule cascade assigns `NodeType`:
 
-Propositions are extracted as sentence boundaries from the spaCy `Doc.sents` iterator. Duplicate spans across overlapping chunk boundaries are deduplicated by character range.
+| Type | Signal |
+|------|--------|
+| CONDITION | `if`/`unless`/`provided` |
+| FALLACY | Keyword match |
+| JUSTIFICATION | `because`/`since`/`for` |
+| AXIOM | Modal verb |
+| COUNTERCLAIM | Adversative (but/however) |
+| CLAIM | Root dependency, no marker |
+| EVIDENCE | Non-root, no marker |
 
-This is the **default** tagger. The legacy `PropositionTagger` (RoBERTa token classifier trained on UKP data) can be used by passing it explicitly to `pipeline.run()`.
+### 6. Demarcation Rules (`extract/demarcation.py`)
 
-## 4. Relation Classification (`tagger.py` — RelationClassifier)
+Five cognitive-linguistic dimensions per node: cognitive vs epistemic, epistemic vs institutional, affect vs cognition, constraint vs enablement, synchronic vs diachronic.
 
-Every pair of propositions `(A, B)` is classified as one of:
+### 7. Edge Assignment (`extract/edges.py`)
 
-| Label | Meaning |
-|-------|---------|
-| `Support` | A provides evidence or support for B |
-| `Attack` | A contradicts or attacks B |
-| `None` | No discursive relation |
-
-The classifier is a fine-tuned DistilRoBERTa model trained on the UKP Sentential Argument Reasoning dataset. Only non-`None` pairs become edges in the graph.
-
-## 5. Type Mapping (`type_mapper.py`)
-
-Each proposition span is assigned a `NodeType` through a priority-ordered rule cascade:
-
-```mermaid
-flowchart TD
-    Start[Proposition Span] --> C{Conditional?}
-    C -- yes --> CONDITION
-    C -- no --> F{Fallacy keyword?}
-    F -- yes --> FALLACY
-    F -- no --> J{Justification?}
-    J -- yes --> JUSTIFICATION
-    J -- no --> A{Has modal?}
-    A -- yes --> AXIOM
-    A -- no --> CC{Adversative?}
-    CC -- yes --> COUNTERCLAIM
-    CC -- no --> R{Has ROOT dep?}
-    R -- yes --> CLAIM
-    R -- no --> EVIDENCE
-```
-
-Detection signals used:
-
-| Type | Signal | Examples |
-|------|--------|---------|
-| CONDITION | `if`/`unless`/`provided` as subordinating conjunction | "If the token expires..." |
-| FALLACY | Keyword match | "misleading", "flawed", "fallacy" |
-| JUSTIFICATION | `because`/`since`/`for` as subordinating conjunction | "Because the system failed..." |
-| AXIOM | Modal verb (must/should/could/will) | "The system must handle..." |
-| COUNTERCLAIM | Adversative (but/however/nevertheless) | "However, the latency increased." |
-| CLAIM | Root dependency, no other marker | "The system provides a framework." |
-| EVIDENCE | Non-root clause, no markers | "(shows that) 70% of calls originate..." |
-
-## 6. Demarcation Rules (`demarcation_rules.py`)
-
-Every node is annotated with five cognitive-linguistic dimensions stored in `node.metadata["demarcation"]`:
-
-| Dimension | Values | Logic |
-|-----------|--------|-------|
-| `cognitive_vs_epistemic` | COGNITIVE / EPISTEMIC / NA | Based on NodeType (EVIDENCE/JUSTIFICATION → EPISTEMIC, CONDITION → COGNITIVE) |
-| `epistemic_vs_institutional` | EPISTEMIC / INSTITUTIONAL / NA | Modal verb head is stative → EPISTEMIC, else INSTITUTIONAL |
-| `affect_vs_cognition` | AFFECT / COGNITION / NA | Sentiment adjective in span → AFFECT |
-| `constraint_vs_enablement` | CONSTRAINT / ENABLEMENT / NA | Negated modal or constraint verb → CONSTRAINT, enablement verb → ENABLEMENT |
-| `synchronic_vs_diachronic` | SYNCHRONIC / DIACHRONIC / NA | Present tense → SYNCHRONIC, past/future → DIACHRONIC |
-
-## 7. Edge Assignment (`edge_assigner.py`)
-
-Undirected classifier relations are resolved to directed `Edge` objects using a 3D lookup table `(source_type, target_type, label) → EdgeType` with 50+ entries.
-
-The resolution tries both orderings `(A, B)` and `(B, A)` against the table. Default fallbacks:
-- Unmapped `Support` → `SUPPORTS`
-- Unmapped `Attack` → `CONTRADICTS`
-
-### Demarcation-based Edge Refinement
-
-After the lookup table, a `_refine_by_demarcation()` step weakens edges when the cognitive-linguistic context suggests the raw classifier polarity is overstated. All 5 demarcation dimensions are checked for both `Support` and `Attack` labels:
-
-| Dimension | Condition | `Support` → | `Attack` → |
-|-----------|-----------|-------------|------------|
-| `epistemic_vs_institutional` | source INSTITUTIONAL → target EPISTEMIC | `QUALIFIES` | `REBUTS` |
-| `cognitive_vs_epistemic` | EPISTEMIC ↔ COGNITIVE (cross) | `QUALIFIES` | `REBUTS` |
-| `affect_vs_cognition` | source is AFFECT | `QUALIFIES` | `REBUTS` |
-| `constraint_vs_enablement` | CONSTRAINT ↔ ENABLEMENT (cross) | `QUALIFIES` | `REBUTS` |
-| `synchronic_vs_diachronic` | SYNCHRONIC ↔ DIACHRONIC (cross) | `QUALIFIES` | `REBUTS` |
-
-The logic: when source and target belong to different modalities (e.g. a constraint supporting an enablement, or evidence attacking a hypothesis), the relationship is inherently weaker than a same-modality one. `SUPPORTS` downgrades to `QUALIFIES`; `ATTACKS`/`CONTRADICTS` downgrade to `REBUTS`.
+Relations resolved to directed edges via a 3D lookup table `(source_type, target_type, label) → EdgeType` with demarcation-based refinement (SUPPORTS → QUALIFIES / ATTACKS → REBUTS when modalities differ).

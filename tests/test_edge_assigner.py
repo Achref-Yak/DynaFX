@@ -26,8 +26,8 @@ class TestSupportRelations:
         nmap = {_key("Traffic is high.", 0, 16): uuid4(), _key("System is overloaded.", 17, 38): uuid4()}
         edges = assign_edges(spans, rels, nmap, {})
         assert len(edges) == 1
-        assert edges[0].type == EdgeType.SUPPORTS
-        assert edges[0].source_id == nmap[(0, 16)]
+        assert next(iter(edges.values())).type == EdgeType.SUPPORTS
+        assert next(iter(edges.values())).source_id == nmap[(0, 16)]
 
     def test_axiom_infers_claim(self):
         spans = [_typed("Must handle 10k.", 0, 16, NodeType.AXIOM),
@@ -36,7 +36,7 @@ class TestSupportRelations:
         nmap = {_key("Must handle 10k.", 0, 16): uuid4(), _key("System scales.", 17, 31): uuid4()}
         edges = assign_edges(spans, rels, nmap, {})
         assert len(edges) == 1
-        assert edges[0].type == EdgeType.INFERS
+        assert next(iter(edges.values())).type == EdgeType.INFERS
 
     def test_claim_justifies_evidence(self):
         spans = [_typed("I reason that.", 0, 14, NodeType.CLAIM),
@@ -45,7 +45,7 @@ class TestSupportRelations:
         nmap = {_key("I reason that.", 0, 14): uuid4(), _key("Observed data shows.", 15, 35): uuid4()}
         edges = assign_edges(spans, rels, nmap, {})
         assert len(edges) == 1
-        assert edges[0].type == EdgeType.JUSTIFIES
+        assert next(iter(edges.values())).type == EdgeType.JUSTIFIES
 
     def test_condition_qualifies_claim(self):
         spans = [_typed("If traffic spikes.", 0, 18, NodeType.CONDITION),
@@ -54,7 +54,7 @@ class TestSupportRelations:
         nmap = {_key("If traffic spikes.", 0, 18): uuid4(), (19, 30): uuid4()}
         edges = assign_edges(spans, rels, nmap, {})
         assert len(edges) == 1
-        assert edges[0].type == EdgeType.QUALIFIES
+        assert next(iter(edges.values())).type == EdgeType.QUALIFIES
 
     def test_justification_justifies_claim(self):
         spans = [_typed("Because it works.", 0, 17, NodeType.JUSTIFICATION),
@@ -63,7 +63,7 @@ class TestSupportRelations:
         nmap = {_key("Because it works.", 0, 17): uuid4(), (18, 33): uuid4()}
         edges = assign_edges(spans, rels, nmap, {})
         assert len(edges) == 1
-        assert edges[0].type == EdgeType.JUSTIFIES
+        assert next(iter(edges.values())).type == EdgeType.JUSTIFIES
 
 
 class TestAttackRelations:
@@ -74,7 +74,7 @@ class TestAttackRelations:
         nmap = {_key("Contradicting data.", 0, 18): uuid4(), (19, 34): uuid4()}
         edges = assign_edges(spans, rels, nmap, {})
         assert len(edges) == 1
-        assert edges[0].type == EdgeType.ATTACKS
+        assert next(iter(edges.values())).type == EdgeType.ATTACKS
 
     def test_claim_contradicts_claim(self):
         spans = [_typed("A is true.", 0, 10, NodeType.CLAIM),
@@ -83,7 +83,7 @@ class TestAttackRelations:
         nmap = {_key("A is true.", 0, 10): uuid4(), (11, 22): uuid4()}
         edges = assign_edges(spans, rels, nmap, {})
         assert len(edges) == 1
-        assert edges[0].type == EdgeType.CONTRADICTS
+        assert next(iter(edges.values())).type == EdgeType.CONTRADICTS
 
     def test_counterclaim_rebuts_claim(self):
         spans = [_typed("However, not true.", 0, 18, NodeType.COUNTERCLAIM),
@@ -92,7 +92,7 @@ class TestAttackRelations:
         nmap = {_key("However, not true.", 0, 18): uuid4(), (19, 32): uuid4()}
         edges = assign_edges(spans, rels, nmap, {})
         assert len(edges) == 1
-        assert edges[0].type == EdgeType.REBUTS
+        assert next(iter(edges.values())).type == EdgeType.REBUTS
 
     def test_axiom_contradicts_claim(self):
         spans = [_typed("Must never fail.", 0, 16, NodeType.AXIOM),
@@ -101,7 +101,7 @@ class TestAttackRelations:
         nmap = {_key("Must never fail.", 0, 16): uuid4(), (17, 31): uuid4()}
         edges = assign_edges(spans, rels, nmap, {})
         assert len(edges) == 1
-        assert edges[0].type == EdgeType.CONTRADICTS
+        assert next(iter(edges.values())).type == EdgeType.CONTRADICTS
 
     def test_fallacy_attacks_claim(self):
         spans = [_typed("Invalid reasoning.", 0, 18, NodeType.FALLACY),
@@ -110,7 +110,7 @@ class TestAttackRelations:
         nmap = {_key("Invalid reasoning.", 0, 18): uuid4(), (19, 35): uuid4()}
         edges = assign_edges(spans, rels, nmap, {})
         assert len(edges) == 1
-        assert edges[0].type == EdgeType.ATTACKS
+        assert next(iter(edges.values())).type == EdgeType.ATTACKS
 
 
 class TestNoneRelations:
@@ -129,7 +129,7 @@ class TestNoneRelations:
         nmap = {_key("Claim is X.", 0, 12): uuid4(), (13, 34): uuid4()}
         edges = assign_edges(spans, rels, nmap, {})
         assert len(edges) == 1
-        assert edges[0].type == EdgeType.REBUTS
+        assert next(iter(edges.values())).type == EdgeType.REBUTS
 
 
 class TestEdgeDeduplication:
@@ -172,7 +172,7 @@ class TestFallbackDefaults:
         nmap = {(0, 12): uid_a, (13, 35): uid_b}
         edges = assign_edges(spans, rels, nmap, {})
         assert len(edges) == 1
-        assert edges[0].type == EdgeType.SUPPORTS
+        assert next(iter(edges.values())).type == EdgeType.SUPPORTS
 
     def test_unknown_attack_falls_back_to_attacks(self):
         uid_a, uid_b = uuid4(), uuid4()
@@ -182,7 +182,7 @@ class TestFallbackDefaults:
         nmap = {(0, 20): uid_a, (21, 40): uid_b}
         edges = assign_edges(spans, rels, nmap, {})
         assert len(edges) == 1
-        assert edges[0].type == EdgeType.ATTACKS
+        assert next(iter(edges.values())).type == EdgeType.ATTACKS
 
 
 class TestDemarcationRefinement:
@@ -205,7 +205,7 @@ class TestDemarcationRefinement:
         existing = {uid_a: src_node, uid_b: tgt_node}
         edges = assign_edges(spans, rels, nmap, existing)
         assert len(edges) == 1
-        assert edges[0].type == EdgeType.QUALIFIES
+        assert next(iter(edges.values())).type == EdgeType.QUALIFIES
 
     def test_no_demarcation_no_refinement(self):
         uid_a, uid_b = uuid4(), uuid4()
@@ -217,7 +217,7 @@ class TestDemarcationRefinement:
                     uid_b: Node(id=uid_b, type=NodeType.CLAIM)}
         edges = assign_edges(spans, rels, nmap, existing)
         assert len(edges) == 1
-        assert edges[0].type == EdgeType.SUPPORTS
+        assert next(iter(edges.values())).type == EdgeType.SUPPORTS
 
 
 class TestDemarcationCognitiveEpistemic:
@@ -231,7 +231,7 @@ class TestDemarcationCognitiveEpistemic:
         nmap = {(0, 16): uid_a, (17, 38): uid_b}
         edges = assign_edges(spans, rels, nmap, {uid_a: src, uid_b: tgt})
         assert len(edges) == 1
-        assert edges[0].type == EdgeType.QUALIFIES
+        assert next(iter(edges.values())).type == EdgeType.QUALIFIES
 
     def test_cognitive_attack_rebuts(self):
         uid_a, uid_b = uuid4(), uuid4()
@@ -246,7 +246,7 @@ class TestDemarcationCognitiveEpistemic:
         existing[uid_b].metadata = {"demarcation": {"cognitive_vs_epistemic": "COGNITIVE"}}
         edges = assign_edges(spans, rels, nmap, existing)
         assert len(edges) == 1
-        assert edges[0].type == EdgeType.REBUTS
+        assert next(iter(edges.values())).type == EdgeType.REBUTS
 
 
 class TestDemarcationAffect:
@@ -260,7 +260,7 @@ class TestDemarcationAffect:
         nmap = {(0, 17): uid_a, (18, 33): uid_b}
         edges = assign_edges(spans, rels, nmap, {uid_a: src, uid_b: tgt})
         assert len(edges) == 1
-        assert edges[0].type == EdgeType.QUALIFIES
+        assert next(iter(edges.values())).type == EdgeType.QUALIFIES
 
     def test_affect_attack_rebuts(self):
         uid_a, uid_b = uuid4(), uuid4()
@@ -272,7 +272,7 @@ class TestDemarcationAffect:
         nmap = {(0, 17): uid_a, (18, 33): uid_b}
         edges = assign_edges(spans, rels, nmap, {uid_a: src, uid_b: tgt})
         assert len(edges) == 1
-        assert edges[0].type == EdgeType.REBUTS
+        assert next(iter(edges.values())).type == EdgeType.REBUTS
 
 
 class TestDemarcationConstraintEnablement:
@@ -286,7 +286,7 @@ class TestDemarcationConstraintEnablement:
         nmap = {(0, 17): uid_a, (18, 33): uid_b}
         edges = assign_edges(spans, rels, nmap, {uid_a: src, uid_b: tgt})
         assert len(edges) == 1
-        assert edges[0].type == EdgeType.QUALIFIES
+        assert next(iter(edges.values())).type == EdgeType.QUALIFIES
 
     def test_constraint_attack_rebuts(self):
         uid_a, uid_b = uuid4(), uuid4()
@@ -298,7 +298,7 @@ class TestDemarcationConstraintEnablement:
         nmap = {(0, 13): uid_a, (14, 31): uid_b}
         edges = assign_edges(spans, rels, nmap, {uid_a: src, uid_b: tgt})
         assert len(edges) == 1
-        assert edges[0].type == EdgeType.REBUTS
+        assert next(iter(edges.values())).type == EdgeType.REBUTS
 
 
 class TestDemarcationSynchronicDiachronic:
@@ -312,7 +312,7 @@ class TestDemarcationSynchronicDiachronic:
         nmap = {(0, 17): uid_a, (18, 33): uid_b}
         edges = assign_edges(spans, rels, nmap, {uid_a: src, uid_b: tgt})
         assert len(edges) == 1
-        assert edges[0].type == EdgeType.QUALIFIES
+        assert next(iter(edges.values())).type == EdgeType.QUALIFIES
 
     def test_synchronic_attack_rebuts(self):
         uid_a, uid_b = uuid4(), uuid4()
@@ -324,7 +324,7 @@ class TestDemarcationSynchronicDiachronic:
         nmap = {(0, 17): uid_a, (18, 33): uid_b}
         edges = assign_edges(spans, rels, nmap, {uid_a: src, uid_b: tgt})
         assert len(edges) == 1
-        assert edges[0].type == EdgeType.REBUTS
+        assert next(iter(edges.values())).type == EdgeType.REBUTS
 
 
 class TestDemarcationEpistemicInstitutionalAttack:
@@ -338,4 +338,4 @@ class TestDemarcationEpistemicInstitutionalAttack:
         nmap = {(0, 16): uid_a, (17, 31): uid_b}
         edges = assign_edges(spans, rels, nmap, {uid_a: src, uid_b: tgt})
         assert len(edges) == 1
-        assert edges[0].type == EdgeType.REBUTS
+        assert next(iter(edges.values())).type == EdgeType.REBUTS

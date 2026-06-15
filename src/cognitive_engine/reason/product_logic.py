@@ -50,7 +50,7 @@ def equivalence_valid(a: int, b: int) -> bool:
 
 def validate_categories(graph: Graph) -> list[Violation]:
     violations: list[Violation] = []
-    for edge in graph.edges:
+    for edge in graph.edges.values():
         source = graph.nodes.get(edge.source_id)
         target = graph.nodes.get(edge.target_id)
         if source is None or target is None:

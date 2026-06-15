@@ -19,6 +19,16 @@ site/
 # Generated artifacts
 data/
 models/
+output.json
+output.Txt
+*.plan
+compare.json
+systems_test.txt
+observation.txt
+input.txt
+input2.txt
+file1.txt
+file2.txt
 
 # IDE
 .vscode/

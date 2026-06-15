@@ -1,6 +1,6 @@
 # Data Models
 
-All data models are defined in `src/cognitive_engine/models.py`.
+All core models are in `core/models.py`. New architecture models are in their respective modules.
 
 ## NodeType
 
@@ -13,6 +13,7 @@ class NodeType(Enum):
     COUNTERCLAIM = auto()   # Opposing claim (attacked or adversative)
     FALLACY = auto()        # Fallacious reasoning (keyword match)
     JUSTIFICATION = auto()  # Supporting reason (because/since/for)
+    HYPOTHESIS = auto()     # Generated hypothesis (from hypothesis generator)
 ```
 
 ## EdgeType
@@ -28,27 +29,21 @@ class EdgeType(Enum):
     CONTRADICTS = auto()    # Contradiction
 ```
 
-Which edge types are active depends on the reasoning mode:
-
-| Mode | Active Edge Types |
-|------|-------------------|
-| `ARGUMENT` | SUPPORTS, CONTRADICTS, ATTACKS, REBUTS |
-| `CAUSAL` | INFERS, SUPPORTS |
-| `CONDITIONAL` | QUALIFIES, INFERS |
-| `ANALOGY` | JUSTIFIES, SUPPORTS |
-
 ## Opinion
 
 ```python
-Opinion = tuple[float, float, float, float]
-#          (belief, disbelief, uncertainty, base_rate)
+@dataclass
+class Opinion:
+    belief: float = 0.0       # Confidence proposition is true
+    disbelief: float = 0.0     # Confidence proposition is false
+    uncertainty: float = 1.0   # Vacuousness / lack of evidence
+    prior: float = 0.5         # Base rate / prior probability
 ```
 
-Represents a Subjective Logic opinion. Always satisfies:
+Invariant: `belief + disbelief + uncertainty = 1` (enforced by `check_opinion_invariant` + `normalize_sum`).
+Projected probability: `P = belief + prior × uncertainty`.
 
-- `belief + disbelief + uncertainty = 1.0`
-- `base_rate` is the prior probability in `[0, 1]`
-- Projected probability: `belief + base_rate * uncertainty`
+Tuple-compatible: `to_tuple()`, `from_tuple()`, `__getitem__` for access by index.
 
 ## Node
 
@@ -58,12 +53,10 @@ class Node:
     id: UUID
     type: NodeType
     text: str
-    span: Optional[Span]       # Character offsets in source text
-    abstraction_level: int      # 1 = concrete, 5 = abstract
-    salience: float             # 0.0 to 1.0
-    opinion: Opinion            # Subjective Logic opinion
-    category: int               # 1=Necessity, 2=Fact, 3=Belief, 4=Concept
-    metadata: dict              # Contains demarcation dimensions
+    span: Optional[Span]
+    opinion: Optional[Opinion]
+    category: int = 2          # 1=Necessity…4=Concept
+    metadata: dict = field(default_factory=dict)
 ```
 
 ## Edge
@@ -75,48 +68,156 @@ class Edge:
     source_id: UUID
     target_id: UUID
     type: EdgeType
-    opinion: Opinion
-    warrant: Optional[Warrant]  # Conditional opinion (if source, then target)
-    metadata: dict
+    opinion: Optional[Opinion] = None
+    warrant: Optional[Warrant] = None
+    metadata: dict = field(default_factory=dict)
 ```
 
-A `Warrant` is a pair of opinions `(Opinion, Opinion)` representing the conditional belief `(source → target, source → ¬target)`.
+`Warrant = tuple[Opinion, Opinion]` — conditional opinions `(P(source→target), P(source→¬target))`.
 
 ## Graph
 
 ```python
 @dataclass
 class Graph:
-    nodes: Dict[UUID, Node]
-    edges: List[Edge]
+    nodes: dict[UUID, Node]
+    edges: dict[UUID, Edge]
+    entities: dict[UUID, Entity]
     mode: ReasoningMode
     source_text: str
-    metadata: dict              # Priors config + mode views
+    metadata: dict
+    interpretations: dict[str, Interpretation]
     cta: Optional[ConversationTree]
 ```
 
-The primary output of the pipeline. Serializes to JSON via `graph.to_json()`.
+## State (`core/state.py`)
 
-## ConversationTree
+The `State` dataclass flows through the InferenceCycle:
 
 ```python
 @dataclass
-class ConversationTree:
-    root_id: UUID
-    node_ids: set[UUID]
-    parent_map: dict[UUID, UUID]
+class State:
+    graph: Graph
+    metadata: dict = field(default_factory=dict)
+    trace: TraceBuffer = field(default_factory=TraceBuffer)
+    abox: list = field(default_factory=list)     # Assertion box
+    tbox: Any = None                              # Terminological box
 ```
 
-Isolates context windows to prevent logical context poisoning. Built from the graph by following INFERS/SUPPORTS/JUSTIFIES edges from leaf to root. Provides `get_context(node_id)` which returns the ancestor chain.
+- `metadata`: cycle count, beliefs, norms, operator records
+- `trace`: `StateDelta` history for each cycle
+- `abox`: ABox assertions (accepted by the gate)
+- `tbox`: Active domain TBox reference
 
-## ReasoningMode
+## Assertion (`kernel/assertion_gate.py`)
 
 ```python
-class ReasoningMode(Enum):
-    CAUSAL = auto()
-    CONDITIONAL = auto()
-    ARGUMENT = auto()
-    ANALOGY = auto()
+@dataclass
+class Assertion:
+    id: UUID
+    source: str = ""          # Perception component name
+    node_id: Optional[UUID] = None
+    node_type: Optional[str] = None
+    text: str = ""
+    opinion: Optional[tuple[float,float,float,float]] = None
+    metadata: dict = field(default_factory=dict)
+    timestamp: float = field(default_factory=time.time)
 ```
 
-Controls which edge types are retained during mode filtering.
+## GateResult (`kernel/assertion_gate.py`)
+
+```python
+@dataclass
+class GateResult:
+    passed: list[Assertion] = field(default_factory=list)
+    quarantined: list[Assertion] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+```
+
+## TBox (`tbox/loader.py`)
+
+```python
+@dataclass
+class TBox:
+    name: str = "general"
+    node_types: dict[str, int] = field(default_factory=dict)    # type → category
+    edge_types: dict[str, float] = field(default_factory=dict)  # type → weight
+    axioms: list[dict] = field(default_factory=list)             # SWRL-like rules
+    valid_edges: list[tuple[str, str, str]] = field(default_factory=list)  # (src, edge, tgt)
+```
+
+## Policy Models (`policy/schema.py`)
+
+```python
+@dataclass
+class WhenCondition:
+    cycle: Optional[str] = None
+    domain: Optional[str] = None
+    graph_node_count: Optional[str] = None
+    graph_has_contradictions: Optional[bool] = None
+    graph_mean_uncertainty: Optional[str] = None
+    convergence_stalled: Optional[bool] = None
+    last_operator: Optional[str] = None
+
+@dataclass
+class ThenAction:
+    operators: list[str] = field(default_factory=list)
+    order: str = "sequential"
+
+@dataclass
+class PolicyRule:
+    when: WhenCondition = field(default_factory=WhenCondition)
+    then: ThenAction = field(default_factory=ThenAction)
+
+@dataclass
+class OperatorPolicy:
+    name: str = "default"
+    description: str = ""
+    rules: list[PolicyRule] = field(default_factory=list)
+    fallback: ThenAction = field(default_factory=lambda: ThenAction(["propagate"]))
+```
+
+## PolicySelection (`policy/engine.py`)
+
+```python
+@dataclass
+class PolicySelection:
+    operators: list[str] = field(default_factory=list)
+    order: str = "sequential"
+    policy_name: str = "default"
+    rule_index: int = -1
+    reason: str = ""
+    state_metrics: dict = field(default_factory=dict)
+```
+
+## Cycle Models (`kernel/inference_cycle.py`)
+
+```python
+@dataclass
+class InferenceCycleConfig:
+    epsilon: float = 1e-4
+    max_cycles: int = 20
+    stm_capacity: int = 128
+    policy_name: str = "default"
+    domain: str = "general"
+    convergence_window: int = 3
+
+@dataclass
+class CycleReport:
+    cycle: int
+    norm: float
+    converged: bool
+    operator_log: list[str] = field(default_factory=list)
+    policy_selection: Optional[PolicySelection] = None
+    state_snapshot: Optional[dict] = None
+    duration: float = 0.0
+
+@dataclass
+class InferenceResult:
+    state: State
+    cycles: list[CycleReport] = field(default_factory=list)
+    converged: bool = False
+    total_duration: float = 0.0
+    final_norm: float = 0.0
+    total_cycles: int = 0
+```
