@@ -3,7 +3,13 @@
 import pytest
 from uuid import uuid4
 
+from cognitive_engine.core.concept import (
+    ConceptDef,
+    ConceptRegistry,
+    TemporalSemantics,
+)
 from cognitive_engine.core.models import (
+    BfoCategory,
     Edge,
     EdgeType,
     Graph,
@@ -60,7 +66,10 @@ class TestState:
         graph = Graph()
         state = State(graph=graph, metadata={"key": "value"})
         forked = state.fork()
-        assert forked.graph is graph
+        assert forked.graph is not graph
+        assert forked.graph.nodes is not graph.nodes
+        assert forked.graph.edges is not graph.edges
+        assert forked.graph.entities is not graph.entities
         assert forked.metadata == {"key": "value"}
         assert forked.history == state.history
 
@@ -261,12 +270,12 @@ class TestOperators:
 
     def test_schema_operator(self):
         from cognitive_engine.operators.schema import SchemaOperator
-        from cognitive_engine.schemas.legal import LEGAL_SCHEMA
+        from cognitive_engine.schemas.research import RESEARCH_SCHEMA
         op = SchemaOperator()
         state = self._make_state()
         state.graph.nodes[uuid4()] = Node(text="test", type=NodeType.EVIDENCE)
-        result = op(state, schema=LEGAL_SCHEMA)
-        assert result.metadata["schema_applied"] == "legal"
+        result = op(state, schema=RESEARCH_SCHEMA)
+        assert result.metadata["schema_applied"] == "research"
 
     def test_graph_operator(self):
         from cognitive_engine.operators.graph import GraphOperator
@@ -365,6 +374,201 @@ class TestOperators:
         result = op(state, modifications={str(nid): {"belief": 0.9}})
         assert "simulation" in result.metadata
 
+    def test_relate_operator_contradicts(self):
+        from cognitive_engine.operators.relate import RelateOperator
+        op = RelateOperator()
+        state = self._make_state()
+        n1 = Node(text="Lease clause 14 requires 60 days notice", type=NodeType.CLAIM)
+        n2 = Node(text="Tenant gave 14 days notice", type=NodeType.EVIDENCE)
+        state.graph.nodes[n1.id] = n1
+        state.graph.nodes[n2.id] = n2
+        result = op(state, max_edges_per_node=5)
+        edges = list(result.graph.edges.values())
+        assert len(edges) >= 1, "Expected at least one edge between contradictory claims"
+        assert any(e.type == EdgeType.CONTRADICTS for e in edges), (
+            f"Expected CONTRADICTS edge, got {[e.type.name for e in edges]}"
+        )
+
+    def test_relate_operator_too_few_nodes(self):
+        from cognitive_engine.operators.relate import RelateOperator
+        op = RelateOperator()
+        state = self._make_state()
+        state.graph.nodes[uuid4()] = Node(text="only one node", type=NodeType.CLAIM)
+        result = op(state)
+        assert len(result.graph.edges) == 0
+        assert len(result.history) == 1
+
+    def _make_temporal_test_state(self, concept_name: str, temporal: TemporalSemantics, cardinality: str):
+        reg = ConceptRegistry()
+        reg.register(ConceptDef(
+            name=concept_name,
+            description="Test concept",
+            temporal_semantics=temporal,
+            cardinality=cardinality,
+        ))
+        state = State(graph=Graph())
+        state.concepts = reg
+        n1 = Node(
+            id=uuid4(), text="test value is 30", type=NodeType.CLAIM,
+            opinion=Opinion(belief=0.8, disbelief=0.15, uncertainty=0.05, prior=0.5),
+        )
+        n1.metadata["concept"] = concept_name
+        n2 = Node(
+            id=uuid4(), text="test value is 25", type=NodeType.CLAIM,
+            opinion=Opinion(belief=0.15, disbelief=0.8, uncertainty=0.05, prior=0.5),
+        )
+        n2.metadata["concept"] = concept_name
+        state.graph.nodes[n1.id] = n1
+        state.graph.nodes[n2.id] = n2
+        return state
+
+    def test_relate_temporal_axiom_supersede_rebuts(self):
+        from cognitive_engine.operators.relate import RelateOperator
+        op = RelateOperator()
+        state = self._make_temporal_test_state("PERSON_NAME", TemporalSemantics.SUPERSEEDE_WITH_HISTORY, "single")
+        result = op(state, max_edges_per_node=5)
+        edges = list(result.graph.edges.values())
+        rebuts = [e for e in edges if e.type == EdgeType.REBUTS]
+        # Bidirectional REBUTS from concept axiom + possible CONTRADICTS from epistemic
+        assert len(rebuts) >= 1, f"Expected at least 1 REBUTS, got {len(rebuts)}"
+        assert all(e.type == EdgeType.REBUTS for e in rebuts), (
+            f"Expected REBUTS for SUPERSEDE_WITH_HISTORY, got {[e.type for e in rebuts]}"
+        )
+
+    def test_relate_temporal_axiom_append_only_suppressed(self):
+        from cognitive_engine.operators.relate import RelateOperator
+        op = RelateOperator()
+        state = self._make_temporal_test_state("TEMPERATURE", TemporalSemantics.APPEND_ONLY, "multiple")
+        result = op(state, max_edges_per_node=5)
+        edges = list(result.graph.edges.values())
+        contradictory = [e for e in edges if e.type == EdgeType.CONTRADICTS]
+        assert len(contradictory) == 0, (
+            f"Expected no CONTRADICTS for APPEND_ONLY, got {len(contradictory)}"
+        )
+
+    def test_relate_temporal_axiom_competing_preserved(self):
+        from cognitive_engine.operators.relate import RelateOperator
+        op = RelateOperator()
+        state = self._make_temporal_test_state("CLAIM", TemporalSemantics.MUTATE_IN_PLACE, "multiple")
+        result = op(state, max_edges_per_node=5)
+        edges = list(result.graph.edges.values())
+        contradictory = [e for e in edges if e.type == EdgeType.CONTRADICTS]
+        # MUTATE_IN_PLACE means overwrite in place without history — no conflict
+        assert len(contradictory) == 0, (
+            f"Expected no CONTRADICTS for MUTATE_IN_PLACE, got {[e.type.name for e in edges]}"
+        )
+
+    def test_relate_temporal_axiom_different_concepts(self):
+        from cognitive_engine.operators.relate import RelateOperator
+        op = RelateOperator()
+        state = self._make_temporal_test_state("TEMPERATURE", TemporalSemantics.APPEND_ONLY, "multiple")
+        # Override second node with a different concept
+        nid_b = list(state.graph.nodes.keys())[1]
+        state.graph.nodes[nid_b].metadata["concept"] = "PERSON_NAME"
+        result = op(state, max_edges_per_node=5)
+        edges = list(result.graph.edges.values())
+        # Different concepts — no concept-level adjustment, edge may or may not exist
+        assert isinstance(edges, list)
+
+    def _make_same_parent_state(self):
+        reg = ConceptRegistry()
+        reg.register(ConceptDef("IDENTITY", parent=None,
+                               temporal_semantics=TemporalSemantics.SUPERSEEDE_WITH_HISTORY,
+                               cardinality="single"))
+        reg.register(ConceptDef("USER_NAME", parent="IDENTITY",
+                               temporal_semantics=TemporalSemantics.APPEND_ONLY,
+                               cardinality="single", provenance_weight=0.9))
+        reg.register(ConceptDef("USER_EMAIL", parent="IDENTITY",
+                               temporal_semantics=TemporalSemantics.APPEND_ONLY,
+                               cardinality="single", provenance_weight=0.85))
+        state = State(graph=Graph(), concepts=reg)
+        n1 = Node(id=uuid4(), text="my name is alice", type=NodeType.CLAIM)
+        n1.metadata["concept"] = "USER_NAME"
+        n1.bfo_category = None
+        n2 = Node(id=uuid4(), text="my email is alice@foo.com", type=NodeType.CLAIM)
+        n2.metadata["concept"] = "USER_EMAIL"
+        n2.bfo_category = None
+        state.graph.nodes[n1.id] = n1
+        state.graph.nodes[n2.id] = n2
+        return state
+
+    def test_relate_same_parent_produces_rebuts(self):
+        from cognitive_engine.operators.relate import RelateOperator
+        op = RelateOperator()
+        state = self._make_same_parent_state()
+        result = op(state, max_edges_per_node=5)
+        edges = list(result.graph.edges.values())
+        assert len(edges) >= 1, "Expected at least one edge for same-parent pair"
+        assert any(e.type == EdgeType.REBUTS for e in edges), (
+            f"Expected REBUTS for same-parent IDENTITY pair, got {[e.type.name for e in edges]}"
+        )
+
+    def test_relate_same_parent_different_parents_no_edge(self):
+        reg = ConceptRegistry()
+        reg.register(ConceptDef("PARENT_A", parent=None,
+                               temporal_semantics=TemporalSemantics.SUPERSEEDE_WITH_HISTORY))
+        reg.register(ConceptDef("PARENT_B", parent=None,
+                               temporal_semantics=TemporalSemantics.APPEND_ONLY))
+        reg.register(ConceptDef("CON_A", parent="PARENT_A",
+                               temporal_semantics=TemporalSemantics.APPEND_ONLY))
+        reg.register(ConceptDef("CON_B", parent="PARENT_B",
+                               temporal_semantics=TemporalSemantics.APPEND_ONLY))
+        state = State(graph=Graph(), concepts=reg)
+        n1 = Node(id=uuid4(), text="test a", type=NodeType.CLAIM)
+        n1.metadata["concept"] = "CON_A"
+        n2 = Node(id=uuid4(), text="test b", type=NodeType.CLAIM)
+        n2.metadata["concept"] = "CON_B"
+        state.graph.nodes[n1.id] = n1
+        state.graph.nodes[n2.id] = n2
+        from cognitive_engine.operators.relate import RelateOperator
+        op = RelateOperator()
+        result = op(state, max_edges_per_node=5)
+        rebuts = [e for e in result.graph.edges.values() if e.type == EdgeType.REBUTS]
+        assert len(rebuts) == 0, (
+            f"Expected no REBUTS for different parents, got {len(rebuts)}"
+        )
+
+    def _make_bfo_test_state(self):
+        """Two ICE nodes with a CONTRADICTS edge, plus a PROCESS node to test BFO filter."""
+        from cognitive_engine.core.models import BfoCategory
+        state = State(graph=Graph())
+        n1 = Node(id=uuid4(), text="claim a", type=NodeType.CLAIM,
+                  bfo_category=BfoCategory.INFORMATION_CONTENT_ENTITY)
+        n2 = Node(id=uuid4(), text="claim b", type=NodeType.CLAIM,
+                  bfo_category=BfoCategory.INFORMATION_CONTENT_ENTITY)
+        n3 = Node(id=uuid4(), text="process event", type=NodeType.EVENT,
+                  bfo_category=BfoCategory.PROCESS)
+        state.graph.nodes[n1.id] = n1
+        state.graph.nodes[n2.id] = n2
+        state.graph.nodes[n3.id] = n3
+        return state
+
+    def test_bfo_filter_ice_to_ice_allowed(self):
+        from cognitive_engine.operators.relate import RelateOperator
+        from cognitive_engine.core.models import EDGE_BFO_CONSTRAINTS
+        op = RelateOperator()
+        allowed, _ = EDGE_BFO_CONSTRAINTS[EdgeType.INFERS]
+        assert BfoCategory.INFORMATION_CONTENT_ENTITY in allowed
+        # The check is called during _evaluate_pair — if BFO is compatible,
+        # the edge survives. We test the method directly for precision.
+        n1 = Node(bfo_category=BfoCategory.INFORMATION_CONTENT_ENTITY)
+        n2 = Node(bfo_category=BfoCategory.INFORMATION_CONTENT_ENTITY)
+        assert op._check_bfo_compatibility(n1, n2, EdgeType.INFERS) is True
+
+    def test_bfo_filter_process_to_ice_blocked(self):
+        from cognitive_engine.operators.relate import RelateOperator
+        op = RelateOperator()
+        n1 = Node(bfo_category=BfoCategory.PROCESS)
+        n2 = Node(bfo_category=BfoCategory.INFORMATION_CONTENT_ENTITY)
+        assert op._check_bfo_compatibility(n1, n2, EdgeType.PART_OF) is False
+
+    def test_bfo_filter_none_bfo_allowed(self):
+        from cognitive_engine.operators.relate import RelateOperator
+        op = RelateOperator()
+        n1 = Node(bfo_category=None)
+        n2 = Node(bfo_category=None)
+        assert op._check_bfo_compatibility(n1, n2, EdgeType.INFERS) is True
+
 
 # ============================================================
 # ============================================================
@@ -373,11 +577,6 @@ class TestOperators:
 
 class TestSchemas:
     """Test domain schemas."""
-
-    def test_legal_schema(self):
-        from cognitive_engine.schemas.legal import LEGAL_SCHEMA
-        assert LEGAL_SCHEMA.name == "legal"
-        assert LEGAL_SCHEMA.merge_strategy == "keep_both"
 
     def test_research_schema(self):
         from cognitive_engine.schemas.research import RESEARCH_SCHEMA
@@ -391,8 +590,8 @@ class TestSchemas:
 
     def test_get_schema(self):
         from cognitive_engine.schemas import get_schema
-        schema = get_schema("legal")
-        assert schema.name == "legal"
+        schema = get_schema("research")
+        assert schema.name == "research"
 
     def test_get_unknown_schema(self):
         from cognitive_engine.schemas import get_schema

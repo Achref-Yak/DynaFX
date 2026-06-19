@@ -46,10 +46,13 @@ class ToMOperator:
         theory_mindedness = self._compute_theory_mindedness(state.graph, belief_map)
         mind_sharing = self._compute_mind_sharing(state.graph, belief_map)
 
+        smm = self._compute_shared_mental_models(state.graph)
+
         state.metadata["tom"] = {
             "belief_map": belief_map,
             "theory_mindedness": theory_mindedness,
             "mind_sharing": mind_sharing,
+            "shared_mental_models": smm,
             "max_depth": max_depth,
             "total_nested_beliefs": sum(
                 len(level) for level in belief_map.values()
@@ -59,6 +62,12 @@ class ToMOperator:
         depth_dist = theory_mindedness.get("depth_distribution", {})
         shared = mind_sharing[:3]
         shared_text = "; ".join(f"agents {s['agent_1'][:8]}↔{s['agent_2'][:8]}: {s['shared_beliefs']} shared beliefs" for s in shared) if shared else "no significant mind-sharing detected"
+        smm = state.metadata["tom"].get("shared_mental_models", {})
+        top_pairs = smm.get("pairs", [])[:3]
+        smm_text = "; ".join(
+            f"{p['agent_a'][:8]}↔{p['agent_b'][:8]}: Jaccard={p['jaccard']:.3f}"
+            for p in top_pairs
+        ) if top_pairs else "no significant SMM overlap"
         state.record(
             self.name,
             f"Simulated theory-of-mind across depth {max_depth} (recursive belief-of-belief inference). "
@@ -66,6 +75,7 @@ class ToMOperator:
             f"Depth distribution: { {str(k): v for k, v in depth_dist.items()} }. "
             f"Average ToM score: {theory_mindedness['avg_score']:.3f} (higher = more confident nested beliefs). "
             f"Mind-sharing between agents: {shared_text}. "
+            f"Shared mental models (Jaccard): {smm_text}. "
             f"The system can model recursive perspectives — what each agent believes about other agents' beliefs.",
         )
         return state
@@ -216,3 +226,67 @@ class ToMOperator:
 
         sharing.sort(key=lambda x: x["shared_beliefs"], reverse=True)
         return sharing
+
+    def _compute_shared_mental_models(self, graph: Graph) -> dict:
+        """Compute Shared Mental Models via Jaccard similarity.
+
+        Finds all AGENT/PERSON/ENTITY nodes that have BELIEVES edges,
+        then computes Jaccard overlap of their belief sets (target nodes
+        they believe in).
+
+        Returns dict with:
+          - pairs: sorted by Jaccard similarity
+          - avg_jaccard: average across all pairs
+          - agents_with_beliefs: count of agents with BELIEVES edges
+        """
+        # Find agents (AGENT type nodes) and their belief targets
+        agent_beliefs: dict[UUID, set[UUID]] = {}
+        for edge in graph.edges.values():
+            if edge.type.name != "BELIEVES":
+                continue
+            agent = graph.nodes.get(edge.source_id)
+            if agent is None:
+                continue
+            agent_beliefs.setdefault(edge.source_id, set()).add(edge.target_id)
+
+        # Filter to agents with at least 2 beliefs
+        valid_agents = {aid: targets for aid, targets in agent_beliefs.items() if len(targets) >= 2}
+
+        if len(valid_agents) < 2:
+            return {"pairs": [], "avg_jaccard": 0.0, "agents_with_beliefs": len(valid_agents)}
+
+        # Compute pairwise Jaccard
+        agent_ids = list(valid_agents.keys())
+        pairs: list[dict] = []
+        jaccard_sum = 0.0
+        pair_count = 0
+
+        for i in range(len(agent_ids)):
+            for j in range(i + 1, len(agent_ids)):
+                a_id = agent_ids[i]
+                b_id = agent_ids[j]
+                a_targets = valid_agents[a_id]
+                b_targets = valid_agents[b_id]
+                intersection = a_targets & b_targets
+                union = a_targets | b_targets
+                jaccard = len(intersection) / len(union) if union else 0.0
+                if jaccard > 0.0:
+                    pairs.append({
+                        "agent_a": a_id.hex,
+                        "agent_b": b_id.hex,
+                        "jaccard": round(jaccard, 4),
+                        "shared_beliefs": len(intersection),
+                        "total_beliefs": len(union),
+                        "belief_intersection": [nid.hex for nid in intersection],
+                    })
+                jaccard_sum += jaccard
+                pair_count += 1
+
+        pairs.sort(key=lambda x: x["jaccard"], reverse=True)
+        avg_jaccard = jaccard_sum / pair_count if pair_count > 0 else 0.0
+
+        return {
+            "pairs": pairs,
+            "avg_jaccard": round(avg_jaccard, 4),
+            "agents_with_beliefs": len(valid_agents),
+        }

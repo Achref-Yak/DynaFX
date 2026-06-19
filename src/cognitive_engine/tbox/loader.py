@@ -47,10 +47,19 @@ GENERAL_TBOX = TBox(
         "CONTRADICTS": 0.85, "ATTACKS": 0.8, "CAUSES": 0.8, "SUPPORT": 0.75,
         "ENABLES": 0.7, "DEPENDS": 0.6, "TEMPORAL": 0.5, "SIMILAR": 0.5,
         "EVIDENCE": 0.8, "PART_OF": 0.6, "CITES": 0.6, "FLOWS_TO": 0.6,
+        "HAS_ATTRIBUTE": 0.7, "LOCATED_AT": 0.6, "EMPLOYED_BY": 0.6,
+        "ASSOCIATED_WITH": 0.5, "CONTACT_OF": 0.5,
+        "HAS_GOAL": 0.7, "INTENDS": 0.7, "KNOWS": 0.7, "COMMUNICATED": 0.6,
+        "PREFERS": 0.6, "USES": 0.7, "PRODUCES": 0.7, "CONSUMES": 0.7,
+        "TRANSFORMS": 0.7,
     },
     axioms=[
         {"antecedents": ["type_EVIDENCE", "edge_SUPPORTS"], "consequent": "belief_increase"},
         {"antecedents": ["type_COUNTERCLAIM", "edge_ATTACKS"], "consequent": "belief_decrease"},
+        {"name": "agent_process_enablement", "when": "AGENT + ENABLES + PROCESS", "then": "belief_increase"},
+        {"name": "process_causes_state", "when": "PROCESS + CAUSES + STATE", "then": "belief_increase"},
+        {"name": "goal_action_link", "when": "GOAL + ENABLES + ACTION", "then": "belief_increase"},
+        {"name": "resource_consumption", "when": "PROCESS + CONSUMES + RESOURCE", "then": "belief_increase"},
     ],
 )
 

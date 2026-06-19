@@ -9,10 +9,16 @@ description = "Cognitive Reasoning Graph Engine — A provably uncertainty-bound
 requires-python = ">=3.12"
 dependencies = [
     "networkx>=3.0",
+    "numpy>=1.24",
     "pydantic>=2.0",
     "torch>=2.0",
     "transformers>=4.30",
     "spacy>=3.7",
+    "nltk>=3.9",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.34",
+    "websockets>=14",
+    "leidenalg>=0.10",
 ]
 
 [project.optional-dependencies]
@@ -22,8 +28,7 @@ dev = [
 ]
 
 [project.scripts]
-cognitive-engine = "cognitive_engine.cli:main"
-cognitive_engine = "cognitive_engine.cli:main"
+cognitive-engine = "cognitive_engine.api.main:run"
 
 [tool.setuptools.package-data]
 cognitive_engine = ["default_priors.json"]
@@ -31,3 +36,45 @@ cognitive_engine = ["default_priors.json"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = false
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+    "torch.*",
+    "transformers.*",
+    "spacy.*",
+    "nltk.*",
+    "leidenalg.*",
+    "networkx.*",
+    "fastapi.*",
+    "uvicorn.*",
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "cognitive_engine.reason.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = [
+    "cognitive_engine.core.config",
+    "cognitive_engine.core.math",
+    "cognitive_engine.core.diff",
+    "cognitive_engine.core.pipeline",
+    "cognitive_engine.perception.*",
+    "cognitive_engine.api.*",
+    "cognitive_engine.domains.*",
+    "cognitive_engine.schemas.*",
+]
+ignore_errors = true

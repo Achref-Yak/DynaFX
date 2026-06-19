@@ -13,7 +13,7 @@ from cognitive_engine.core.math import (
     initialize_beliefs, compute_support_sum, compute_attack_sum,
     count_violations, global_objective,
 )
-from cognitive_engine.core.models import Graph
+from cognitive_engine.core.models import Graph, Opinion
 from cognitive_engine.core.state import State
 
 
@@ -112,7 +112,7 @@ class PropagateOperator:
                 b = belief
                 d = max(0.0, 1.0 - b - 0.05)
                 u = max(0.0, 1.0 - b - d)
-                node.opinion = (b, d, u, a)
+                node.opinion = Opinion(belief=b, disbelief=d, uncertainty=u, prior=a)
 
         changed = []
         for nid in list(node_ids)[:5]:

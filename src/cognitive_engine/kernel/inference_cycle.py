@@ -30,7 +30,11 @@ from cognitive_engine.core.math import (
 from cognitive_engine.core.state import State
 from cognitive_engine.core.trace import StateDelta
 from cognitive_engine.kernel.assertion_gate import AssertionGate
+from cognitive_engine.kernel.self_reflect import SelfReflectOperator, SelfReflectionConfig
 from cognitive_engine.memory.store import MemoryStore
+from cognitive_engine.memory.feedback import FeedbackStore
+from cognitive_engine.agents.manager import ManagerAgent
+from cognitive_engine.agents.blackboard import BlackboardAgent
 from cognitive_engine.policy.engine import PolicyEngine, PolicySelection
 from cognitive_engine.tbox.loader import TBox
 
@@ -46,6 +50,7 @@ class InferenceCycleConfig:
     policy_name: str = "default"
     domain: str = "general"
     convergence_window: int = 3
+    self_reflect_frequency: int = 0  # 0 = disabled
 
 
 @dataclass
@@ -91,6 +96,10 @@ class InferenceCycle:
         assertion_gate: Optional[AssertionGate] = None,
         tbox: Optional[TBox] = None,
         policy: Optional[PolicyEngine] = None,
+        feedback_store: Optional[FeedbackStore] = None,
+        self_reflect: Optional[SelfReflectOperator] = None,
+        manager: Optional[ManagerAgent] = None,
+        blackboard: Optional[BlackboardAgent] = None,
     ):
         self.operators = operators
         self.config = config or InferenceCycleConfig()
@@ -98,6 +107,18 @@ class InferenceCycle:
         self.gate = assertion_gate or AssertionGate()
         self.tbox = tbox
         self.policy = policy or PolicyEngine()
+        self.feedback = feedback_store
+        # Auto-create self_reflect if frequency is configured
+        if self_reflect is not None:
+            self.self_reflect = self_reflect
+        elif self.config.self_reflect_frequency > 0:
+            self.self_reflect = SelfReflectOperator(
+                SelfReflectionConfig(frequency=self.config.self_reflect_frequency)
+            )
+        else:
+            self.self_reflect = None
+        self.manager = manager
+        self.blackboard = blackboard
 
     def run(self, initial_state: State) -> InferenceResult:
         """Run the 9-step InferenceCycle to convergence.
@@ -143,7 +164,8 @@ class InferenceCycle:
 
             # ── Step 4: Evidential pass ───────────────────────────
             evidential_ops = ["propagate", "abduce", "induce", "analogy",
-                              "reason", "align", "attention", "merge", "simulate"]
+                              "reason", "align", "attention", "merge", "simulate",
+                              "rule_apply"]
             for op_name in evidential_ops:
                 if op_name in self.operators and op_name not in operator_log:
                     if op_name in selection.operators:
@@ -189,6 +211,61 @@ class InferenceCycle:
                     self.memory.store(state.graph)
                 except Exception:
                     logger.warning("Memory store failed, continuing")
+
+            # ── Step 7b: Feedback fusion ──────────────────────────
+            if self.feedback:
+                try:
+                    fused = self.feedback.fuse_all()
+                    for nid, opinion in fused.items():
+                        if str(nid) in state.graph.nodes:
+                            node = state.graph.nodes[str(nid)]
+                            if node.opinion:
+                                from cognitive_engine.core.math import cumulative_fusion
+                                node.opinion = cumulative_fusion(node.opinion, opinion)
+                except Exception:
+                    logger.warning("Feedback fusion failed, continuing")
+
+            # ── Step 7c: Self-reflection ──────────────────────────
+            if self.self_reflect and self.self_reflect.should_reflect(cycle):
+                try:
+                    reflection = self.self_reflect.reflect(state, cycle)
+                    state.metadata["self_reflection"] = {
+                        "cycle": cycle,
+                        "tier_counts": reflection.tier_counts,
+                        "low_belief_ratio": reflection.low_belief_ratio,
+                        "high_conflict_nodes": reflection.high_conflict_nodes,
+                        "recommendations": reflection.recommendations,
+                    }
+                    if reflection.recommendations:
+                        logger.info("Self-reflection at cycle %d: %s",
+                                    cycle, "; ".join(reflection.recommendations[:3]))
+                except Exception:
+                    logger.warning("Self-reflection failed, continuing")
+
+            # ── Step 7d: Agent health check + blackboard ──────────
+            if self.manager:
+                try:
+                    health = self.manager.health_check(state.graph)
+                    state.metadata["health"] = {
+                        "healthy": health.healthy,
+                        "convergence_rate": health.convergence_rate,
+                        "evidence_density": health.evidence_density,
+                        "conflict_ratio": health.conflict_ratio,
+                        "belief_variance": health.belief_variance,
+                        "world_model_coverage": health.world_model_coverage,
+                        "bottlenecks": health.bottlenecks,
+                    }
+                except Exception:
+                    logger.warning("Manager health check failed, continuing")
+            if self.blackboard:
+                try:
+                    self.blackboard.publish(f"cycle_{cycle}", {
+                        "norm": d_norm,
+                        "operators": operator_log,
+                        "converged": d_norm < self.config.epsilon,
+                    }, publisher="inference_cycle")
+                except Exception:
+                    logger.warning("Blackboard publish failed, continuing")
 
             # ── Step 8: Convergence check ─────────────────────────
             converged = d_norm < self.config.epsilon

@@ -168,6 +168,35 @@ _LOOKUP: Dict[Tuple[NodeType, NodeType, str], Optional[EdgeType]] = {
     (NodeType.JUSTIFICATION, NodeType.EVIDENCE, "Attack"): EdgeType.ATTACKS,
     (NodeType.JUSTIFICATION, NodeType.JUSTIFICATION, "Support"): EdgeType.SUPPORTS,
     (NodeType.JUSTIFICATION, NodeType.JUSTIFICATION, "Attack"): EdgeType.CONTRADICTS,
+    # World-model combinations (label-agnostic: match any label)
+    (NodeType.AGENT, NodeType.PROCESS, "Support"): EdgeType.ENABLES,
+    (NodeType.AGENT, NodeType.PROCESS, "Attack"): EdgeType.ENABLES,
+    (NodeType.AGENT, NodeType.GOAL, "Support"): EdgeType.HAS_GOAL,
+    (NodeType.AGENT, NodeType.GOAL, "Attack"): EdgeType.HAS_GOAL,
+    (NodeType.AGENT, NodeType.ACTION, "Support"): EdgeType.INTENDS,
+    (NodeType.AGENT, NodeType.ACTION, "Attack"): EdgeType.INTENDS,
+    (NodeType.AGENT, NodeType.BELIEF, "Support"): EdgeType.KNOWS,
+    (NodeType.AGENT, NodeType.BELIEF, "Attack"): EdgeType.KNOWS,
+    (NodeType.AGENT, NodeType.KNOWLEDGE, "Support"): EdgeType.KNOWS,
+    (NodeType.AGENT, NodeType.KNOWLEDGE, "Attack"): EdgeType.KNOWS,
+    (NodeType.AGENT, NodeType.RESOURCE, "Support"): EdgeType.USES,
+    (NodeType.AGENT, NodeType.RESOURCE, "Attack"): EdgeType.USES,
+    (NodeType.PROCESS, NodeType.STATE, "Support"): EdgeType.CAUSES,
+    (NodeType.PROCESS, NodeType.STATE, "Attack"): EdgeType.CAUSES,
+    (NodeType.PROCESS, NodeType.RESOURCE, "Support"): EdgeType.PRODUCES,
+    (NodeType.PROCESS, NodeType.RESOURCE, "Attack"): EdgeType.PRODUCES,
+    (NodeType.STATE, NodeType.PROPERTY, "Support"): EdgeType.HAS_ATTRIBUTE,
+    (NodeType.STATE, NodeType.PROPERTY, "Attack"): EdgeType.HAS_ATTRIBUTE,
+    (NodeType.STATE, NodeType.STATE, "Support"): EdgeType.TRANSFORMS,
+    (NodeType.STATE, NodeType.STATE, "Attack"): EdgeType.TRANSFORMS,
+    (NodeType.ACTION, NodeType.STATE, "Support"): EdgeType.CAUSES,
+    (NodeType.ACTION, NodeType.STATE, "Attack"): EdgeType.CAUSES,
+    (NodeType.ACTION, NodeType.RESOURCE, "Support"): EdgeType.PRODUCES,
+    (NodeType.ACTION, NodeType.RESOURCE, "Attack"): EdgeType.PRODUCES,
+    (NodeType.GOAL, NodeType.ACTION, "Support"): EdgeType.ENABLES,
+    (NodeType.GOAL, NodeType.ACTION, "Attack"): EdgeType.ENABLES,
+    (NodeType.CONSTRAINT, NodeType.PROCESS, "Support"): EdgeType.ENABLES,
+    (NodeType.CONSTRAINT, NodeType.PROCESS, "Attack"): EdgeType.ENABLES,
 }
 
 _NODE_TYPE_PRIORITY: Dict[NodeType, int] = {
@@ -228,6 +257,14 @@ def _resolve_edge_type(
         edge_type = EdgeType.SUPPORTS
     elif label == "Attack":
         edge_type = EdgeType.ATTACKS
+    elif label == "Causes":
+        edge_type = EdgeType.CAUSES
+    elif label == "Enables":
+        edge_type = EdgeType.ENABLES
+    elif label == "Depends":
+        edge_type = EdgeType.DEPENDS
+    elif label == "PartOf":
+        edge_type = EdgeType.PART_OF
     else:
         return None
 
@@ -286,12 +323,12 @@ def _refine_by_demarcation(
 
 
 def assign_edges(
-    typed_spans: List[Tuple[PropSpan, NodeType]],
+    typed_spans: List[Tuple[PropSpan, NodeType, str]],
     relations: List[Relation],
     node_map: Dict[SpanKey, UUID],
     existing_nodes: Dict[UUID, Node],
 ) -> Dict[UUID, Edge]:
-    typed_map: Dict[SpanKey, NodeType] = {_span_key(s): t for s, t in typed_spans}
+    typed_map: Dict[SpanKey, NodeType] = {_span_key(s): t for s, t, _ in typed_spans}
     edges: Dict[UUID, Edge] = {}
     seen: Set[Tuple[UUID, UUID]] = set()
 

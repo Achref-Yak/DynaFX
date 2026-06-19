@@ -9,7 +9,7 @@ from __future__ import annotations
 from cognitive_engine.core.math import (
     count_violations,
 )
-from cognitive_engine.core.models import Graph
+from cognitive_engine.core.models import EDGE_BFO_CONSTRAINTS, Graph
 from cognitive_engine.core.state import State
 
 
@@ -46,7 +46,12 @@ class ConstraintOperator:
         # Identify specific violating nodes
         violations = {}
         support_edges = [(e.source_id, e.target_id) for e in edges_list if e.type == "SUPPORTS"]
-        attack_pairs = {(e.source_id, e.target_id) for e in edges_list if e.type == "ATTACKS"}
+        # REBUTS is a concept-mediated correction (temporal semantics), not a
+        # structural inconsistency — exclude it from conflict-based violations.
+        attack_pairs = {
+            (e.source_id, e.target_id) for e in edges_list
+            if e.type in ("ATTACKS", "CONTRADICTS")
+        }
 
         for a, b in support_edges:
             if (a, b) in attack_pairs or (b, a) in attack_pairs:
@@ -55,6 +60,21 @@ class ConstraintOperator:
 
         state.metadata["constraint_beliefs"] = opin_tuples
         state.metadata["constraint_violations"] = violations
+
+        # BFO compatibility linter
+        bfo_violations = 0
+        for edge in graph.edges.values():
+            src = graph.nodes.get(edge.source_id)
+            tgt = graph.nodes.get(edge.target_id)
+            if src and tgt and src.bfo_category and tgt.bfo_category:
+                constraints = EDGE_BFO_CONSTRAINTS.get(edge.type)
+                if constraints:
+                    src_ok, tgt_ok = constraints
+                    if src.bfo_category not in src_ok or tgt.bfo_category not in tgt_ok:
+                        bfo_violations += 1
+                        violations[edge.source_id] = violations.get(edge.source_id, 0) + 1
+
+        state.metadata["bfo_violations"] = bfo_violations
         violation_text = "; ".join(
             f"{k.hex[:8]}: {v}" for k, v in list(violations.items())[:5]
         ) if violations else "none detected"

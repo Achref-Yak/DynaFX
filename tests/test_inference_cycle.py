@@ -25,10 +25,10 @@ class TestInferenceCycleConfig:
         assert cfg.convergence_window == 3
 
     def test_custom(self):
-        cfg = InferenceCycleConfig(epsilon=0.01, max_cycles=5, domain="legal")
+        cfg = InferenceCycleConfig(epsilon=0.01, max_cycles=5, domain="scientific")
         assert cfg.epsilon == 0.01
         assert cfg.max_cycles == 5
-        assert cfg.domain == "legal"
+        assert cfg.domain == "scientific"
 
 
 class TestCycleReport:

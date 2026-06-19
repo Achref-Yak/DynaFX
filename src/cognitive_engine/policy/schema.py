@@ -24,7 +24,7 @@ class WhenCondition:
         - graph.has_contradictions: true/false
         - graph.mean_uncertainty > θ
         - cycle: '>N' / '==N' / '<N'
-        - domain: legal / scientific / general
+        - domain: <domain_name>
         - convergence.stalled: true/false
         - last_operator: <operator_name>
     """

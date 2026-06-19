@@ -1,6 +1,6 @@
 import pytest
 from cognitive_engine.nlp.chunker import PropSpan
-from cognitive_engine.core.models import NodeType
+from cognitive_engine.core.models import NodeType, BfoCategory
 from cognitive_engine.extract.types import assign_type, map_types, Relation, _char_span_relaxed
 
 pytest.importorskip("spacy")
@@ -116,15 +116,15 @@ class TestAssignType:
         span = _make_span(0, len(text), text)
         assert assign_type(span, doc) != NodeType.AXIOM
 
-    def test_empty_span_defaults_to_evidence(self):
+    def test_empty_span_defaults_to_observation(self):
         doc = _make_doc("")
         span = _make_span(0, 0, "")
-        assert assign_type(span, doc) == NodeType.EVIDENCE
+        assert assign_type(span, doc) == NodeType.OBSERVATION
 
     def test_char_span_out_of_bounds(self):
         doc = _make_doc("Short text.")
         span = _make_span(100, 200, "out of bounds")
-        assert assign_type(span, doc) == NodeType.EVIDENCE
+        assert assign_type(span, doc) == NodeType.OBSERVATION
 
 
 class TestMapTypes:
@@ -149,6 +149,7 @@ class TestMapTypes:
         span = _make_span(999, 1005, "nowhere")
         results = map_types([span], [doc])
         assert results[0][1] == NodeType.EVIDENCE
+        assert len(results[0]) == 3
 
     def test_map_types_empty_spans(self):
         doc = _make_doc("Some text.")
@@ -164,5 +165,133 @@ class TestMapTypes:
         span_b = _make_span(20, 33, text_b)
         rel = Relation(source_span=span_b, target_span=span_a, label="Attack")
         results = map_types([span_a, span_b], [doc_a, doc_b], relations=[rel])
-        types_by_span = {id(s): t for s, t in results}
-        assert types_by_span[id(span_a)] == NodeType.CLAIM
+        types_by_span = {id(s): (t, c) for s, t, c in results}
+        assert types_by_span[id(span_a)][0] == NodeType.CLAIM
+
+
+class TestTypeRuleArchitecture:
+    def test_rules_are_sorted_by_priority(self):
+        from cognitive_engine.extract.types import TYPE_RULES
+        priorities = [r.priority for r in TYPE_RULES]
+        assert priorities == sorted(priorities, reverse=True)
+
+    def test_all_rules_have_unique_priorities(self):
+        from cognitive_engine.extract.types import TYPE_RULES
+        priorities = [r.priority for r in TYPE_RULES]
+        assert len(priorities) == len(set(priorities))
+
+    def test_all_rules_have_matcher_callable(self):
+        from cognitive_engine.extract.types import TYPE_RULES
+        for rule in TYPE_RULES:
+            assert callable(rule.matcher)
+
+    def test_agent_rule_priority高于_process(self):
+        from cognitive_engine.extract.types import TYPE_RULES
+        by_name = {r.name: r for r in TYPE_RULES}
+        assert by_name["agent"].priority > by_name["process"].priority
+
+    def test_world_model_rules高于_argumentation(self):
+        from cognitive_engine.extract.types import TYPE_RULES
+        by_name = {r.name: r for r in TYPE_RULES}
+        # Argumentation keyword rules have highest priority (most specific patterns)
+        # Frame-based world-model rules follow (semantic precision)
+        # Keyword world-model fallback rules have lowest priority
+        assert by_name["agent"].priority > by_name["process"].priority
+        assert by_name["condition"].priority > by_name["state"].priority
+
+
+class TestClassificationContext:
+    def test_context_is_frozen(self):
+        from cognitive_engine.extract.types import ClassificationContext, DependencyFeatures
+        deps = DependencyFeatures(verbs=(), modals=(), mark_relations=())
+        ctx = ClassificationContext(span=_make_span(0, 5, "hello"), doc=None, text_lower="hello", deps=deps)
+        with pytest.raises(AttributeError):
+            ctx.text_lower = "changed"
+
+    def test_dependency_features_is_frozen(self):
+        from cognitive_engine.extract.types import DependencyFeatures
+        deps = DependencyFeatures(verbs=(), modals=(), mark_relations=())
+        with pytest.raises(AttributeError):
+            deps.verbs = (1,)
+
+
+class TestDeclarativeBfo:
+    def test_nodetype_direct_map(self):
+        from cognitive_engine.extract.types import assign_bfo
+        assert assign_bfo(NodeType.EVENT) == BfoCategory.PROCESS
+        assert assign_bfo(NodeType.ACTION) == BfoCategory.PROCESS
+
+    def test_concept_direct_map(self):
+        from cognitive_engine.extract.types import assign_bfo
+        assert assign_bfo(NodeType.CLAIM, "TEMPERATURE") == BfoCategory.QUALITY
+        assert assign_bfo(NodeType.CLAIM, "CONDITION") == BfoCategory.REALIZABLE_ENTITY
+        assert assign_bfo(NodeType.CLAIM, "PRECEDENT") == BfoCategory.REALIZABLE_ENTITY
+
+    def test_ner_override(self):
+        from cognitive_engine.extract.types import assign_bfo
+        assert assign_bfo(NodeType.ENTITY, "", entity_kind="PERSON") == BfoCategory.QUALITY
+        assert assign_bfo(NodeType.ENTITY, "", entity_kind="ORG") == BfoCategory.IMMATERIAL_ENTITY
+        assert assign_bfo(NodeType.ENTITY, "", entity_kind="GPE") == BfoCategory.MATERIAL_ENTITY
+
+    def test_location_special_case(self):
+        from cognitive_engine.extract.types import assign_bfo
+        assert assign_bfo(NodeType.ENTITY, "LOCATION") == BfoCategory.MATERIAL_ENTITY
+        assert assign_bfo(NodeType.CLAIM, "LOCATION") == BfoCategory.IMMATERIAL_ENTITY
+
+
+class TestConceptModules:
+    def test_identity_person_name(self):
+        from cognitive_engine.extract.concepts.identity import match
+        assert match("my name is alice", NodeType.CLAIM) == "PERSON_NAME"
+
+    def test_identity_returns_none_on_no_match(self):
+        from cognitive_engine.extract.concepts.identity import match
+        assert match("the weather is nice", NodeType.CLAIM) is None
+
+    def test_measurement_temperature(self):
+        from cognitive_engine.extract.concepts.measurement import match
+        assert match("the temperature is 30°c", NodeType.OBSERVATION) == "TEMPERATURE"
+
+    def test_measurement_budget(self):
+        from cognitive_engine.extract.concepts.measurement import match
+        assert match("the cost is $500", NodeType.OBSERVATION) == "BUDGET"
+
+    def test_measurement_date(self):
+        from cognitive_engine.extract.concepts.measurement import match
+        assert match("deadline is january 15", NodeType.OBSERVATION) == "DATE"
+
+    def test_measurement_returns_none(self):
+        from cognitive_engine.extract.concepts.measurement import match
+        assert match("hello world", NodeType.OBSERVATION) is None
+
+    def test_preference_match(self):
+        from cognitive_engine.extract.concepts.preference import match
+        assert match("i prefer dark mode", NodeType.OBSERVATION) == "PREFERENCE"
+
+    def test_preference_style(self):
+        from cognitive_engine.extract.concepts.preference import match
+        assert match("dark mode looks better", NodeType.OBSERVATION) == "STYLE"
+
+    def test_preference_location(self):
+        from cognitive_engine.extract.concepts.preference import match
+        assert match("i live in berlin", NodeType.OBSERVATION) == "LOCATION"
+
+    def test_preference_returns_none(self):
+        from cognitive_engine.extract.concepts.preference import match
+        assert match("the system works", NodeType.OBSERVATION) is None
+
+    def test_reasoning_hypothesis(self):
+        from cognitive_engine.extract.concepts.reasoning import match
+        assert match("we hypothesize x", NodeType.OBSERVATION) == "HYPOTHESIS"
+
+    def test_reasoning_decision(self):
+        from cognitive_engine.extract.concepts.reasoning import match
+        assert match("we decided to proceed", NodeType.CLAIM) == "DECISION"
+
+    def test_reasoning_observation(self):
+        from cognitive_engine.extract.concepts.reasoning import match
+        assert match("we observed a pattern", NodeType.OBSERVATION) == "OBSERVATION"
+
+    def test_reasoning_returns_none(self):
+        from cognitive_engine.extract.concepts.reasoning import match
+        assert match("hello world", NodeType.OBSERVATION) is None

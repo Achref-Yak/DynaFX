@@ -1,3 +1,3 @@
-from cognitive_engine.cli import main
+from cognitive_engine.api.main import run
 
-main()
+run()

@@ -38,6 +38,27 @@ def _make_causal_graph() -> Graph:
     return graph
 
 
+def _make_fixes_that_fail_graph() -> Graph:
+    """Create a graph with Fixes that Fail pattern (CAUSES + ATTACKS loop)."""
+    graph = Graph()
+
+    nodes = {
+        "problem": Node(id="problem", type=NodeType.CLAIM, text="Problem exists"),
+        "fix": Node(id="fix", type=NodeType.CLAIM, text="Apply quick fix"),
+        "side_effect": Node(id="side_effect", type=NodeType.CLAIM, text="Side effect"),
+    }
+    graph.nodes = nodes
+
+    edges = [
+        Edge(source_id="problem", target_id="fix", type=EdgeType.CAUSES),
+        Edge(source_id="fix", target_id="side_effect", type=EdgeType.CAUSES),
+        Edge(source_id="side_effect", target_id="problem", type=EdgeType.ATTACKS),
+    ]
+    graph.edges = {e.id: e for e in edges}
+
+    return graph
+
+
 class TestFeedbackLoopDetector:
     """Tests for FeedbackLoopDetector."""
 
@@ -106,14 +127,14 @@ class TestSystemArchetypeClassifier:
         result = op(state)
         assert result.metadata["system_archetypes"]["total_archetypes"] > 0
 
-    def test_detects_feedback_dominated(self):
-        """Graph with loops should be classified as feedback dominated."""
-        graph = _make_causal_graph()
+    def test_detects_fixes_that_fail(self):
+        """Graph with CAUSES+PREVENTS loop should be classified as Fixes that Fail."""
+        graph = _make_fixes_that_fail_graph()
         op = SystemArchetypeClassifier()
         state = State(graph=graph)
         result = op(state)
         archetypes = result.metadata["system_archetypes"]["archetypes"]
-        assert any(a["name"] == "Feedback Dominated" for a in archetypes)
+        assert any(a["name"] == "Fixes that Fail" for a in archetypes)
 
     def test_empty_graph(self):
         """Empty graph should have no archetypes."""

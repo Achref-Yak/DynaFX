@@ -11,7 +11,7 @@ from cognitive_engine.policy.schema import (
     OperatorPolicy, PolicyRule, WhenCondition, ThenAction,
 )
 from cognitive_engine.policy.builtin import (
-    DEFAULT_POLICY, LEGAL_POLICY, SCIENTIFIC_POLICY, BUILTIN_POLICIES,
+    DEFAULT_POLICY, SCIENTIFIC_POLICY, BUILTIN_POLICIES,
 )
 
 
@@ -24,7 +24,7 @@ class TestPolicySelection:
         assert s.rule_index == -1
 
     def test_with_operators(self):
-        s = PolicySelection(operators=["propagate", "verify"], policy_name="legal", rule_index=0)
+        s = PolicySelection(operators=["propagate", "verify"], policy_name="custom", rule_index=0)
         assert s.operators == ["propagate", "verify"]
         assert s.rule_index == 0
 
@@ -89,12 +89,6 @@ class TestPolicyEngine:
         selection = engine.select(state, cycle=2)
         assert selection.rule_index >= 0
 
-    def test_select_legal_policy(self):
-        engine = PolicyEngine(policy=LEGAL_POLICY)
-        state = self._make_state()
-        selection = engine.select(state, cycle=1, domain="legal")
-        assert selection.policy_name == "legal"
-
     def test_select_scientific_policy(self):
         engine = PolicyEngine(policy=SCIENTIFIC_POLICY)
         state = self._make_state()
@@ -157,19 +151,19 @@ fallback:
     def test_extract_metrics(self):
         engine = PolicyEngine()
         state = self._make_state(node_count=3, contradictions=1, uncertainty=0.4)
-        metrics = engine._extract_metrics(state, 2, "legal")
+        metrics = engine._extract_metrics(state, 2, "general")
         # node_count=3 → 3 nodes, contradictions=1 → 2 more nodes = 5 total
         assert metrics["graph_node_count"] == 5
         assert metrics["graph_has_contradictions"] is True
         assert metrics["cycle"] == 2
-        assert metrics["domain"] == "legal"
+        assert metrics["domain"] == "general"
 
     def test_format_condition(self):
         engine = PolicyEngine()
-        when = WhenCondition(cycle="==1", domain="legal")
+        when = WhenCondition(cycle="==1", domain="general")
         formatted = engine._format_condition(when)
         assert "cycle===1" in formatted
-        assert "domain=legal" in formatted
+        assert "domain=general" in formatted
 
 
 class TestBuiltinPolicies:
@@ -178,15 +172,10 @@ class TestBuiltinPolicies:
         assert len(DEFAULT_POLICY.rules) >= 1
         assert DEFAULT_POLICY.fallback.operators == ["propagate", "verify"]
 
-    def test_legal_policy_structure(self):
-        assert LEGAL_POLICY.name == "legal"
-        assert len(LEGAL_POLICY.rules) >= 1
-
     def test_scientific_policy_structure(self):
         assert SCIENTIFIC_POLICY.name == "scientific"
         assert len(SCIENTIFIC_POLICY.rules) >= 1
 
     def test_builtin_policies_registry(self):
         assert "default" in BUILTIN_POLICIES
-        assert "legal" in BUILTIN_POLICIES
         assert "scientific" in BUILTIN_POLICIES

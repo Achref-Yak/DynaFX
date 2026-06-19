@@ -3,15 +3,17 @@ from __future__ import annotations
 import json
 import sqlite3
 import time
+import uuid
 from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 from uuid import UUID, uuid4
 
+from cognitive_engine.core.concept import Provenance
 from cognitive_engine.core.models import Graph
 from cognitive_engine.core.state import State
-from cognitive_engine.memory.models import LTMPattern
+from cognitive_engine.memory.models import Fact, LTMPattern
 from cognitive_engine.memory.retrieval import retrieve_similar
 
 
@@ -20,6 +22,7 @@ class MemoryStore:
 
     Short-term memory is an in-memory deque of recent states.
     Long-term memory persists patterns to SQLite.
+    FactStore provides cross-session fact persistence with SCD Type 2.
 
     Usage:
         mem = MemoryStore("memory.db")
@@ -32,10 +35,19 @@ class MemoryStore:
         self,
         ltm_path: str = ":memory:",
         stm_capacity: int = 10,
+        session_id: str = "",
     ):
         self.stm: deque[State] = deque(maxlen=stm_capacity)
+        self.session_id = session_id or uuid.uuid4().hex
         self._conn = sqlite3.connect(str(ltm_path))
         self._init_db()
+
+        # Initialize FactStore for cross-session persistence
+        from cognitive_engine.memory.fact_store import FactStore
+        self.fact_store = FactStore(
+            db_path=ltm_path if ltm_path != ":memory:" else ":memory:",
+            session_id=self.session_id,
+        )
 
     def _init_db(self) -> None:
         self._conn.execute(
@@ -46,14 +58,9 @@ class MemoryStore:
             "  operator_trace TEXT,"
             "  cluster_labels TEXT,"
             "  frequency INTEGER DEFAULT 1,"
-            "  last_accessed REAL"
-            ")"
-        )
-        self._conn.execute(
-            "CREATE TABLE IF NOT EXISTS node_embeddings ("
-            "  node_id TEXT PRIMARY KEY,"
-            "  embedding TEXT,"
-            "  created_at REAL"
+            "  last_accessed REAL,"
+            "  session_id TEXT,"
+            "  community_id INTEGER"
             ")"
         )
         self._conn.commit()
@@ -69,8 +76,44 @@ class MemoryStore:
     def store(self, state: State) -> None:
         """Push state into STM; auto-consolidate to LTM when full."""
         self.stm.append(state)
+
+        # Extract and persist facts from the state
+        self._extract_and_store_facts(state)
+
         if len(self.stm) == self.stm.maxlen:
             self.consolidate()
+
+    def _extract_and_store_facts(self, state: State) -> None:
+        """Extract facts from state graph nodes and persist to FactStore."""
+        for nid, node in state.graph.nodes.items():
+            # Skip nodes without meaningful text
+            if not node.text or len(node.text.strip()) < 3:
+                continue
+
+            # Determine concept from node metadata or type
+            concept = node.metadata.get("concept", node.type.name)
+
+            # Determine provenance from node metadata
+            prov_name = node.metadata.get("provenance", "AGENT_OBSERVED")
+            try:
+                provenance = Provenance[prov_name]
+            except KeyError:
+                provenance = Provenance.AGENT_OBSERVED
+
+            # Create fact
+            fact = Fact(
+                id=uuid4(),
+                concept=concept,
+                value=node.text,
+                original_text=node.text,
+                provenance=provenance,
+                confidence=node.opinion[0] if node.opinion else 0.5,
+                valid_from=time.time(),
+                session_id=self.session_id,
+                node_id=nid,
+            )
+
+            self.fact_store.store(fact)
 
     def retrieve(self, state: State, k: int = 3) -> State:
         """LTM → STM: find similar patterns and augment current graph."""
@@ -88,39 +131,40 @@ class MemoryStore:
         return state
 
     def consolidate(self) -> int:
-        """STM → LTM: compress STM trace into an LTM pattern."""
+        """STM → LTM: compress STM trace into LTM patterns using Leiden."""
         if not self.stm:
             return 0
         from cognitive_engine.memory.consolidate import build_pattern
-        pattern = build_pattern(self.stm)
-        self._insert_pattern(pattern)
+        patterns = build_pattern(self.stm, session_id=self.session_id)
+        for pattern in patterns:
+            self._insert_pattern(pattern)
         self.stm.clear()
-        return 1
+        return len(patterns)
 
-    def store_embedding(self, node_id: str, embedding: list[float]) -> None:
-        """Persist a node embedding vector to the DB for out-of-band retrieval."""
-        self._conn.execute(
-            "INSERT OR REPLACE INTO node_embeddings (node_id, embedding, created_at) VALUES (?, ?, ?)",
-            (node_id, json.dumps(embedding), time.time()),
+    def query_facts(
+        self,
+        concept: Optional[str] = None,
+        provenance_min: Optional[Provenance] = None,
+        active_only: bool = True,
+        limit: int = 100,
+    ) -> list[Fact]:
+        """Query facts from FactStore using structured retrieval."""
+        return self.fact_store.query(
+            concept=concept,
+            provenance_min=provenance_min,
+            active_only=active_only,
+            limit=limit,
         )
-        self._conn.commit()
-
-    def get_embedding(self, node_id: str) -> Optional[list[float]]:
-        """Retrieve a previously stored embedding vector by node ID."""
-        row = self._conn.execute(
-            "SELECT embedding FROM node_embeddings WHERE node_id = ?",
-            (node_id,),
-        ).fetchone()
-        return json.loads(row[0]) if row else None
 
     def close(self) -> None:
         self._conn.close()
+        self.fact_store.close()
 
     def _similar(self, graph: Graph, k: int) -> list[LTMPattern]:
         """Find top-k similar patterns by node count proximity."""
         rows = self._conn.execute(
             "SELECT id, graph_json, belief_signature, operator_trace, "
-            "cluster_labels, frequency, last_accessed "
+            "cluster_labels, frequency, last_accessed, session_id, community_id "
             "FROM ltm_patterns ORDER BY last_accessed DESC LIMIT 100"
         ).fetchall()
 
@@ -134,6 +178,8 @@ class MemoryStore:
                 cluster_labels=json.loads(row[4]) if row[4] else [],
                 frequency=row[5],
                 last_accessed=row[6],
+                session_id=row[7] or "",
+                community_id=row[8],
             )
             candidates.append(p)
 
@@ -144,8 +190,8 @@ class MemoryStore:
         self._conn.execute(
             "INSERT OR REPLACE INTO ltm_patterns "
             "(id, graph_json, belief_signature, operator_trace, "
-            "cluster_labels, frequency, last_accessed) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "cluster_labels, frequency, last_accessed, session_id, community_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 str(pattern.id),
                 json.dumps(pattern.graph_snapshot.to_dict()),
@@ -154,6 +200,8 @@ class MemoryStore:
                 json.dumps(pattern.cluster_labels),
                 pattern.frequency,
                 pattern.last_accessed or time.time(),
+                pattern.session_id,
+                pattern.community_id,
             ),
         )
         self._conn.commit()

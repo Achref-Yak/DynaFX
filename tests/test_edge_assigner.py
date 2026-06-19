@@ -14,8 +14,8 @@ def _key(text: str, start: int, end: int) -> tuple:
     return (start, end)
 
 
-def _typed(text: str, start: int, end: int, type_: NodeType) -> tuple:
-    return (_span(start, end, text), type_)
+def _typed(text: str, start: int, end: int, type_: NodeType, concept: str = "CLAIM") -> tuple:
+    return (_span(start, end, text), type_, concept)
 
 
 class TestSupportRelations:
@@ -49,7 +49,7 @@ class TestSupportRelations:
 
     def test_condition_qualifies_claim(self):
         spans = [_typed("If traffic spikes.", 0, 18, NodeType.CONDITION),
-                 (_span(19, 30, "Scale out."), NodeType.CLAIM)]
+                 (_span(19, 30, "Scale out."), NodeType.CLAIM, "CLAIM")]
         rels = [Relation(source_span=spans[0][0], target_span=spans[1][0], label="Support")]
         nmap = {_key("If traffic spikes.", 0, 18): uuid4(), (19, 30): uuid4()}
         edges = assign_edges(spans, rels, nmap, {})
@@ -58,7 +58,7 @@ class TestSupportRelations:
 
     def test_justification_justifies_claim(self):
         spans = [_typed("Because it works.", 0, 17, NodeType.JUSTIFICATION),
-                 (_span(18, 33, "System is good."), NodeType.CLAIM)]
+                 (_span(18, 33, "System is good."), NodeType.CLAIM, "CLAIM")]
         rels = [Relation(source_span=spans[0][0], target_span=spans[1][0], label="Support")]
         nmap = {_key("Because it works.", 0, 17): uuid4(), (18, 33): uuid4()}
         edges = assign_edges(spans, rels, nmap, {})
@@ -69,7 +69,7 @@ class TestSupportRelations:
 class TestAttackRelations:
     def test_evidence_attacks_claim(self):
         spans = [_typed("Contradicting data.", 0, 18, NodeType.EVIDENCE),
-                 (_span(19, 34, "Claim is false."), NodeType.CLAIM)]
+                 (_span(19, 34, "Claim is false."), NodeType.CLAIM, "CLAIM")]
         rels = [Relation(source_span=spans[0][0], target_span=spans[1][0], label="Attack")]
         nmap = {_key("Contradicting data.", 0, 18): uuid4(), (19, 34): uuid4()}
         edges = assign_edges(spans, rels, nmap, {})
@@ -78,7 +78,7 @@ class TestAttackRelations:
 
     def test_claim_contradicts_claim(self):
         spans = [_typed("A is true.", 0, 10, NodeType.CLAIM),
-                 (_span(11, 22, "A is false."), NodeType.CLAIM)]
+                 (_span(11, 22, "A is false."), NodeType.CLAIM, "CLAIM")]
         rels = [Relation(source_span=spans[0][0], target_span=spans[1][0], label="Attack")]
         nmap = {_key("A is true.", 0, 10): uuid4(), (11, 22): uuid4()}
         edges = assign_edges(spans, rels, nmap, {})
@@ -87,7 +87,7 @@ class TestAttackRelations:
 
     def test_counterclaim_rebuts_claim(self):
         spans = [_typed("However, not true.", 0, 18, NodeType.COUNTERCLAIM),
-                 (_span(19, 32, "Claim is X."), NodeType.CLAIM)]
+                 (_span(19, 32, "Claim is X."), NodeType.CLAIM, "CLAIM")]
         rels = [Relation(source_span=spans[0][0], target_span=spans[1][0], label="Attack")]
         nmap = {_key("However, not true.", 0, 18): uuid4(), (19, 32): uuid4()}
         edges = assign_edges(spans, rels, nmap, {})
@@ -96,7 +96,7 @@ class TestAttackRelations:
 
     def test_axiom_contradicts_claim(self):
         spans = [_typed("Must never fail.", 0, 16, NodeType.AXIOM),
-                 (_span(17, 31, "Failure is ok."), NodeType.CLAIM)]
+                 (_span(17, 31, "Failure is ok."), NodeType.CLAIM, "CLAIM")]
         rels = [Relation(source_span=spans[0][0], target_span=spans[1][0], label="Attack")]
         nmap = {_key("Must never fail.", 0, 16): uuid4(), (17, 31): uuid4()}
         edges = assign_edges(spans, rels, nmap, {})
@@ -105,7 +105,7 @@ class TestAttackRelations:
 
     def test_fallacy_attacks_claim(self):
         spans = [_typed("Invalid reasoning.", 0, 18, NodeType.FALLACY),
-                 (_span(19, 35, "Claim is valid."), NodeType.CLAIM)]
+                 (_span(19, 35, "Claim is valid."), NodeType.CLAIM, "CLAIM")]
         rels = [Relation(source_span=spans[0][0], target_span=spans[1][0], label="Attack")]
         nmap = {_key("Invalid reasoning.", 0, 18): uuid4(), (19, 35): uuid4()}
         edges = assign_edges(spans, rels, nmap, {})
@@ -116,7 +116,7 @@ class TestAttackRelations:
 class TestNoneRelations:
     def test_support_from_claim_to_condition_is_none(self):
         spans = [_typed("Scale out.", 0, 10, NodeType.CLAIM),
-                 (_span(11, 35, "If traffic exceeds 10k."), NodeType.CONDITION)]
+                 (_span(11, 35, "If traffic exceeds 10k."), NodeType.CONDITION, "CONDITION")]
         rels = [Relation(source_span=spans[0][0], target_span=spans[1][0], label="Support")]
         nmap = {_key("Scale out.", 0, 10): uuid4(), (11, 35): uuid4()}
         edges = assign_edges(spans, rels, nmap, {})
@@ -124,7 +124,7 @@ class TestNoneRelations:
 
     def test_attack_claim_to_counterclaim_is_rebuts(self):
         spans = [_typed("Claim is X.", 0, 12, NodeType.CLAIM),
-                 (_span(13, 34, "However, claim is Y."), NodeType.COUNTERCLAIM)]
+                 (_span(13, 34, "However, claim is Y."), NodeType.COUNTERCLAIM, "COUNTERCLAIM")]
         rels = [Relation(source_span=spans[0][0], target_span=spans[1][0], label="Attack")]
         nmap = {_key("Claim is X.", 0, 12): uuid4(), (13, 34): uuid4()}
         edges = assign_edges(spans, rels, nmap, {})
@@ -135,7 +135,7 @@ class TestNoneRelations:
 class TestEdgeDeduplication:
     def test_duplicate_pair_not_added_twice(self):
         spans = [_typed("Traffic is high.", 0, 16, NodeType.EVIDENCE),
-                 (_span(17, 38, "System overloaded."), NodeType.CLAIM)]
+                 (_span(17, 38, "System overloaded."), NodeType.CLAIM, "CLAIM")]
         rels = [Relation(source_span=spans[0][0], target_span=spans[1][0], label="Support"),
                 Relation(source_span=spans[0][0], target_span=spans[1][0], label="Support")]
         nmap = {_key("Traffic is high.", 0, 16): uuid4(), (17, 38): uuid4()}
@@ -146,7 +146,7 @@ class TestEdgeDeduplication:
 class TestSelfEdge:
     def test_self_relation_not_added(self):
         span = _span(0, 10, "Same span.")
-        spans = [(span, NodeType.CLAIM)]
+        spans = [(span, NodeType.CLAIM, "CLAIM")]
         rels = [Relation(source_span=span, target_span=span, label="Support")]
         nmap = {(0, 10): uuid4()}
         edges = assign_edges(spans, rels, nmap, {})
@@ -156,7 +156,7 @@ class TestSelfEdge:
 class TestUnmatchedSpan:
     def test_span_not_in_nmap_dropped(self):
         spans = [_typed("Ev 1.", 0, 5, NodeType.EVIDENCE),
-                 (_span(6, 18, "Claim here."), NodeType.CLAIM)]
+                 (_span(6, 18, "Claim here."), NodeType.CLAIM, "CLAIM")]
         rels = [Relation(source_span=spans[0][0], target_span=spans[1][0], label="Support")]
         nmap = {_key("Ev 1.", 0, 5): uuid4()}
         edges = assign_edges(spans, rels, nmap, {})
@@ -167,7 +167,7 @@ class TestFallbackDefaults:
     def test_unknown_support_falls_back_to_supports(self):
         uid_a, uid_b = uuid4(), uuid4()
         spans = [_typed("Some fallacy.", 0, 12, NodeType.FALLACY),
-                 (_span(13, 35, "Some condition here."), NodeType.CONDITION)]
+                 (_span(13, 35, "Some condition here."), NodeType.CONDITION, "CONDITION")]
         rels = [Relation(source_span=spans[0][0], target_span=spans[1][0], label="Support")]
         nmap = {(0, 12): uid_a, (13, 35): uid_b}
         edges = assign_edges(spans, rels, nmap, {})
@@ -177,7 +177,7 @@ class TestFallbackDefaults:
     def test_unknown_attack_falls_back_to_attacks(self):
         uid_a, uid_b = uuid4(), uuid4()
         spans = [_typed("Justification attack.", 0, 20, NodeType.JUSTIFICATION),
-                 (_span(21, 40, "Counterclaim text."), NodeType.COUNTERCLAIM)]
+                 (_span(21, 40, "Counterclaim text."), NodeType.COUNTERCLAIM, "COUNTERCLAIM")]
         rels = [Relation(source_span=spans[0][0], target_span=spans[1][0], label="Attack")]
         nmap = {(0, 20): uid_a, (21, 40): uid_b}
         edges = assign_edges(spans, rels, nmap, {})
@@ -199,7 +199,7 @@ class TestDemarcationRefinement:
             metadata={"demarcation": {"epistemic_vs_institutional": "EPISTEMIC"}},
         )
         spans = [_typed("Must handle 10k.", 0, 16, NodeType.EVIDENCE),
-                 (_span(17, 31, "System scales."), NodeType.CLAIM)]
+                 (_span(17, 31, "System scales."), NodeType.CLAIM, "CLAIM")]
         rels = [Relation(source_span=spans[0][0], target_span=spans[1][0], label="Support")]
         nmap = {(0, 16): uid_a, (17, 31): uid_b}
         existing = {uid_a: src_node, uid_b: tgt_node}
@@ -210,7 +210,7 @@ class TestDemarcationRefinement:
     def test_no_demarcation_no_refinement(self):
         uid_a, uid_b = uuid4(), uuid4()
         spans = [_typed("Traffic is high.", 0, 16, NodeType.EVIDENCE),
-                 (_span(17, 38, "System overloaded."), NodeType.CLAIM)]
+                 (_span(17, 38, "System overloaded."), NodeType.CLAIM, "CLAIM")]
         rels = [Relation(source_span=spans[0][0], target_span=spans[1][0], label="Support")]
         nmap = {(0, 16): uid_a, (17, 38): uid_b}
         existing = {uid_a: Node(id=uid_a, type=NodeType.EVIDENCE),
@@ -226,7 +226,7 @@ class TestDemarcationCognitiveEpistemic:
         src = Node(id=uid_a, type=NodeType.JUSTIFICATION, metadata={"demarcation": {"cognitive_vs_epistemic": "EPISTEMIC"}})
         tgt = Node(id=uid_b, type=NodeType.CONDITION, metadata={"demarcation": {"cognitive_vs_epistemic": "COGNITIVE"}})
         spans = [_typed("Because it holds.", 0, 16, NodeType.JUSTIFICATION),
-                 (_span(17, 38, "If it scales."), NodeType.CONDITION)]
+                 (_span(17, 38, "If it scales."), NodeType.CONDITION, "CONDITION")]
         rels = [Relation(source_span=spans[0][0], target_span=spans[1][0], label="Support")]
         nmap = {(0, 16): uid_a, (17, 38): uid_b}
         edges = assign_edges(spans, rels, nmap, {uid_a: src, uid_b: tgt})
@@ -238,7 +238,7 @@ class TestDemarcationCognitiveEpistemic:
         src = Node(id=uid_a, type=NodeType.EVIDENCE)
         tgt = Node(id=uid_b, type=NodeType.CONDITION)
         spans = [_typed("Data shows X.", 0, 13, NodeType.EVIDENCE),
-                 (_span(14, 31, "If Y then Z."), NodeType.CONDITION)]
+                 (_span(14, 31, "If Y then Z."), NodeType.CONDITION, "CONDITION")]
         rels = [Relation(source_span=spans[0][0], target_span=spans[1][0], label="Attack")]
         nmap = {(0, 13): uid_a, (14, 31): uid_b}
         existing = {uid_a: src, uid_b: tgt}
@@ -255,7 +255,7 @@ class TestDemarcationAffect:
         src = Node(id=uid_a, type=NodeType.AXIOM, metadata={"demarcation": {"affect_vs_cognition": "AFFECT"}})
         tgt = Node(id=uid_b, type=NodeType.FALLACY)
         spans = [_typed("Always handle it.", 0, 17, NodeType.AXIOM),
-                 (_span(18, 33, "Bad reasoning."), NodeType.FALLACY)]
+                 (_span(18, 33, "Bad reasoning."), NodeType.FALLACY, "FALLACY")]
         rels = [Relation(source_span=spans[0][0], target_span=spans[1][0], label="Support")]
         nmap = {(0, 17): uid_a, (18, 33): uid_b}
         edges = assign_edges(spans, rels, nmap, {uid_a: src, uid_b: tgt})
@@ -267,7 +267,7 @@ class TestDemarcationAffect:
         src = Node(id=uid_a, type=NodeType.AXIOM, metadata={"demarcation": {"affect_vs_cognition": "AFFECT"}})
         tgt = Node(id=uid_b, type=NodeType.AXIOM)
         spans = [_typed("Always handle it.", 0, 17, NodeType.AXIOM),
-                 (_span(18, 33, "Other rule."), NodeType.AXIOM)]
+                 (_span(18, 33, "Other rule."), NodeType.AXIOM, "AXIOM")]
         rels = [Relation(source_span=spans[0][0], target_span=spans[1][0], label="Attack")]
         nmap = {(0, 17): uid_a, (18, 33): uid_b}
         edges = assign_edges(spans, rels, nmap, {uid_a: src, uid_b: tgt})
@@ -281,7 +281,7 @@ class TestDemarcationConstraintEnablement:
         src = Node(id=uid_a, type=NodeType.AXIOM, metadata={"demarcation": {"constraint_vs_enablement": "CONSTRAINT"}})
         tgt = Node(id=uid_b, type=NodeType.FALLACY, metadata={"demarcation": {"constraint_vs_enablement": "ENABLEMENT"}})
         spans = [_typed("Always handle it.", 0, 17, NodeType.AXIOM),
-                 (_span(18, 33, "Bad reasoning."), NodeType.FALLACY)]
+                 (_span(18, 33, "Bad reasoning."), NodeType.FALLACY, "FALLACY")]
         rels = [Relation(source_span=spans[0][0], target_span=spans[1][0], label="Support")]
         nmap = {(0, 17): uid_a, (18, 33): uid_b}
         edges = assign_edges(spans, rels, nmap, {uid_a: src, uid_b: tgt})
@@ -293,7 +293,7 @@ class TestDemarcationConstraintEnablement:
         src = Node(id=uid_a, type=NodeType.FALLACY, metadata={"demarcation": {"constraint_vs_enablement": "ENABLEMENT"}})
         tgt = Node(id=uid_b, type=NodeType.AXIOM, metadata={"demarcation": {"constraint_vs_enablement": "CONSTRAINT"}})
         spans = [_typed("Bad reasoning.", 0, 13, NodeType.FALLACY),
-                 (_span(14, 31, "Always handle it."), NodeType.AXIOM)]
+                 (_span(14, 31, "Always handle it."), NodeType.AXIOM, "AXIOM")]
         rels = [Relation(source_span=spans[0][0], target_span=spans[1][0], label="Attack")]
         nmap = {(0, 13): uid_a, (14, 31): uid_b}
         edges = assign_edges(spans, rels, nmap, {uid_a: src, uid_b: tgt})
@@ -307,7 +307,7 @@ class TestDemarcationSynchronicDiachronic:
         src = Node(id=uid_a, type=NodeType.AXIOM, metadata={"demarcation": {"synchronic_vs_diachronic": "SYNCHRONIC"}})
         tgt = Node(id=uid_b, type=NodeType.FALLACY, metadata={"demarcation": {"synchronic_vs_diachronic": "DIACHRONIC"}})
         spans = [_typed("Always handle it.", 0, 17, NodeType.AXIOM),
-                 (_span(18, 33, "Bad reasoning."), NodeType.FALLACY)]
+                 (_span(18, 33, "Bad reasoning."), NodeType.FALLACY, "FALLACY")]
         rels = [Relation(source_span=spans[0][0], target_span=spans[1][0], label="Support")]
         nmap = {(0, 17): uid_a, (18, 33): uid_b}
         edges = assign_edges(spans, rels, nmap, {uid_a: src, uid_b: tgt})
@@ -319,7 +319,7 @@ class TestDemarcationSynchronicDiachronic:
         src = Node(id=uid_a, type=NodeType.JUSTIFICATION, metadata={"demarcation": {"synchronic_vs_diachronic": "SYNCHRONIC"}})
         tgt = Node(id=uid_b, type=NodeType.FALLACY, metadata={"demarcation": {"synchronic_vs_diachronic": "DIACHRONIC"}})
         spans = [_typed("Because it holds.", 0, 17, NodeType.JUSTIFICATION),
-                 (_span(18, 33, "Bad reasoning."), NodeType.FALLACY)]
+                 (_span(18, 33, "Bad reasoning."), NodeType.FALLACY, "FALLACY")]
         rels = [Relation(source_span=spans[0][0], target_span=spans[1][0], label="Attack")]
         nmap = {(0, 17): uid_a, (18, 33): uid_b}
         edges = assign_edges(spans, rels, nmap, {uid_a: src, uid_b: tgt})
@@ -333,7 +333,7 @@ class TestDemarcationEpistemicInstitutionalAttack:
         src = Node(id=uid_a, type=NodeType.AXIOM, metadata={"demarcation": {"epistemic_vs_institutional": "INSTITUTIONAL"}})
         tgt = Node(id=uid_b, type=NodeType.EVIDENCE, metadata={"demarcation": {"epistemic_vs_institutional": "EPISTEMIC"}})
         spans = [_typed("Must handle 10k.", 0, 16, NodeType.AXIOM),
-                 (_span(17, 31, "Data shows 5k."), NodeType.EVIDENCE)]
+                 (_span(17, 31, "Data shows 5k."), NodeType.EVIDENCE, "EVIDENCE")]
         rels = [Relation(source_span=spans[0][0], target_span=spans[1][0], label="Attack")]
         nmap = {(0, 16): uid_a, (17, 31): uid_b}
         edges = assign_edges(spans, rels, nmap, {uid_a: src, uid_b: tgt})

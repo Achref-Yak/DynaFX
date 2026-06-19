@@ -1,79 +1,14 @@
 from __future__ import annotations
 
 import logging
+from collections import defaultdict
 from typing import Dict, List, Optional, Set, Tuple
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from cognitive_engine.core.models import Entity, Graph, Span
 
 logger = logging.getLogger(__name__)
 
-_ADDITIONAL_KINDS: Dict[str, str] = {
-    "access": "Access",
-    "algorithm": "Algorithm",
-    "analysis": "Analysis",
-    "application": "Application",
-    "approach": "Approach",
-    "architecture": "Architecture",
-    "argument": "Argument",
-    "attack": "Attack",
-    "audit": "Audit",
-    "authentication": "Authentication",
-    "client": "Client",
-    "compatibility": "Compatibility",
-    "compliance": "Compliance",
-    "complexity": "Complexity",
-    "component": "Component",
-    "config": "Config",
-    "configuration": "Configuration",
-    "consistency": "Consistency",
-    "data": "Data",
-    "database": "Database",
-    "deadline": "Deadline",
-    "endpoint": "Endpoint",
-    "environment": "Environment",
-    "failure": "Failure",
-    "feature": "Feature",
-    "function": "Function",
-    "gateway": "Gateway",
-    "infrastructure": "Infrastructure",
-    "instance": "Instance",
-    "interface": "Interface",
-    "interval": "Interval",
-    "layer": "Layer",
-    "library": "Library",
-    "limit": "Limit",
-    "middleware": "Middleware",
-    "module": "Module",
-    "network": "Network",
-    "node": "Node",
-    "optimization": "Optimization",
-    "pipeline": "Pipeline",
-    "platform": "Platform",
-    "policy": "Policy",
-    "process": "Process",
-    "protocol": "Protocol",
-    "request": "Request",
-    "resource": "Resource",
-    "role": "Role",
-    "route": "Route",
-    "schema": "Schema",
-    "security": "Security",
-    "server": "Server",
-    "service": "Service",
-    "session": "Session",
-    "strategy": "Strategy",
-    "system": "System",
-    "task": "Task",
-    "team": "Team",
-    "template": "Template",
-    "throttling": "Throttling",
-    "token": "Token",
-    "user": "User",
-    "validator": "Validator",
-    "version": "Version",
-    "worker": "Worker",
-}
 
 
 def _ner_kind_for_span(
@@ -88,10 +23,6 @@ def _ner_kind_for_span(
 
 
 def _noun_kind(root: "spacy.tokens.Token") -> str:
-    lemma = root.lemma_.lower()
-    mapped = _ADDITIONAL_KINDS.get(lemma)
-    if mapped is not None:
-        return mapped
     if root.pos_ == "PROPN":
         return root.text
     if root.pos_ == "NOUN":
@@ -133,3 +64,33 @@ def extract_entities(
                 spans=[Span(start=start, end=end, text=text)],
             )
             graph.entities[entity.id] = entity
+
+
+def deduplicate_entities(graph: Graph) -> None:
+    """Merge entities with identical normalized names, keeping the one with most spans."""
+    name_groups: dict[str, list[UUID]] = defaultdict(list)
+    for eid, entity in graph.entities.items():
+        norm_name = entity.name.lower().strip()
+        name_groups[norm_name].append(eid)
+
+    for norm_name, eids in name_groups.items():
+        if len(eids) <= 1:
+            continue
+        best_eid = max(eids, key=lambda eid: len(graph.entities[eid].spans))
+        best_entity = graph.entities[best_eid]
+
+        for eid in eids:
+            if eid == best_eid:
+                continue
+            other = graph.entities[eid]
+            existing_spans = {(s.start, s.end) for s in best_entity.spans}
+            for span in other.spans:
+                if (span.start, span.end) not in existing_spans:
+                    best_entity.spans.append(span)
+                    existing_spans.add((span.start, span.end))
+            for edge in list(graph.edges.values()):
+                if edge.source_id == eid:
+                    edge.source_id = best_eid
+                if edge.target_id == eid:
+                    edge.target_id = best_eid
+            del graph.entities[eid]

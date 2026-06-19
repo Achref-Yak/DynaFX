@@ -64,6 +64,76 @@ class DomainConfig:
         4: "Concept",
     })
 
+    # ── Entity Linking (Soft Wordlists) ───────────────────────────
+    entity_linking_threshold: float = 0.85
+    """Cosine similarity threshold for soft wordlist entity linking."""
+
+    canonical_concepts: dict[str, str] = field(default_factory=lambda: {
+        "Database": "Database",
+        "Algorithm": "Algorithm",
+        "Analysis": "Analysis",
+        "Application": "Application",
+        "Architecture": "Architecture",
+        "Attack": "Attack",
+        "Authentication": "Authentication",
+        "Compliance": "Compliance",
+        "Environment": "Environment",
+        "Infrastructure": "Infrastructure",
+        "Network": "Network",
+        "Security": "Security",
+        "System": "System",
+        "User": "User",
+        "Access": "Access",
+        "Approach": "Approach",
+        "Argument": "Argument",
+        "Audit": "Audit",
+        "Client": "Client",
+        "Compatibility": "Compatibility",
+        "Complexity": "Complexity",
+        "Component": "Component",
+        "Configuration": "Configuration",
+        "Consistency": "Consistency",
+        "Data": "Data",
+        "Deadline": "Deadline",
+        "Endpoint": "Endpoint",
+        "Failure": "Failure",
+        "Feature": "Feature",
+        "Function": "Function",
+        "Gateway": "Gateway",
+        "Instance": "Instance",
+        "Interface": "Interface",
+        "Interval": "Interval",
+        "Layer": "Layer",
+        "Library": "Library",
+        "Limit": "Limit",
+        "Middleware": "Middleware",
+        "Module": "Module",
+        "Node": "Node",
+        "Optimization": "Optimization",
+        "Pipeline": "Pipeline",
+        "Platform": "Platform",
+        "Policy": "Policy",
+        "Process": "Process",
+        "Protocol": "Protocol",
+        "Request": "Request",
+        "Resource": "Resource",
+        "Role": "Role",
+        "Route": "Route",
+        "Schema": "Schema",
+        "Server": "Server",
+        "Service": "Service",
+        "Session": "Session",
+        "Strategy": "Strategy",
+        "Task": "Task",
+        "Team": "Team",
+        "Template": "Template",
+        "Throttling": "Throttling",
+        "Token": "Token",
+        "Validator": "Validator",
+        "Version": "Version",
+        "Worker": "Worker",
+    })
+
     # ── NodeType → opinion template mapping ──────────────────────
     source_type_map: dict[str, str] = field(default_factory=lambda: {
         "EVIDENCE": "empirical_pattern",
@@ -119,11 +189,16 @@ class DomainConfig:
     # ── Mode → active edge string names ───────────────────────────
     mode_active_edges: dict[str, set[str]] = field(default_factory=lambda: {
         "CAUSAL": {"INFERS", "SUPPORTS", "SUPPORT", "CAUSES",
-                    "ENABLES", "TEMPORAL", "PART_OF", "FLOWS_TO"},
-        "CONDITIONAL": {"QUALIFIES", "INFERS", "DEPENDS", "ENABLES"},
+                    "ENABLES", "TEMPORAL", "PART_OF", "FLOWS_TO",
+                    "LOCATED_AT", "TRANSFORMS", "PRODUCES", "CONSUMES",
+                    "USES", "HAS_GOAL", "INTENDS", "KNOWS",
+                    "COMMUNICATED", "PREFERS"},
+        "CONDITIONAL": {"QUALIFIES", "INFERS", "DEPENDS", "ENABLES",
+                        "HAS_ATTRIBUTE", "EMPLOYED_BY", "CONTACT_OF"},
         "ARGUMENT": {"SUPPORTS", "SUPPORT", "CONTRADICTS", "ATTACKS", "REBUTS",
-                     "DIRECT", "CIRCUMSTANTIAL", "HEARSAY", "EVIDENCE", "CITES"},
-        "ANALOGY": {"JUSTIFIES", "SUPPORTS", "SIMILAR"},
+                     "DIRECT", "CIRCUMSTANTIAL", "HEARSAY", "EVIDENCE", "CITES",
+                     "HAS_ATTRIBUTE", "EMPLOYED_BY", "CONTACT_OF", "LOCATED_AT"},
+        "ANALOGY": {"JUSTIFIES", "SUPPORTS", "SIMILAR", "ASSOCIATED_WITH"},
     })
 
     # ── Edge role definitions ─────────────────────────────────────
@@ -141,7 +216,7 @@ class DomainConfig:
     lens_default_mode: dict[str, str] = field(default_factory=dict)
     """Maps lens name to default reasoning mode name.
 
-    Populated by domain packs (e.g. legal maps classification→ARGUMENT).
+    Populated by domain packs (e.g. a domain maps classification→ARGUMENT).
     """
 
     # ── CLI defaults ──────────────────────────────────────────────
@@ -172,9 +247,9 @@ class Domain:
     a different domain without affecting others.
 
     Usage:
-        legal = Domain("legal", DomainConfig(conflict_threshold=0.25))
-        with legal:
-            cfg = domain.active()   # legal config
+        custom = Domain("custom", DomainConfig(conflict_threshold=0.25))
+        with custom:
+            cfg = domain.active()   # custom config
         cfg = domain.active()       # back to default
     """
 

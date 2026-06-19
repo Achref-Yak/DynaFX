@@ -2,7 +2,7 @@
 
 Supports:
     - YAML policy loading (from files or dicts)
-    - Builtin policies (default, legal, scientific)
+    - Builtin policies (default, scientific)
     - Policy evaluation with state feature extraction
     - Operator selection with provenance logging
 """
@@ -131,7 +131,7 @@ class PolicyEngine:
             last_delta = state.trace._entries[-1]
             last_op = last_delta.operator
 
-        return {
+        metrics = {
             "cycle": cycle,
             "domain": domain,
             "graph_node_count": len(graph.nodes),
@@ -139,7 +139,12 @@ class PolicyEngine:
             "graph_mean_uncertainty": mean_u,
             "convergence_stalled": state.metadata.get("convergence_stalled", False),
             "last_operator": last_op,
+            "graph_world_model_ratio": self._world_model_ratio(graph),
+            "graph_causal_edges": self._causal_edge_count(graph),
+            "graph_causal_chain_depth": self._causal_chain_depth(graph),
+            "graph_feedback_loops": self._feedback_loop_count(graph),
         }
+        return metrics
 
     def _format_condition(self, when) -> str:
         parts = []
@@ -147,6 +152,30 @@ class PolicyEngine:
             if value is not None:
                 parts.append(f"{key}={value}")
         return ", ".join(parts)
+
+    @staticmethod
+    def _world_model_ratio(graph) -> float:
+        """Compute ratio of world-model nodes to total nodes."""
+        wm_types = {"AGENT", "PROCESS", "STATE", "GOAL", "ACTION", "RESOURCE", "CONSTRAINT"}
+        wm_count = sum(1 for n in graph.nodes.values() if n.type.name in wm_types)
+        return wm_count / max(len(graph.nodes), 1)
+
+    @staticmethod
+    def _causal_edge_count(graph) -> int:
+        """Count CAUSES edges in the graph."""
+        return sum(1 for e in graph.edges.values() if e.type.name == "CAUSES")
+
+    @staticmethod
+    def _causal_chain_depth(graph) -> int:
+        """Longest chain of CAUSES edges (topological depth)."""
+        from cognitive_engine.core.math import causal_chain_depth
+        return causal_chain_depth(graph.nodes, graph.edges)
+
+    @staticmethod
+    def _feedback_loop_count(graph) -> int:
+        """Count directed cycles in the CAUSES subgraph."""
+        from cognitive_engine.core.math import feedback_loop_count
+        return feedback_loop_count(graph.nodes, graph.edges)
 
 
 _yaml_parser = None

@@ -63,6 +63,23 @@ _HEARSAY_MARKERS = {"said", "told", "stated", "mentioned", "claimed", "reported"
 # ── Shared content nouns (for support detection) ──────────────────
 _MIN_SHARED_NOUNS = 2
 
+# ── World-model lexical signals ──────────────────────────────────
+_CAUSAL_LEXICAL = frozenset({
+    "cause", "caused", "leads", "results", "produces", "triggers",
+    "because", "due to", "therefore", "consequently", "thus",
+})
+_ENABLEMENT_LEXICAL = frozenset({
+    "enable", "enables", "allows", "facilitates", "supports",
+    "empowers", "permits", "makes possible",
+})
+_PART_WHOLE_LEXICAL = frozenset({
+    "part of", "consists of", "contains", "includes",
+    "member of", "component of", "subset of",
+})
+_DEPENDENCY_LEXICAL = frozenset({
+    "depends on", "requires", "needs", "relies on", "contingent on",
+})
+
 
 def _normalize(text: str) -> str:
     return text.lower().strip()
@@ -177,6 +194,40 @@ def _hearsay_score(text_a: str, text_b: str) -> float:
     return 0.0
 
 
+def _causal_score(text_a: str, text_b: str) -> float:
+    """Detect causal relations between two texts."""
+    norm_a = _normalize(text_a)
+    norm_b = _normalize(text_b)
+    for text in (norm_a, norm_b):
+        if any(phrase in text for phrase in _CAUSAL_LEXICAL):
+            return 0.7
+    return 0.0
+
+
+def _enablement_score(text_a: str, text_b: str) -> float:
+    """Detect enablement relations between two texts."""
+    text = (text_a + " " + text_b).lower()
+    if any(phrase in text for phrase in _ENABLEMENT_LEXICAL):
+        return 0.7
+    return 0.0
+
+
+def _part_whole_score(text_a: str, text_b: str) -> float:
+    """Detect part-whole relations between two texts."""
+    text = (text_a + " " + text_b).lower()
+    if any(p in text for p in _PART_WHOLE_LEXICAL):
+        return 0.7
+    return 0.0
+
+
+def _dependency_score(text_a: str, text_b: str) -> float:
+    """Detect dependency relations between two texts."""
+    text = (text_a + " " + text_b).lower()
+    if any(p in text for p in _DEPENDENCY_LEXICAL):
+        return 0.7
+    return 0.0
+
+
 class HeuristicClassifier:
     """Rule-based relation classifier.
 
@@ -185,7 +236,7 @@ class HeuristicClassifier:
 
     def __init__(self, same_section: bool = False):
         """Args:
-            same_section: If True, indicates both texts are from the same deposition section.
+            same_section: If True, indicates both texts are from the same section.
                          Increases support likelihood.
         """
         self.same_section = same_section
@@ -193,7 +244,8 @@ class HeuristicClassifier:
     def classify(self, text_a: str, text_b: str) -> str:
         """Classify the relation between two text spans.
 
-        Returns "Support", "Attack", or "None".
+        Returns "Support", "Attack", "Causes", "Enables", "Depends",
+        "PartOf", or "None".
         """
         # 1. Contradictory lexical items (strongest signal)
         c = _contradiction_score(text_a, text_b)
@@ -228,12 +280,32 @@ class HeuristicClassifier:
         if modal > 0:
             return "Attack"
 
-        # 6. Topic support (weaker signal)
+        # 6. Causal detection (before topic support — more specific)
+        causal = _causal_score(text_a, text_b)
+        if causal > 0:
+            return "Causes"
+
+        # 7. Enablement detection
+        enable = _enablement_score(text_a, text_b)
+        if enable > 0:
+            return "Enables"
+
+        # 8. Part-whole detection
+        part = _part_whole_score(text_a, text_b)
+        if part > 0:
+            return "PartOf"
+
+        # 9. Dependency detection
+        dep = _dependency_score(text_a, text_b)
+        if dep > 0:
+            return "Depends"
+
+        # 10. Topic support (weaker signal — after semantic-specific checks)
         topic = _topic_support_score(text_a, text_b)
         if topic >= 0.3:
             return "Support"
 
-        # 7. Same section support — answers in same deposition section are related
+        # 11. Same section support — answers in same section are related
         if self.same_section:
             nouns_a = _get_nouns(text_a)
             nouns_b = _get_nouns(text_b)

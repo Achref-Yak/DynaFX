@@ -656,21 +656,43 @@ def argument_strength(acceptability: float) -> float:
 def dung_semantics(
     beliefs: dict[UUID, float],
     attack_graph: dict[UUID, list[UUID]],
+    weights: Optional[dict[UUID, float]] = None,
     max_iterations: int = 20,
 ) -> set[UUID]:
     """Find Dung's preferred extension via iteration to fixpoint.
-    
+
     A node is accepted if all its attackers are rejected.
     Returns set of accepted node IDs.
+
+    When weights are provided, provenance-weighted acceptance:
+    - Initial acceptance uses belief * weight > 0.5
+    - An attacker is only "effective" if its weight exceeds the target's weight
+      (a high-provenance node is harder to defeat)
     """
-    accepted: set[UUID] = set(nid for nid, b in beliefs.items() if b > 0.5)
-    rejected: set[UUID] = set(nid for nid, b in beliefs.items() if b <= 0.5)
+    if weights is None:
+        weights = {}
+
+    def _weight(nid: UUID) -> float:
+        return weights.get(nid, 1.0)
+
+    def _initial_accept(nid: UUID) -> bool:
+        b = beliefs.get(nid, 0.5)
+        w = _weight(nid)
+        return b * w > 0.5
+
+    accepted: set[UUID] = set(nid for nid in beliefs if _initial_accept(nid))
+    rejected: set[UUID] = set(nid for nid in beliefs if not _initial_accept(nid))
+
     for _ in range(max_iterations):
         old_acc = set(accepted)
         old_rej = set(rejected)
         for nid in beliefs:
             attackers = set(attack_graph.get(nid, []))
-            if not attackers or attackers.issubset(rejected):
+            # An attacker is "effective" if its weight >= target's weight
+            effective_attackers = {
+                a for a in attackers if _weight(a) >= _weight(nid)
+            }
+            if not effective_attackers or effective_attackers.issubset(rejected):
                 accepted.add(nid)
                 rejected.discard(nid)
             else:
@@ -1144,3 +1166,524 @@ def check_category_monotonicity(
         if not product_logic_implication(src_cat, tgt_cat):
             violations.append((edge, src_cat, tgt_cat))
     return violations
+
+
+# ═══════════════════════════════════════════════════════════════
+# CROSS-DOMAIN COMPLEXITY METRICS
+# ═══════════════════════════════════════════════════════════════
+
+
+def cross_domain_edge_density(
+    nodes: dict[UUID, Any],
+    edges: dict[UUID, Any],
+    communities: dict[UUID, int],
+) -> float:
+    """Ratio of edges crossing community boundaries to total edges.
+
+    Args:
+        nodes: {node_id: node} mapping.
+        edges: {edge_id: edge} mapping.
+        communities: {node_id: community_id} mapping.
+
+    Returns:
+        Float in [0, 1]. 0 = all edges intra-community, 1 = all inter.
+    """
+    if not edges:
+        return 0.0
+    cross = 0
+    for edge in edges.values():
+        src_comm = communities.get(edge.source_id)
+        tgt_comm = communities.get(edge.target_id)
+        if src_comm is not None and tgt_comm is not None and src_comm != tgt_comm:
+            cross += 1
+    return cross / len(edges)
+
+
+def domain_entanglement(
+    nodes: dict[UUID, Any],
+    edges: dict[UUID, Any],
+    communities: dict[UUID, int],
+) -> float:
+    """Shannon entropy of node-type distribution across communities.
+
+    High entropy = types are evenly spread across communities (entangled).
+    Low entropy = types are concentrated in specific communities (segregated).
+
+    Returns:
+        Float >= 0. Max value = log2(num_distinct_types).
+    """
+    import math as _math
+    if not nodes or not communities:
+        return 0.0
+
+    # Count (community, type) pairs
+    counts: dict[tuple[int, str], int] = {}
+    total = 0
+    for nid, node in nodes.items():
+        comm = communities.get(nid)
+        if comm is None:
+            continue
+        key = (comm, node.type.name)
+        counts[key] = counts.get(key, 0) + 1
+        total += 1
+
+    if total == 0:
+        return 0.0
+
+    # Per-community type distributions, then average entropy
+    comm_types: dict[int, dict[str, int]] = {}
+    for (comm, type_name), count in counts.items():
+        comm_types.setdefault(comm, {})[type_name] = count
+
+    entropy = 0.0
+    for comm, types in comm_types.items():
+        comm_total = sum(types.values())
+        for count in types.values():
+            p = count / comm_total
+            if p > 0:
+                entropy -= p * _math.log2(p)
+
+    # Normalize by max possible entropy (uniform distribution across all types)
+    num_types = len(set(node.type.name for node in nodes.values()))
+    if num_types <= 1:
+        return 0.0
+    max_entropy = _math.log2(num_types)
+    return entropy / (max_entropy * len(comm_types)) if comm_types else 0.0
+
+
+def causal_chain_depth(
+    nodes: dict[UUID, Any],
+    edges: dict[UUID, Any],
+) -> int:
+    """Longest chain of CAUSES edges (topological depth).
+
+    Returns the maximum number of sequential causal dependencies.
+    Returns 0 if no CAUSES edges exist.
+    """
+    # Build adjacency for CAUSES edges only
+    children: dict[UUID, list[UUID]] = {}
+    in_degree: dict[UUID, int] = {nid: 0 for nid in nodes}
+    for edge in edges.values():
+        if edge.type.name == "CAUSES":
+            src = edge.source_id
+            tgt = edge.target_id
+            children.setdefault(src, []).append(tgt)
+            in_degree[tgt] = in_degree.get(tgt, 0) + 1
+
+    # Topological depth via BFS
+    depths: dict[UUID, int] = {nid: 0 for nid in nodes}
+    queue = [nid for nid, d in in_degree.items() if d == 0]
+    while queue:
+        nid = queue.pop(0)
+        for child in children.get(nid, []):
+            depths[child] = max(depths[child], depths[nid] + 1)
+            in_degree[child] -= 1
+            if in_degree[child] == 0:
+                queue.append(child)
+
+    return max(depths.values()) if depths else 0
+
+
+def feedback_loop_count(
+    nodes: dict[UUID, Any],
+    edges: dict[UUID, Any],
+) -> int:
+    """Count directed cycles in the CAUSES subgraph.
+
+    Uses DFS-based cycle detection on CAUSES edges only.
+    """
+    # Build adjacency for CAUSES edges
+    children: dict[UUID, list[UUID]] = {}
+    for edge in edges.values():
+        if edge.type.name == "CAUSES":
+            children.setdefault(edge.source_id, []).append(edge.target_id)
+
+    # DFS cycle detection (count strongly connected components with >1 node)
+    visited: set[UUID] = set()
+    cycles = 0
+
+    def _dfs(nid: UUID, stack: set[UUID]) -> bool:
+        nonlocal cycles
+        visited.add(nid)
+        stack.add(nid)
+        for child in children.get(nid, []):
+            if child not in visited:
+                if _dfs(child, stack):
+                    return True
+            elif child in stack:
+                cycles += 1
+                return True
+        stack.discard(nid)
+        return False
+
+    for nid in nodes:
+        if nid not in visited:
+            _dfs(nid, set())
+
+    return cycles
+
+
+# ═══════════════════════════════════════════════════════════════
+# CONTEXT SIMILARITY FOR BELIEF TRANSFER
+# ═══════════════════════════════════════════════════════════════
+
+
+def context_similarity(
+    node_a_id: UUID,
+    node_b_id: UUID,
+    nodes: dict[UUID, Any],
+    edges: dict[UUID, Any],
+    communities: Optional[dict[UUID, int]] = None,
+) -> float:
+    """Compute contextual similarity between two nodes for belief transfer.
+
+    Factors:
+      - Type match: same NodeType = 1.0, different = 0.0
+      - Community match: same community = 1.0, different = 0.0
+      - Edge neighborhood overlap: Jaccard similarity of neighbors
+
+    Returns:
+        Float in [0, 1]. Higher = more similar = safer to transfer beliefs.
+    """
+    node_a = nodes.get(node_a_id)
+    node_b = nodes.get(node_b_id)
+    if node_a is None or node_b is None:
+        return 0.0
+
+    scores = []
+
+    # Type similarity
+    type_sim = 1.0 if node_a.type == node_b.type else 0.0
+    scores.append(type_sim)
+
+    # Community similarity
+    if communities:
+        comm_a = communities.get(node_a_id)
+        comm_b = communities.get(node_b_id)
+        if comm_a is not None and comm_b is not None:
+            scores.append(1.0 if comm_a == comm_b else 0.0)
+        else:
+            scores.append(0.5)  # unknown communities → neutral
+
+    # Edge neighborhood overlap (Jaccard)
+    neighbors_a = set()
+    neighbors_b = set()
+    for edge in edges.values():
+        if edge.source_id == node_a_id:
+            neighbors_a.add(edge.target_id)
+        if edge.target_id == node_a_id:
+            neighbors_a.add(edge.source_id)
+        if edge.source_id == node_b_id:
+            neighbors_b.add(edge.target_id)
+        if edge.target_id == node_b_id:
+            neighbors_b.add(edge.source_id)
+
+    if neighbors_a or neighbors_b:
+        intersection = len(neighbors_a & neighbors_b)
+        union = len(neighbors_a | neighbors_b)
+        scores.append(intersection / union if union > 0 else 0.0)
+    else:
+        scores.append(0.5)  # both isolated → neutral
+
+    return sum(scores) / len(scores) if scores else 0.0
+
+
+# ═══════════════════════════════════════════════════════════════
+# RISK ATTITUDE MODELING
+# ═══════════════════════════════════════════════════════════════
+
+
+def risk_adjusted_belief(
+    belief: float,
+    alpha: float = 1.0,
+    risk_measure: str = "power",
+) -> float:
+    """Apply risk attitude adjustment to a belief value.
+
+    Models how a stakeholder's risk preference affects their perceived
+    belief strength. Uses prospect-theory-style value functions.
+
+    Args:
+        belief: Raw belief value in [0, 1].
+        alpha: Risk attitude parameter.
+            alpha = 1.0: risk-neutral (no adjustment)
+            alpha < 1.0: risk-averse (conservative, lowers high beliefs)
+            alpha > 1.0: risk-seeking (amplifies high beliefs)
+        risk_measure: Utility function type.
+            "power": CE = b^α (standard power utility)
+            "cara": CE = (1 - e^(-α*b)) / (1 - e^(-α)) (constant absolute risk aversion)
+
+    Returns:
+        Risk-adjusted belief in [0, 1].
+    """
+    if alpha == 1.0:
+        return belief
+
+    b = max(0.0, min(1.0, belief))
+
+    if risk_measure == "power":
+        if b <= 0.0:
+            return 0.0
+        return b ** alpha
+    elif risk_measure == "cara":
+        if alpha == 0.0:
+            return b
+        return (1.0 - math.exp(-alpha * b)) / (1.0 - math.exp(-alpha))
+    else:
+        return b
+
+
+def stakeholder_utility(
+    belief: float,
+    alpha: float = 1.0,
+    loss_aversion: float = 2.25,
+) -> float:
+    """Prospect-theory utility for a stakeholder.
+
+    Combines risk attitude with loss aversion (losses hurt ~2.25x more
+    than equivalent gains, per Kahneman & Tversky).
+
+    Args:
+        belief: Raw belief in [0, 1].
+        alpha: Risk attitude parameter (same as risk_adjusted_belief).
+        loss_aversion: Loss aversion coefficient (default 2.25).
+
+    Returns:
+        Utility value. Positive = gain frame, negative = loss frame.
+    """
+    b = max(0.0, min(1.0, belief))
+    reference = 0.5  # reference point is midpoint
+
+    if b >= reference:
+        gain = b - reference
+        return gain ** alpha if alpha > 0 else gain
+    else:
+        loss = reference - b
+        return -(loss_aversion * (loss ** alpha)) if alpha > 0 else -loss_aversion * loss
+
+
+def aggregate_stakeholder_beliefs(
+    beliefs: list[tuple[float, float]],
+) -> float:
+    """Aggregate beliefs from multiple stakeholders with risk attitudes.
+
+    Args:
+        beliefs: List of (risk_adjusted_belief, weight) tuples.
+            weight represents stakeholder influence/importance.
+
+    Returns:
+        Weighted average belief.
+    """
+    if not beliefs:
+        return 0.0
+    total_weight = sum(w for _, w in beliefs)
+    if total_weight == 0:
+        return 0.0
+    return sum(b * w for b, w in beliefs) / total_weight
+
+
+# ═══════════════════════════════════════════════════════════════
+# INFORMATION THEORY UTILITIES (MDM Complexity Ruler)
+# ═══════════════════════════════════════════════════════════════
+
+def shannon_entropy(probs: list[float]) -> float:
+    """Shannon Entropy: H(X) = -Σ p(x)·log₂(p(x))
+
+    Measures how surprising or unpredictable a distribution is.
+
+    Interpretation:
+        0.0    = completely predictable (all weight on one outcome)
+        Higher = more spread out, unpredictable, complex
+
+    Use cases:
+        - Measure system complexity (high entropy = complex system)
+        - Measure balance (high entropy = balanced, low = concentrated)
+        - Identify bottlenecks (low entropy = single point of failure)
+
+    Example:
+        Port A: 90%, Port B: 10% → entropy = 0.47 (low = fragile)
+        Port A: 33%, Port B: 33%, Port C: 33% → entropy = 1.58 (high = resilient)
+
+    Args:
+        probs: Probability distribution (must sum to 1.0).
+
+    Returns:
+        Entropy in bits (0.0 to log₂(n)).
+
+    Reference: Shannon (1948) "A Mathematical Theory of Communication"
+    """
+    if not probs:
+        return 0.0
+    return -sum(p * math.log2(p) for p in probs if p > 0)
+
+
+def normalized_shannon_entropy(probs: list[float]) -> float:
+    """Normalized Shannon Entropy: H(X) / H_max
+
+    Normalizes entropy to [0, 1] range.
+
+    Interpretation:
+        0.0 = completely predictable
+        1.0 = maximum unpredictability
+
+    Args:
+        probs: Probability distribution (must sum to 1.0).
+
+    Returns:
+        Normalized entropy in [0, 1].
+    """
+    if not probs:
+        return 0.0
+    h = shannon_entropy(probs)
+    h_max = math.log2(len(probs)) if len(probs) > 1 else 1.0
+    return h / h_max if h_max > 0 else 0.0
+
+
+def pointwise_mutual_information(
+    p_xy: float,
+    p_x: float,
+    p_y: float,
+) -> float:
+    """Pointwise Mutual Information (PMI): log₂(P(x,y) / (P(x)·P(y)))
+
+    Measures how much two events co-occur relative to chance.
+
+    Interpretation:
+        > 0    = co-occur more than expected by chance
+        = 0    = independent
+        < 0    = co-occur less than expected by chance
+
+    Use cases:
+        - Discover which interactions happen together more than chance
+        - Find functional modules in the MDM
+        - Identify communities in the graph
+
+    Example:
+        "Port congestion" + "ship delays": PMI = 2.3 (strong association)
+        "Port congestion" + "revenue loss": PMI = 0.1 (weak association)
+
+    Args:
+        p_xy: Joint probability P(x,y).
+        p_x: Marginal probability P(x).
+        p_y: Marginal probability P(y).
+
+    Returns:
+        PMI value in bits.
+
+    Reference: Church & Hanks (1989) "Word Association Norms, Mutual
+    Information, and Lexicography"
+    """
+    if p_xy == 0 or p_x == 0 or p_y == 0:
+        return 0.0
+    return math.log2(p_xy / (p_x * p_y))
+
+
+def normalized_pmi(pmi: float, p_xy: float) -> float:
+    """Normalized PMI (NPMI): PMI / (-log₂ P(x,y))
+
+    Normalizes PMI to [-1, 1] range.
+
+    Interpretation:
+        -1.0 = never co-occur
+         0.0 = independent
+         1.0 = always co-occur
+
+    Args:
+        pmi: PMI value.
+        p_xy: Joint probability P(x,y).
+
+    Returns:
+        Normalized PMI in [-1, 1].
+    """
+    if p_xy == 0:
+        return 0.0
+    return pmi / (-math.log2(p_xy))
+
+
+def mutual_information_from_counts(
+    count_xy: int,
+    count_x: int,
+    count_y: int,
+    total: int,
+) -> float:
+    """Compute PMI from counts (convenience function).
+
+    Args:
+        count_xy: Number of times x and y co-occur.
+        count_x: Number of times x occurs.
+        count_y: Number of times y occurs.
+        total: Total number of observations.
+
+    Returns:
+        PMI value in bits.
+    """
+    if total == 0 or count_xy == 0 or count_x == 0 or count_y == 0:
+        return 0.0
+    p_xy = count_xy / total
+    p_x = count_x / total
+    p_y = count_y / total
+    return pointwise_mutual_information(p_xy, p_x, p_y)
+
+
+def entropy_of_distribution(values: list[float]) -> float:
+    """Compute Shannon entropy from a list of values (not probabilities).
+
+    Normalizes values to probabilities first.
+
+    Args:
+        values: List of non-negative values.
+
+    Returns:
+        Shannon entropy in bits.
+    """
+    total = sum(values)
+    if total == 0:
+        return 0.0
+    probs = [v / total for v in values if v > 0]
+    return shannon_entropy(probs)
+
+
+def interaction_complexity(
+    interactions: dict[str, int],
+) -> float:
+    """Measure complexity of interaction type distribution.
+
+    High entropy = many different interaction types = complex system
+    Low entropy = mostly one interaction type = simple system
+
+    Args:
+        interactions: Dict mapping interaction_type_name → count.
+
+    Returns:
+        Shannon entropy in bits.
+    """
+    if not interactions:
+        return 0.0
+    total = sum(interactions.values())
+    if total == 0:
+        return 0.0
+    probs = [count / total for count in interactions.values() if count > 0]
+    return shannon_entropy(probs)
+
+
+def blob_type_entropy(
+    blob_types: dict[str, int],
+) -> float:
+    """Measure how entangled different blob types are in a domain.
+
+    High entropy = many different blob types mixed together = entangled
+    Low entropy = mostly one blob type = separated
+
+    Args:
+        blob_types: Dict mapping blob_type_name → count.
+
+    Returns:
+        Shannon entropy in bits.
+    """
+    if not blob_types:
+        return 0.0
+    total = sum(blob_types.values())
+    if total == 0:
+        return 0.0
+    probs = [count / total for count in blob_types.values() if count > 0]
+    return shannon_entropy(probs)

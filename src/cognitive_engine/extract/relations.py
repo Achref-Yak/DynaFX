@@ -221,6 +221,11 @@ def _classify_relation(rel_text: str, verb_lemma: str) -> str:
     mapped = _VERB_LEMMA_MAP.get(verb_lemma.lower())
     if mapped is not None:
         return mapped
+    # VerbNet: try class-based edge type mapping
+    from cognitive_engine.extract.verbnet_roles import vn_edgetype_for_lemma
+    vn_mapped = vn_edgetype_for_lemma(verb_lemma.lower())
+    if vn_mapped is not None:
+        return vn_mapped
     return "RELATED_TO"
 
 

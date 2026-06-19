@@ -12,6 +12,16 @@ NodeId = UUID
 EdgeId = UUID
 
 
+class BfoCategory(Enum):
+    MATERIAL_ENTITY = auto()
+    IMMATERIAL_ENTITY = auto()
+    QUALITY = auto()
+    REALIZABLE_ENTITY = auto()
+    PROCESS = auto()
+    TEMPORAL_REGION = auto()
+    INFORMATION_CONTENT_ENTITY = auto()
+
+
 class NodeType(Enum):
     AXIOM = auto()
     EVIDENCE = auto()
@@ -28,6 +38,16 @@ class NodeType(Enum):
     OBSERVATION = auto()
     DECISION = auto()
     ACTION = auto()
+    AGENT = auto()
+    PROCESS = auto()
+    STATE = auto()
+    PROPERTY = auto()
+    RESOURCE = auto()
+    CONSTRAINT = auto()
+    GOAL = auto()
+    BELIEF = auto()
+    KNOWLEDGE = auto()
+    INFORMATION = auto()
     DOCUMENT = auto()
 
 
@@ -52,6 +72,63 @@ class EdgeType(Enum):
     PART_OF = auto()
     CITES = auto()
     FLOWS_TO = auto()
+    HAS_ATTRIBUTE = auto()
+    LOCATED_AT = auto()
+    EMPLOYED_BY = auto()
+    ASSOCIATED_WITH = auto()
+    CONTACT_OF = auto()
+    HAS_GOAL = auto()
+    INTENDS = auto()
+    KNOWS = auto()
+    COMMUNICATED = auto()
+    PREFERS = auto()
+    USES = auto()
+    PRODUCES = auto()
+    CONSUMES = auto()
+    TRANSFORMS = auto()
+
+
+_ICE = frozenset({BfoCategory.INFORMATION_CONTENT_ENTITY})
+_PROC_AND_ICE = frozenset({BfoCategory.PROCESS, BfoCategory.INFORMATION_CONTENT_ENTITY})
+_MAT_AND_IMMAT = frozenset({BfoCategory.MATERIAL_ENTITY, BfoCategory.IMMATERIAL_ENTITY})
+_ALL_BFO = frozenset(BfoCategory)
+
+EDGE_BFO_CONSTRAINTS: dict[EdgeType, tuple[frozenset[BfoCategory], frozenset[BfoCategory]]] = {
+    EdgeType.INFERS: (_ICE, _ICE),
+    EdgeType.SUPPORTS: (_ICE, _ICE),
+    EdgeType.REBUTS: (_ICE, _ICE),
+    EdgeType.ATTACKS: (_ICE, _ICE),
+    EdgeType.CONTRADICTS: (_ICE, _ICE),
+    EdgeType.JUSTIFIES: (_ICE, _ICE),
+    EdgeType.EVIDENCE: (_ICE, _ICE),
+    EdgeType.CITES: (_ICE, _ICE),
+    EdgeType.CAUSES: (_PROC_AND_ICE, _PROC_AND_ICE),
+    EdgeType.TEMPORAL: (_PROC_AND_ICE, _PROC_AND_ICE),
+    EdgeType.FLOWS_TO: (_PROC_AND_ICE, _PROC_AND_ICE),
+    EdgeType.PART_OF: (_MAT_AND_IMMAT, _MAT_AND_IMMAT),
+    EdgeType.QUALIFIES: (frozenset({BfoCategory.REALIZABLE_ENTITY, BfoCategory.INFORMATION_CONTENT_ENTITY}), _ICE),
+    EdgeType.ENABLES: (_ALL_BFO, _ALL_BFO),
+    EdgeType.DEPENDS: (_ALL_BFO, _ALL_BFO),
+    EdgeType.SIMILAR: (_ALL_BFO, _ALL_BFO),
+    EdgeType.DIRECT: (_ICE, _ICE),
+    EdgeType.CIRCUMSTANTIAL: (_ICE, _ICE),
+    EdgeType.HEARSAY: (_ICE, _ICE),
+    EdgeType.SUPPORT: (_ALL_BFO, _ALL_BFO),
+    EdgeType.HAS_ATTRIBUTE: (_ALL_BFO, _ICE),
+    EdgeType.LOCATED_AT: (_MAT_AND_IMMAT, _MAT_AND_IMMAT),
+    EdgeType.EMPLOYED_BY: (_ALL_BFO, _ALL_BFO),
+    EdgeType.ASSOCIATED_WITH: (_ALL_BFO, _ALL_BFO),
+    EdgeType.CONTACT_OF: (_ALL_BFO, _ALL_BFO),
+    EdgeType.HAS_GOAL: (_ALL_BFO, _ICE),
+    EdgeType.INTENDS: (_ALL_BFO, _PROC_AND_ICE),
+    EdgeType.KNOWS: (_ALL_BFO, _ICE),
+    EdgeType.COMMUNICATED: (_ALL_BFO, _ICE),
+    EdgeType.PREFERS: (_ALL_BFO, _ICE),
+    EdgeType.USES: (_PROC_AND_ICE, _MAT_AND_IMMAT | _ICE),
+    EdgeType.PRODUCES: (_PROC_AND_ICE, _MAT_AND_IMMAT | _ICE),
+    EdgeType.CONSUMES: (_PROC_AND_ICE, _MAT_AND_IMMAT | _ICE),
+    EdgeType.TRANSFORMS: (_PROC_AND_ICE, _PROC_AND_ICE),
+}
 
 
 class ReasoningMode(Enum):
@@ -139,6 +216,7 @@ class Node:
     timestamps: TimeInfo = field(default_factory=TimeInfo)
     attrs: Dict = field(default_factory=dict)
     metadata: Dict = field(default_factory=dict)
+    bfo_category: Optional[BfoCategory] = None
 
 
 @dataclass
@@ -166,6 +244,7 @@ class Entity:
     attributes: Dict[str, Any] = field(default_factory=dict)
     spans: List[Span] = field(default_factory=list)
     metadata: Dict = field(default_factory=dict)
+    bfo_category: Optional[BfoCategory] = None
 
 
 @dataclass
@@ -255,6 +334,56 @@ class ConversationTree:
             "node_ids": [n.hex for n in self.node_ids],
             "parent_map": {k.hex: v.hex for k, v in self.parent_map.items()},
         }
+
+
+def _strip_defaults(obj: Any, _is_top_level: bool = False) -> Any:
+    """Remove empty/default fields from serialized output.
+
+    Strips:
+        - None values
+        - Empty dicts {} (only from nested structures, not top-level)
+        - Empty lists [] (only from nested structures, not top-level)
+        - Empty strings ""
+        - Default opinions [0.0, 0.0, 1.0, 0.5]
+        - Default timestamps {"created": 0.0, "modified": 0.0, "temporal_anchor": None}
+        - Default numeric fields (abstraction_level=1, salience=0.5, category=2)
+        - Embedding vectors (belong in vector DB, not JSON)
+    """
+    if isinstance(obj, dict):
+        result = {}
+        for k, v in obj.items():
+            # Skip embedding field entirely
+            if k == "embedding":
+                continue
+            # Skip default timestamps
+            if k == "timestamps" and isinstance(v, dict):
+                if (v.get("created", 0) == 0.0 and
+                    v.get("modified", 0) == 0.0 and
+                    v.get("temporal_anchor") is None):
+                    continue
+            # Skip default opinion
+            if k == "opinion" and isinstance(v, list) and len(v) == 4:
+                if v == [0.0, 0.0, 1.0, 0.5]:
+                    continue
+            # Skip default numeric fields
+            if k == "abstraction_level" and v == 1:
+                continue
+            if k == "salience" and v == 0.5:
+                continue
+            if k == "category" and v == 2:
+                continue
+            # Recurse and strip (not top-level for empty check)
+            stripped = _strip_defaults(v, _is_top_level=False)
+            # At top level, keep empty lists/dicts (like propositions: [])
+            if _is_top_level:
+                result[k] = stripped
+            elif stripped is not None and stripped != {} and stripped != [] and stripped != "":
+                result[k] = stripped
+        return result
+    if isinstance(obj, list):
+        result = [_strip_defaults(i, _is_top_level=False) for i in obj]
+        return [i for i in result if i is not None and i != {} and i != [] and i != ""]
+    return obj
 
 
 @dataclass
@@ -357,7 +486,7 @@ class Graph:
         }
         if self.cta is not None:
             result["cta"] = self.cta.to_dict()
-        return result
+        return _strip_defaults(result, _is_top_level=True)
 
     def to_json(self, indent: int = 2) -> str:
         return json.dumps(self.to_dict(), indent=indent, default=str)
@@ -625,7 +754,7 @@ class Graph:
         }
         if self.cta is not None:
             result["cta"] = self.cta.to_dict()
-        return result
+        return _strip_defaults(result, _is_top_level=True)
 
     def to_json(self, indent: int = 2) -> str:
         return json.dumps(self.to_dict(), indent=indent, default=str)

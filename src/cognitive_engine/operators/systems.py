@@ -335,12 +335,19 @@ class LeveragePointScorer:
 class SystemArchetypeClassifier:
     """Classify system archetypes from causal structure.
 
-    Common archetypes:
-    - Fixes that Fail
-    - Shifting the Burden
-    - Tragedy of the Commons
-    - Limits to Growth
-    - Success to the Successful
+    Implements all 12 classic system archetypes from Meadows/Senge:
+    1. Fixes that Fail — short-term fix undermines long-term solution
+    2. Shifting the Burden — symptom treatment instead of root cause
+    3. Eroding Goals — performance standards slip over time
+    4. Escalation — rivals compete to get ahead, both lose
+    5. Success to the Successful — winner takes all, resources concentrate
+    6. Tragedy of the Commons — shared resource depleted by overuse
+    7. Rule Beating — rules produce unintended consequences
+    8. Drift to Low Performance — gradual erosion of standards
+    9. Addiction — dependency on external intervention
+    10. Growth and Underinvestment — growth hits limits, investment lags
+    11. Leadership as the System — leader sees system, acts on it
+    12. Structural Conflict — two goals conflict structurally
 
     Usage:
         op = SystemArchetypeClassifier()
@@ -379,40 +386,298 @@ class SystemArchetypeClassifier:
         return state
 
     def _classify_archetypes(self, graph: Graph) -> list[SystemArchetype]:
-        """Classify archetypes based on graph structure."""
-        archetypes = []
+        """Classify all 12 archetypes based on graph structure."""
+        archetypes: list[SystemArchetype] = []
 
-        loops = self._find_loops(graph)
-        if loops:
-            archetypes.append(SystemArchetype(
-                name="Feedback Dominated",
-                confidence=0.8,
-                nodes=[nid for loop in loops for nid in loop],
-                description="System dominated by feedback loops",
-                intervention建议="Identify loop type and break or amplify",
-            ))
+        # 1. Fixes that Fail: short-term fix + long-term side effect
+        fixes_that_fail = self._detect_fixes_that_fail(graph)
+        if fixes_that_fail:
+            archetypes.append(fixes_that_fail)
 
-        chains = self._find_long_chains(graph)
-        if chains:
-            archetypes.append(SystemArchetype(
-                name="Delay Dominated",
-                confidence=0.7,
-                nodes=[nid for chain in chains for nid in chain],
-                description="System with long causal chains (delays)",
-                intervention建议="Look for delay reduction opportunities",
-            ))
+        # 2. Shifting the Burden: symptom treatment + fundamental atrophy
+        shifting_burden = self._detect_shifting_the_burden(graph)
+        if shifting_burden:
+            archetypes.append(shifting_burden)
 
-        hubs = self._find_hubs(graph)
-        if hubs:
-            archetypes.append(SystemArchetype(
-                name="Centralized Control",
-                confidence=0.75,
-                nodes=hubs,
-                description="System with central controlling nodes",
-                intervention建议="Consider decentralization or redundancy",
-            ))
+        # 3. Eroding Goals: goal erosion + performance decline
+        eroding_goals = self._detect_eroding_goals(graph)
+        if eroding_goals:
+            archetypes.append(eroding_goals)
+
+        # 4. Escalation: two competing reinforcing loops
+        escalation = self._detect_escalation(graph)
+        if escalation:
+            archetypes.append(escalation)
+
+        # 5. Success to the Successful: winner takes all
+        success_to_successful = self._detect_success_to_successful(graph)
+        if success_to_successful:
+            archetypes.append(success_to_successful)
+
+        # 6. Tragedy of the Commons: shared resource depletion
+        tragedy_commons = self._detect_tragedy_of_commons(graph)
+        if tragedy_commons:
+            archetypes.append(tragedy_commons)
+
+        # 7. Rule Beating: rules produce unintended consequences
+        rule_beating = self._detect_rule_beating(graph)
+        if rule_beating:
+            archetypes.append(rule_beating)
+
+        # 8. Drift to Low Performance: gradual erosion
+        drift_low = self._detect_drift_to_low(graph)
+        if drift_low:
+            archetypes.append(drift_low)
+
+        # 9. Addiction: dependency on external intervention
+        addiction = self._detect_addiction(graph)
+        if addiction:
+            archetypes.append(addiction)
+
+        # 10. Growth and Underinvestment: growth hits limits
+        growth_underinvest = self._detect_growth_underinvestment(graph)
+        if growth_underinvest:
+            archetypes.append(growth_underinvest)
+
+        # 11. Leadership as the System: central control
+        leadership = self._detect_leadership_as_system(graph)
+        if leadership:
+            archetypes.append(leadership)
+
+        # 12. Structural Conflict: conflicting goals
+        structural_conflict = self._detect_structural_conflict(graph)
+        if structural_conflict:
+            archetypes.append(structural_conflict)
 
         return archetypes
+
+    def _detect_fixes_that_fail(self, graph: Graph) -> Optional[SystemArchetype]:
+        """Fixes that Fail: short-term fix undermines long-term solution."""
+        loops = self._find_loops(graph)
+        for loop in loops:
+            # Look for loops with mixed edge types (fix + side effect)
+            edge_types = self._get_edge_types_in_loop(loop, graph)
+            if "CAUSES" in edge_types and "ATTACKS" in edge_types:
+                return SystemArchetype(
+                    name="Fixes that Fail",
+                    confidence=0.8,
+                    nodes=loop,
+                    description="Short-term fix undermines long-term solution",
+                    intervention建议="Remove the fix, address root cause directly",
+                )
+        return None
+
+    def _detect_shifting_the_burden(self, graph: Graph) -> Optional[SystemArchetype]:
+        """Shifting the Burden: symptom treatment instead of root cause."""
+        hubs = self._find_hubs(graph)
+        if len(hubs) >= 2:
+            # Check if two hubs have conflicting edge types
+            for i, h1 in enumerate(hubs):
+                for h2 in hubs[i+1:]:
+                    if self._have_conflicting_edges(h1, h2, graph):
+                        return SystemArchetype(
+                            name="Shifting the Burden",
+                            confidence=0.7,
+                            nodes=[h1, h2],
+                            description="Symptom treatment instead of root cause",
+                            intervention建议="Focus on fundamental solution, reduce dependency on symptomatic fix",
+                        )
+        return None
+
+    def _detect_eroding_goals(self, graph: Graph) -> Optional[SystemArchetype]:
+        """Eroding Goals: performance standards slip over time."""
+        # Look for goal nodes with decreasing influence
+        goal_nodes = [nid for nid, node in graph.nodes.items()
+                     if hasattr(node, 'type') and 'GOAL' in str(node.type)]
+        if goal_nodes:
+            for goal in goal_nodes:
+                out_edges = [e for e in graph.edges.values() if e.source_id == goal]
+                if len(out_edges) < 2:
+                    return SystemArchetype(
+                        name="Eroding Goals",
+                        confidence=0.6,
+                        nodes=[goal],
+                        description="Performance standards slip over time",
+                        intervention建议="Recommit to original goals, make goals visible",
+                    )
+        return None
+
+    def _detect_escalation(self, graph: Graph) -> Optional[SystemArchetype]:
+        """Escalation: rivals compete to get ahead, both lose."""
+        loops = self._find_loops(graph)
+        if len(loops) >= 2:
+            # Two competing loops = escalation
+            nodes1 = set(loops[0])
+            nodes2 = set(loops[1])
+            if nodes1 & nodes2:  # Shared nodes
+                return SystemArchetype(
+                    name="Escalation",
+                    confidence=0.75,
+                    nodes=list(nodes1 | nodes2),
+                    description="Rivals compete to get ahead, both lose",
+                    intervention建议="Unilaterally de-escalate, seek win-win",
+                )
+        return None
+
+    def _detect_success_to_successful(self, graph: Graph) -> Optional[SystemArchetype]:
+        """Success to the Successful: winner takes all."""
+        hubs = self._find_hubs(graph)
+        if hubs:
+            # Check if one hub dominates
+            degree = defaultdict(int)
+            for edge in graph.edges.values():
+                degree[edge.source_id] += 1
+            if hubs:
+                max_hub = max(hubs, key=lambda x: degree.get(x, 0))
+                avg_degree = sum(degree.values()) / len(degree) if degree else 0
+                if degree.get(max_hub, 0) > avg_degree * 2:
+                    return SystemArchetype(
+                        name="Success to the Successful",
+                        confidence=0.8,
+                        nodes=[max_hub],
+                        description="Winner takes all, resources concentrate",
+                        intervention建议="Break the feedback loop, redistribute resources",
+                    )
+        return None
+
+    def _detect_tragedy_of_commons(self, graph: Graph) -> Optional[SystemArchetype]:
+        """Tragedy of the Commons: shared resource depleted by overuse."""
+        # Look for nodes with high in-degree (shared resources)
+        degree = defaultdict(int)
+        for edge in graph.edges.values():
+            degree[edge.target_id] += 1
+        if degree:
+            avg_in = sum(degree.values()) / len(degree)
+            overloaded = [nid for nid, d in degree.items() if d > avg_in * 2]
+            if overloaded:
+                return SystemArchetype(
+                    name="Tragedy of the Commons",
+                    confidence=0.7,
+                    nodes=overloaded,
+                    description="Shared resource depleted by overuse",
+                    intervention建议="Regulate access, create property rights",
+                )
+        return None
+
+    def _detect_rule_beating(self, graph: Graph) -> Optional[SystemArchetype]:
+        """Rule Beating: rules produce unintended consequences."""
+        # Look for constraint nodes with many outgoing edges
+        for nid, node in graph.nodes.items():
+            if hasattr(node, 'type') and 'CONSTRAINT' in str(node.type):
+                out_edges = [e for e in graph.edges.values() if e.source_id == nid]
+                if len(out_edges) > 3:
+                    return SystemArchetype(
+                        name="Rule Beating",
+                        confidence=0.65,
+                        nodes=[nid],
+                        description="Rules produce unintended consequences",
+                        intervention建议="Simplify rules, focus on goals not compliance",
+                    )
+        return None
+
+    def _detect_drift_to_low(self, graph: Graph) -> Optional[SystemArchetype]:
+        """Drift to Low Performance: gradual erosion of standards."""
+        loops = self._find_loops(graph)
+        for loop in loops:
+            edge_types = self._get_edge_types_in_loop(loop, graph)
+            if "DEPENDS" in edge_types:
+                return SystemArchetype(
+                    name="Drift to Low Performance",
+                    confidence=0.6,
+                    nodes=loop,
+                    description="Gradual erosion of standards",
+                    intervention建议="Reset goals to original standard, measure performance",
+                )
+        return None
+
+    def _detect_addiction(self, graph: Graph) -> Optional[SystemArchetype]:
+        """Addiction: dependency on external intervention."""
+        hubs = self._find_hubs(graph)
+        if hubs:
+            # Check if hub has both inflow and outflow
+            in_degree = defaultdict(int)
+            out_degree = defaultdict(int)
+            for edge in graph.edges.values():
+                in_degree[edge.target_id] += 1
+                out_degree[edge.source_id] += 1
+            for hub in hubs:
+                if in_degree.get(hub, 0) > 2 and out_degree.get(hub, 0) > 2:
+                    return SystemArchetype(
+                        name="Addiction",
+                        confidence=0.65,
+                        nodes=[hub],
+                        description="Dependency on external intervention",
+                        intervention建议="Provide support while building internal capacity",
+                    )
+        return None
+
+    def _detect_growth_underinvestment(self, graph: Graph) -> Optional[SystemArchetype]:
+        """Growth and Underinvestment: growth hits limits."""
+        chains = self._find_long_chains(graph)
+        if chains:
+            for chain in chains:
+                if len(chain) > 4:
+                    return SystemArchetype(
+                        name="Growth and Underinvestment",
+                        confidence=0.7,
+                        nodes=chain,
+                        description="Growth hits limits, investment lags",
+                        intervention建议="Invest ahead of growth, expand capacity proactively",
+                    )
+        return None
+
+    def _detect_leadership_as_system(self, graph: Graph) -> Optional[SystemArchetype]:
+        """Leadership as the System: central control node."""
+        hubs = self._find_hubs(graph)
+        if len(hubs) == 1:
+            return SystemArchetype(
+                name="Leadership as the System",
+                confidence=0.75,
+                nodes=hubs,
+                description="Leader sees system, acts on it",
+                intervention建议="Develop shared vision, empower distributed decision-making",
+            )
+        return None
+
+    def _detect_structural_conflict(self, graph: Graph) -> Optional[SystemArchetype]:
+        """Structural Conflict: two goals conflict structurally."""
+        goal_nodes = [nid for nid, node in graph.nodes.items()
+                     if hasattr(node, 'type') and 'GOAL' in str(node.type)]
+        if len(goal_nodes) >= 2:
+            # Check if goals have conflicting edges
+            for i, g1 in enumerate(goal_nodes):
+                for g2 in goal_nodes[i+1:]:
+                    if self._have_conflicting_edges(g1, g2, graph):
+                        return SystemArchetype(
+                            name="Structural Conflict",
+                            confidence=0.7,
+                            nodes=[g1, g2],
+                            description="Two goals conflict structurally",
+                            intervention建议="Find higher-level goal that unifies both",
+                        )
+        return None
+
+    def _get_edge_types_in_loop(self, loop: list[UUID], graph: Graph) -> list[str]:
+        """Get edge types in a loop."""
+        edge_types = []
+        for i in range(len(loop)):
+            for edge in graph.edges.values():
+                if edge.source_id == loop[i] and edge.target_id == loop[(i+1) % len(loop)]:
+                    edge_types.append(edge.type.name)
+        return edge_types
+
+    def _have_conflicting_edges(self, n1: UUID, n2: UUID, graph: Graph) -> bool:
+        """Check if two nodes have conflicting edge types."""
+        edges1 = {e.type.name for e in graph.edges.values() if e.source_id == n1}
+        edges2 = {e.type.name for e in graph.edges.values() if e.source_id == n2}
+        # Check for SUPPORTS/ATTACKS or CAUSES/PREVENTS conflicts
+        if ("SUPPORTS" in edges1 and "ATTACKS" in edges2) or \
+           ("ATTACKS" in edges1 and "SUPPORTS" in edges2):
+            return True
+        if ("CAUSES" in edges1 and "PREVENTS" in edges2) or \
+           ("PREVENTS" in edges1 and "CAUSES" in edges2):
+            return True
+        return False
 
     def _find_loops(self, graph: Graph) -> list[list[UUID]]:
         """Find feedback loops."""

@@ -5,10 +5,12 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Optional
 
+from cognitive_engine.core.concept import ConceptRegistry, default_registry
 from cognitive_engine.core.trace import StateDelta, TraceBuffer
 
 if TYPE_CHECKING:
-    from cognitive_engine.core.models import Graph
+    from cognitive_engine.tbox.hierarchy import TypeHierarchy
+
 
 
 @dataclass
@@ -29,7 +31,8 @@ class State:
     graph: Graph
     metadata: dict = field(default_factory=dict)
     abox: list = field(default_factory=list)
-    tbox: Any = None
+    tbox: TypeHierarchy | None = None
+    concepts: ConceptRegistry = field(default_factory=default_registry)
     history: list[StateDelta] = field(default_factory=list)
     max_history: int = 10
 
@@ -73,14 +76,14 @@ class State:
         }
 
     def fork(self) -> State:
-        """Create a shallow copy (new State, same graph reference)."""
+        """Deep copy the graph so compute_diff detects mutations."""
         s = State(
-            graph=self.graph,
-            metadata=dict(self.metadata),
+            graph=deepcopy(self.graph),
+            metadata=deepcopy(self.metadata),
             history=list(self.history),
+            concepts=deepcopy(self.concepts),
             max_history=self.max_history,
         )
-        # Preserve the trace content from the parent
         s._trace = self._trace.copy()
         return s
 

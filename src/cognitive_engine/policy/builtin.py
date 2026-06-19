@@ -37,32 +37,6 @@ DEFAULT_POLICY = OperatorPolicy(
     fallback=ThenAction(operators=["propagate", "verify"], order="sequential"),
 )
 
-# ── Legal policy: legal argument mapping ───────────────────────────
-
-LEGAL_POLICY = OperatorPolicy(
-    name="legal",
-    description="Legal argument mapping and contradiction detection",
-    rules=[
-        PolicyRule(
-            when=WhenCondition(cycle="==1"),
-            then=ThenAction(operators=["extract", "schema", "graph"], order="sequential"),
-        ),
-        PolicyRule(
-            when=WhenCondition(domain="legal", cycle=">1"),
-            then=ThenAction(operators=["propagate", "debate", "verify"], order="sequential"),
-        ),
-        PolicyRule(
-            when=WhenCondition(graph_has_contradictions=True),
-            then=ThenAction(operators=["constraint", "abduce", "debate"], order="sequential"),
-        ),
-        PolicyRule(
-            when=WhenCondition(convergence_stalled=True),
-            then=ThenAction(operators=["compress", "verify"], order="sequential"),
-        ),
-    ],
-    fallback=ThenAction(operators=["propagate", "verify"], order="sequential"),
-)
-
 # ── Scientific policy: hypothesis evaluation ──────────────────────
 
 SCIENTIFIC_POLICY = OperatorPolicy(
@@ -89,6 +63,5 @@ SCIENTIFIC_POLICY = OperatorPolicy(
 
 BUILTIN_POLICIES: dict[str, OperatorPolicy] = {
     "default": DEFAULT_POLICY,
-    "legal": LEGAL_POLICY,
     "scientific": SCIENTIFIC_POLICY,
 }
