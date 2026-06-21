@@ -67,17 +67,14 @@ class SimulateOperator:
                 )
                 sim_graph.edges[new_edge.id] = new_edge
 
-        # Re-propagate on modified graph using core math
+        # Re-propagate on modified graph using Trust Network Analysis
         from cognitive_engine.core.math import (
-            master_equation_all, propagate_step, build_adjacency,
-            initialize_beliefs, compute_attack_sum, count_violations, global_objective,
+            extract_max_dag, tna_propagate, projected_probability,
+            check_cycle_free,
         )
 
         sim_node_ids = set(sim_graph.nodes)
         sim_edges = list(sim_graph.edges.values())
-
-        def get_type_fn(nid):
-            return sim_graph.nodes[nid].type.name
 
         def get_opinion_fn(nid):
             n = sim_graph.nodes[nid]
@@ -88,31 +85,20 @@ class SimulateOperator:
                 return op
             return (op.belief, op.disbelief, op.uncertainty, op.prior)
 
-        sim_beliefs = initialize_beliefs(sim_node_ids, get_type_fn, get_opinion_fn)
-        adjacency = build_adjacency(sim_node_ids, sim_edges)
+        if not check_cycle_free(sim_node_ids, sim_edges):
+            dag_edges, dropped, _ = extract_max_dag(sim_node_ids, sim_edges)
+        else:
+            dag_edges = sim_edges
+            dropped = []
 
-        for _ in range(50):
-            new_beliefs = propagate_step(sim_beliefs, adjacency, {nid: 0.5 for nid in sim_node_ids})
-            delta = sum(abs(new_beliefs.get(k, 0.5) - sim_beliefs.get(k, 0.5)) for k in sim_beliefs)
-            sim_beliefs = new_beliefs
-            if delta < 1e-4:
-                break
+        sim_opinions = tna_propagate(sim_node_ids, dag_edges, get_opinion_fn)
 
-        attack_sim = {}
-        for nid in sim_node_ids:
-            attack_sim[nid] = compute_attack_sum(nid, sim_edges, sim_beliefs)
+        sim_beliefs = {
+            nid: projected_probability(op[0], op[2], op[3])
+            for nid, op in sim_opinions.items()
+        }
 
-        violations_sim = count_violations(
-            {nid: (b, 0.0, 0.0, 0.5) for nid, b in sim_beliefs.items()},
-            sim_edges, opinion_threshold=0.01,
-        )
-
-        final_sim = master_equation_all(
-            list(sim_node_ids), sim_beliefs, sim_beliefs,
-            {nid: 1.0 for nid in sim_node_ids}, attack_sim, violations_sim,
-        )
-
-        objective = global_objective(final_sim, violations_sim)
+        objective = sum(sim_beliefs.values())
 
         result = type("SimResult", (), {
             "beliefs": sim_beliefs,
@@ -126,19 +112,16 @@ class SimulateOperator:
             "modifications": modifications,
             "beliefs": result.beliefs,
             "objective": result.objective,
+            "dropped_edges": len(dropped),
         }
 
         from cognitive_engine.core.models import Opinion as OpModel
 
-        for nid, belief in result.beliefs.items():
+        for nid, (b, d, u, a) in sim_opinions.items():
             if nid in state.graph.nodes:
-                node = state.graph.nodes[nid]
-                op = node.opinion
-                prior = op[3] if op else 0.5
-                b = belief
-                d = max(0.0, 1.0 - b - 0.05)
-                u = max(0.0, 1.0 - b - d)
-                node.opinion = OpModel(belief=b, disbelief=d, uncertainty=u, prior=prior)
+                state.graph.nodes[nid].opinion = OpModel(
+                    belief=b, disbelief=d, uncertainty=u, prior=a,
+                )
 
         mod_summary = []
         for target, mod in modifications.items():

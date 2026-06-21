@@ -260,14 +260,6 @@ class TestOperators:
         graph = Graph(source_text=text)
         return State(graph=graph, metadata={"text": text})
 
-    def test_extract_operator(self):
-        from cognitive_engine.operators.extract import ExtractOperator
-        op = ExtractOperator()
-        state = self._make_state("Honor is tied to family reputation.")
-        result = op(state, text="Honor is tied to family reputation.")
-        assert result.metadata["extracted"] is True
-        assert len(result.graph.nodes) > 0
-
     def test_schema_operator(self):
         from cognitive_engine.operators.schema import SchemaOperator
         from cognitive_engine.schemas.research import RESEARCH_SCHEMA

@@ -64,6 +64,7 @@ _lazy_modules: dict[str, list[str]] = {
         "neurosymbolic_fuse", "graph_distance", "hidden_state_distance",
         "memory_similarity", "graph_diff_score",
         "check_opinion_invariant", "check_cycle_free",
+        "extract_max_dag", "topological_sort", "tna_propagate",
         "check_category_monotonicity", "betweenness_centrality",
         "leverage_score", "classify_feedback_loop",
         "shannon_entropy", "normalized_shannon_entropy",

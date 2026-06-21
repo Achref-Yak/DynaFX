@@ -14,33 +14,17 @@ from cognitive_engine.domain import domain as _domain
 logger = logging.getLogger(__name__)
 
 
-def opinion_from_counts(counts: EvidenceCounts) -> Opinion:
-    W = counts.uncertainty_pseudocount
-    total = counts.positive + counts.negative + W
-    if total == 0:
-        return (0.0, 0.0, 1.0, 0.5)
-    b = counts.positive / total
-    d = counts.negative / total
-    u = W / total
-    return (b, d, u, 0.5)
+def opinion_from_counts(counts: EvidenceCounts) -> tuple[float, float, float, float]:
+    from cognitive_engine.core.math import opinion_from_counts as _from_counts
+    return _from_counts(
+        counts.positive, counts.negative,
+        counts.uncertainty_pseudocount, 0.5,
+    )
 
 
-def mean_opinion(opinions: list[Opinion]) -> Opinion:
-    if not opinions:
-        return (0.0, 0.0, 1.0, 0.5)
-    n = len(opinions)
-    b = sum(o[0] for o in opinions) / n
-    d = sum(o[1] for o in opinions) / n
-    u = sum(o[2] for o in opinions) / n
-    a = sum(o[3] for o in opinions) / n
-    total = b + d + u
-    if abs(total - 1.0) > 1e-9 and total > 0:
-        b /= total
-        d /= total
-        u /= total
-    elif total == 0:
-        u = 1.0
-    return (min(1.0, b), min(1.0, d), min(1.0, u), min(1.0, a))
+def mean_opinion(opinions: list[Opinion]) -> tuple[float, float, float, float]:
+    from cognitive_engine.core.math import mean_opinion as _mean
+    return _mean(list(opinions))
 
 
 def mean_opinion_pair(pairs: list[tuple[Opinion, Opinion]]) -> tuple[Opinion, Opinion]:
@@ -104,14 +88,7 @@ class CorpusResult:
 
         graphs: list[Graph] = []
         for f in txt_files:
-            try:
-                from cognitive_engine.operators.extract import _extract_graph
-                text = f.read_text(encoding="utf-8")
-                graph = _extract_graph(text)
-                graphs.append(graph)
-                logger.info("  Processed %s (%d nodes, %d edges)", f.name, len(graph.nodes), len(graph.edges))
-            except Exception as e:
-                logger.warning("  Skipped %s: %s", f.name, e)
+            logger.warning("  Skipped %s: corpus extraction removed in this build", f.name)
 
         node_counts = _collect_node_counts(graphs)
         edge_warrants = _collect_edge_counts(graphs)

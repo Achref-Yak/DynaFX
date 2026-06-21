@@ -3,14 +3,13 @@
 import pytest
 from uuid import uuid4
 
-from cognitive_engine.core.models import Graph, Node, NodeType, Edge, EdgeType, Span
+from cognitive_engine.core.models import Graph, Node, NodeType
 from cognitive_engine.core.state import State
 from cognitive_engine.core.embeddings import EmbeddingModel
-from cognitive_engine.core.pipeline import Pipeline
-from cognitive_engine.operators.compare import CompareOperator, GraphDiff, ConceptMatch, BeliefDelta
-from cognitive_engine.operators.align import AlignOperator, Alignment, AlignmentResult
+from cognitive_engine.operators.compare import CompareOperator
+from cognitive_engine.operators.align import AlignOperator
 from cognitive_engine.operators.attention import AttentionOperator
-from cognitive_engine.operators.extract import ExtractOperator
+
 
 
 # ── EmbeddingModel tests ──────────────────────────────────────────
@@ -258,27 +257,4 @@ class TestAttentionConceptFilter:
         assert all(n.opinion[0] >= 0.5 for n in filtered.nodes.values())
 
 
-# ── Pipeline integration tests ────────────────────────────────────
 
-class TestEmbeddingPipeline:
-    def test_pipeline_with_embeddings(self):
-        pipe = Pipeline(name="test")
-        pipe.add(ExtractOperator(compute_embeddings=True))
-        state = State(graph=Graph())
-        state.metadata["text"] = "Cats are great pets. Dogs are loyal companions."
-        result = pipe.run(state)
-        graph = result.graph
-        assert len(graph.nodes) > 0
-        for node in graph.nodes.values():
-            assert node.embedding is not None
-            assert len(node.embedding) == 384
-
-    def test_pipeline_without_embeddings(self):
-        pipe = Pipeline(name="test")
-        pipe.add(ExtractOperator(compute_embeddings=False))
-        state = State(graph=Graph())
-        state.metadata["text"] = "Cats are great pets."
-        result = pipe.run(state)
-        graph = result.graph
-        for node in graph.nodes.values():
-            assert node.embedding is None

@@ -186,7 +186,10 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
+    { name = "leidenalg" },
     { name = "networkx" },
+    { name = "nltk" },
+    { name = "numpy" },
     { name = "pydantic" },
     { name = "spacy" },
     { name = "torch" },
@@ -204,7 +207,10 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
+    { name = "leidenalg", specifier = ">=0.10" },
     { name = "networkx", specifier = ">=3.0" },
+    { name = "nltk", specifier = ">=3.9" },
+    { name = "numpy", specifier = ">=1.24" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.25" },
@@ -516,6 +522,26 @@ wheels = [
 ]
 
 [[package]]
+name = "igraph"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "texttable" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/23/be/56bef1919005b4caf1f71522b300d359f7faeb7ae93a3b0baa9b4f146a87/igraph-1.0.0.tar.gz", hash = "sha256:2414d0be2e4d77ee5357807d100974b40f6082bb1bb71988ec46cfb6728651ee", size = 5077105 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a5/03/3278ad0ceb3ea0e84d8ae3a85bdded4d0e57853aeb802a200feb43847b93/igraph-1.0.0-cp39-abi3-macosx_10_15_x86_64.whl", hash = "sha256:c2cbc415e02523e5a241eecee82319080bf928a70b1ba299f3b3e25bf029b6d4", size = 2257415 },
+    { url = "https://files.pythonhosted.org/packages/0d/bc/6281ec7f9baaf71ee57c3b1748da2d3148d15d253e1a03006f204aa68ca5/igraph-1.0.0-cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:1a27753cd80680a8f676c2d5a467aaa4a95e510b30748398ec4e4aeb982130e8", size = 2048555 },
+    { url = "https://files.pythonhosted.org/packages/2a/38/3cd6428a4ed4c09a56df05998438e7774fd1d799ee4fb8fc481674f5f7fc/igraph-1.0.0-cp39-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:a55dc3a2a4e3fc3eba42479910c1511bfc3ecb33cdf5f0406891fd85f14b5aee", size = 5314141 },
+    { url = "https://files.pythonhosted.org/packages/7d/da/dd2867c25adbb41563720f14b5fc895c98bf88be682a3faff4f7b3118d2a/igraph-1.0.0-cp39-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:2d04c2c76f686fb1f554ee35dfd3085f5e73b7965ba6b4cf06d53e66b1955522", size = 5683134 },
+    { url = "https://files.pythonhosted.org/packages/e5/40/243c118d34ab80382d7009c4dcb99b887384c3d2ce84d29eeac19e2a007a/igraph-1.0.0-cp39-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:f2b52dc1757fff0fed29a9f7a276d971a11db4211569ed78b9eab36288dfcc9d", size = 6211583 },
+    { url = "https://files.pythonhosted.org/packages/1d/b7/88f433819c54b496cb0315fce28e658970cb20ff5dbd52a5a605ce2888de/igraph-1.0.0-cp39-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:05c79a2a8fca695b2f217a6fa7f2549f896f757d4db41be32a055400cb19cc30", size = 6594509 },
+    { url = "https://files.pythonhosted.org/packages/7b/5d/8f7f6f619d374e959aa3664ebc4b24c10abc90c2e8efbed97f2623fadaf5/igraph-1.0.0-cp39-abi3-win32.whl", hash = "sha256:c2bce3cd472fec3dd9c4d8a3ea5b6b9be65fb30edf760beb4850760dd4f2d479", size = 2725406 },
+    { url = "https://files.pythonhosted.org/packages/af/77/a85b3745cf40a0572bae2de8cd9c2a2a8af78e5cf3e880fc0a249114e609/igraph-1.0.0-cp39-abi3-win_amd64.whl", hash = "sha256:faeff8ede0cf15eb4ded44b0fcea6e1886740146e60504c24ad2da14e0939563", size = 3221663 },
+    { url = "https://files.pythonhosted.org/packages/ef/7e/5df541c37bdf6493035e89c22bd53f30d99b291bcda6c78e9a8afeecec2b/igraph-1.0.0-cp39-abi3-win_arm64.whl", hash = "sha256:b607cafc24b10a615e713ee96e58208ef27e0764af80140c7cc45d4724a3f2df", size = 2785701 },
+]
+
+[[package]]
 name = "iniconfig"
 version = "2.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -534,6 +560,35 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/df/bf/f7da0350254c0ed7c72f3e33cef02e048281fec7ecec5f032d4aac52226b/jinja2-3.1.6.tar.gz", hash = "sha256:0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d", size = 245115 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/62/a1/3d680cbfd5f4b8f15abc1d571870c5fc3e594bb582bc3b64ea099db13e56/jinja2-3.1.6-py3-none-any.whl", hash = "sha256:85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67", size = 134899 },
+]
+
+[[package]]
+name = "joblib"
+version = "1.5.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/41/f2/d34e8b3a08a9cc79a50b2208a93dce981fe615b64d5a4d4abee421d898df/joblib-1.5.3.tar.gz", hash = "sha256:8561a3269e6801106863fd0d6d84bb737be9e7631e33aaed3fb9ce5953688da3", size = 331603 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7b/91/984aca2ec129e2757d1e4e3c81c3fcda9d0f85b74670a094cc443d9ee949/joblib-1.5.3-py3-none-any.whl", hash = "sha256:5fc3c5039fc5ca8c0276333a188bbd59d6b7ab37fe6632daa76bc7f9ec18e713", size = 309071 },
+]
+
+[[package]]
+name = "leidenalg"
+version = "0.12.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "igraph" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/82/b7/45bae25ab59321a14902bec2f47e32b92e76f8b4b3887a13ee69a0b32c60/leidenalg-0.12.0.tar.gz", hash = "sha256:c81a45a2fb874fe71e903d43a869d0efeb7f907af70476c03f6945ef0e8f44c5", size = 453641 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/53/7f/0900c05ccbb27744f9dd11321dc2978e9f5ffe678db54f23eb94cf4e5951/leidenalg-0.12.0-cp38-abi3-macosx_10_9_x86_64.whl", hash = "sha256:96eec407f540d9ddb0c103dadc632d5519cfcdb39689fb21ae0ceeaa97bb2ec3", size = 2257399 },
+    { url = "https://files.pythonhosted.org/packages/72/f6/d15c889c7c65dbc41c84fe83243c203b083f70cef62ed0acc630098b2012/leidenalg-0.12.0-cp38-abi3-macosx_11_0_arm64.whl", hash = "sha256:2e0e1c2321c2e06a7f4f8a73ca15fcd54e0139a62afb448933c42badcfab8adc", size = 1926700 },
+    { url = "https://files.pythonhosted.org/packages/cf/36/7480eef0473bd87f69826e0dfb6bb1c1ee0915fa6d31be445d0bfcbd3a1a/leidenalg-0.12.0-cp38-abi3-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:5f6a97f698f13a588e1ae7344908cddee9f87d33acc226fc5c5b99752ebd71f8", size = 2546580 },
+    { url = "https://files.pythonhosted.org/packages/5f/45/cf5eb36b4517bb85397760a6033628695e8b0723b45f10f487b07cec84df/leidenalg-0.12.0-cp38-abi3-manylinux_2_26_i686.manylinux_2_28_i686.whl", hash = "sha256:78df2e463f3ffffffda590e9b0d790107e59f722f095731b78a58803d1ca92e5", size = 2845846 },
+    { url = "https://files.pythonhosted.org/packages/f7/be/dba31e662c2ee028e20dd0308c1bc6e398dd7a1786fdd0821722537b4124/leidenalg-0.12.0-cp38-abi3-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:fcbd89655243cc739d28ba23fe894587d8d7235124a9248ba375819585e70090", size = 2739255 },
+    { url = "https://files.pythonhosted.org/packages/e1/02/22597cf6d7ee093523ad5885a31499d698812db5744d98086383c3da08b5/leidenalg-0.12.0-cp38-abi3-musllinux_1_2_i686.whl", hash = "sha256:c6a6231d3db490ee3cc4004f214b0bb947dc3fabde75bd61d878bc3fb9685d06", size = 4072277 },
+    { url = "https://files.pythonhosted.org/packages/05/e5/2f3322376fddd6b85790eaddcd314c9402bf81e984b35870acb4cfcbd0e1/leidenalg-0.12.0-cp38-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:63b49f5716c7cb155f3a3e25505bcc33f3c8c62105734fc152bc07518e63e9ab", size = 3799963 },
+    { url = "https://files.pythonhosted.org/packages/d1/35/f4f07ddac6718a11c70d858fd4afcc849ca84f485b5d7092bcf09492ec06/leidenalg-0.12.0-cp38-abi3-win32.whl", hash = "sha256:283cd987623e2c5e7b11ed3f15b7805d597a934bf387a7e820d2f673001b635f", size = 1675833 },
+    { url = "https://files.pythonhosted.org/packages/ea/77/0c8fb67729e83bddd43971cd4851f497a96810fca63f8029e3f008e82b1b/leidenalg-0.12.0-cp38-abi3-win_amd64.whl", hash = "sha256:f5d9529b44d5f6add0847d68fa6ced99f581357f6ca02b54c049eb3a2f45ff04", size = 1990568 },
 ]
 
 [[package]]
@@ -684,6 +739,21 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/6a/51/63fe664f3908c97be9d2e4f1158eb633317598cfa6e1fc14af5383f17512/networkx-3.6.1.tar.gz", hash = "sha256:26b7c357accc0c8cde558ad486283728b65b6a95d85ee1cd66bafab4c8168509", size = 2517025 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9e/c9/b2622292ea83fbb4ec318f5b9ab867d0a28ab43c5717bb85b0a5f6b3b0a4/networkx-3.6.1-py3-none-any.whl", hash = "sha256:d47fbf302e7d9cbbb9e2555a0d267983d2aa476bac30e90dfbe5669bd57f3762", size = 2068504 },
+]
+
+[[package]]
+name = "nltk"
+version = "3.9.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+    { name = "joblib" },
+    { name = "regex" },
+    { name = "tqdm" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/74/a1/b3b4adf15585a5bc4c357adde150c01ebeeb642173ded4d871e89468767c/nltk-3.9.4.tar.gz", hash = "sha256:ed03bc098a40481310320808b2db712d95d13ca65b27372f8a403949c8b523d0", size = 2946864 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9d/91/04e965f8e717ba0ab4bdca5c112deeab11c9e750d94c4d4602f050295d39/nltk-3.9.4-py3-none-any.whl", hash = "sha256:f2fa301c3a12718ce4a0e9305c5675299da5ad9e26068218b69d692fda84828f", size = 1552087 },
 ]
 
 [[package]]
@@ -1445,6 +1515,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/83/d3/803453b36afefb7c2bb238361cd4ae6125a569b4db67cd9e79846ba2d68c/sympy-1.14.0.tar.gz", hash = "sha256:d3d3fe8df1e5a0b42f0e7bdf50541697dbe7d23746e894990c030e2b05e72517", size = 7793921 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a2/09/77d55d46fd61b4a135c444fc97158ef34a095e5681d0a6c10b75bf356191/sympy-1.14.0-py3-none-any.whl", hash = "sha256:e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5", size = 6299353 },
+]
+
+[[package]]
+name = "texttable"
+version = "1.7.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/1c/dc/0aff23d6036a4d3bf4f1d8c8204c5c79c4437e25e0ae94ffe4bbb55ee3c2/texttable-1.7.0.tar.gz", hash = "sha256:2d2068fb55115807d3ac77a4ca68fa48803e84ebb0ee2340f858107a36522638", size = 12831 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/24/99/4772b8e00a136f3e01236de33b0efda31ee7077203ba5967fcc76da94d65/texttable-1.7.0-py2.py3-none-any.whl", hash = "sha256:72227d592c82b3d7f672731ae73e4d1f88cd8e2ef5b075a7a7f01a23a3743917", size = 10768 },
 ]
 
 [[package]]

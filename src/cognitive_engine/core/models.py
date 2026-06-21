@@ -49,6 +49,9 @@ class NodeType(Enum):
     KNOWLEDGE = auto()
     INFORMATION = auto()
     DOCUMENT = auto()
+    STOCK = auto()
+    FLOW = auto()
+    VARIABLE = auto()
 
 
 class EdgeType(Enum):
@@ -180,6 +183,36 @@ Warrant = tuple[Opinion, Opinion]
 
 
 @dataclass
+class Parameter:
+    """Parameter value with SL opinion for confidence."""
+    value: Optional[float] = None
+    opinion: Opinion = field(default_factory=Opinion)
+
+    def to_dict(self) -> dict:
+        return {
+            "value": self.value,
+            "opinion": {
+                "belief": self.opinion.belief,
+                "disbelief": self.opinion.disbelief,
+                "uncertainty": self.opinion.uncertainty,
+                "prior": self.opinion.prior,
+            },
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Parameter":
+        return cls(
+            value=d.get("value"),
+            opinion=Opinion(
+                belief=d.get("opinion", {}).get("belief", 0.0),
+                disbelief=d.get("opinion", {}).get("disbelief", 0.0),
+                uncertainty=d.get("opinion", {}).get("uncertainty", 1.0),
+                prior=d.get("opinion", {}).get("prior", 0.5),
+            ),
+        )
+
+
+@dataclass
 class Payload:
     """Raw content of a node."""
     text: str = ""
@@ -217,6 +250,8 @@ class Node:
     attrs: Dict = field(default_factory=dict)
     metadata: Dict = field(default_factory=dict)
     bfo_category: Optional[BfoCategory] = None
+    container_id: Optional[UUID] = None
+    orthogonal_partition: Optional[str] = None
 
 
 @dataclass
@@ -229,6 +264,7 @@ class Edge:
     confidence: float = 0.5
     opinion: Opinion = field(default_factory=Opinion)
     warrant: Optional[Warrant] = None
+    polarity: int = 1
     attrs: Dict = field(default_factory=dict)
     metadata: Dict = field(default_factory=dict)
 
@@ -336,6 +372,43 @@ class ConversationTree:
         }
 
 
+@dataclass
+class EmergentProperty:
+    """A system-level behavior that cannot be reduced to any single component.
+
+    Detected by structural signature matching as a post-pass on the graph.
+    condition references bound Parameter ids with threshold expressions,
+    reusing the same Opinion semantics as bind_parameters.
+    """
+    name: str = ""
+    condition: str = ""
+    involved_ids: list[UUID] = field(default_factory=list)
+    opinion: Opinion = field(default_factory=Opinion)
+    detected_by: str = ""
+    trace_ref: str = ""
+
+
+@dataclass
+class FeedbackLoop:
+    """A feedback loop with polarity classification.
+
+    Discovered by MDM-based cycle detection (within-DSM DFS).
+    """
+    nodes: list[UUID] = field(default_factory=list)
+    loop_type: str = ""
+    gain_sign: str = ""
+    edge_count: int = 0
+    negative_count: int = 0
+
+    def to_dict(self) -> dict[str, str | int | list]:
+        return {
+            "loop_type": self.loop_type,
+            "gain_sign": self.gain_sign,
+            "edge_count": self.edge_count,
+            "negative_count": self.negative_count,
+        }
+
+
 def _strip_defaults(obj: Any, _is_top_level: bool = False) -> Any:
     """Remove empty/default fields from serialized output.
 
@@ -397,6 +470,7 @@ class Graph:
     source_text: str = ""
     metadata: Dict = field(default_factory=dict)
     cta: Optional[ConversationTree] = None
+    emergent_properties: list[EmergentProperty] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if isinstance(self.edges, list):
@@ -737,12 +811,17 @@ class Graph:
         )
         return [Graph._convert_value(r) for r in sorted_wr]
 
+    @staticmethod
+    def _serialize_emergent(ep_list: list[EmergentProperty]) -> list[dict]:
+        return [Graph._convert_value(ep) for ep in ep_list]
+
     def to_dict(self) -> dict:
         roles = Graph._collect_roles(self.interpretations)
         outgoing = Graph._build_outgoing_map(self.edges)
         propositions = Graph._serialize_nodes(self.nodes, roles, outgoing)
         entities_list = Graph._serialize_entities(self.entities)
         wr_list = Graph._serialize_world_relations(self.world_relations)
+        ep_list = Graph._serialize_emergent(self.emergent_properties)
 
         result: dict = {
             "propositions": propositions,
@@ -754,6 +833,8 @@ class Graph:
         }
         if self.cta is not None:
             result["cta"] = self.cta.to_dict()
+        if ep_list:
+            result["emergent_properties"] = ep_list
         return _strip_defaults(result, _is_top_level=True)
 
     def to_json(self, indent: int = 2) -> str:
@@ -990,6 +1071,7 @@ class Graph:
         world_relations = Graph._parse_world_relations(data)
         interpretations = Graph._parse_interpretations(data, edges, roles)
         cta = Graph._parse_cta(data)
+        emergent_properties = Graph._parse_emergent(data)
 
         return Graph(
             nodes=nodes,
@@ -1001,7 +1083,23 @@ class Graph:
             source_text=data.get("source_text", ""),
             metadata=data.get("metadata", {}),
             cta=cta,
+            emergent_properties=emergent_properties,
         )
+
+    @staticmethod
+    def _parse_emergent(data: dict) -> list[EmergentProperty]:
+        ep_data = data.get("emergent_properties", [])
+        result: list[EmergentProperty] = []
+        for epd in ep_data:
+            result.append(EmergentProperty(
+                name=epd.get("name", ""),
+                condition=epd.get("condition", ""),
+                involved_ids=[UUID(nid) for nid in epd.get("involved_ids", [])],
+                opinion=Opinion.from_tuple(tuple(epd.get("opinion", (0, 0, 1, 0.5)))),
+                detected_by=epd.get("detected_by", ""),
+                trace_ref=epd.get("trace_ref", ""),
+            ))
+        return result
 
 
 @dataclass

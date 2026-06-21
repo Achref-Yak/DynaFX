@@ -49,7 +49,7 @@ class SystemArchetype:
     confidence: float
     nodes: list[UUID]
     description: str
-    intervention建议: str
+    intervention_suggestion: str
 
 
 class FeedbackLoopDetector:
@@ -367,7 +367,7 @@ class SystemArchetypeClassifier:
                     "confidence": a.confidence,
                     "nodes": [str(nid) for nid in a.nodes],
                     "description": a.description,
-                    "intervention建议": a.intervention建议,
+                    "intervention_suggestion": a.intervention_suggestion,
                 }
                 for a in archetypes
             ],
@@ -380,7 +380,7 @@ class SystemArchetypeClassifier:
             f"Classified {len(archetypes)} system archetypes from the causal graph structure. "
             f"Archetypes identified: {'; '.join(arch_texts)}. "
             f"Each archetype represents a recurring systemic pattern with known intervention strategies. "
-            f"{'Dominant archetype: ' + archetypes[0].name + ' — ' + archetypes[0].intervention建议 + '.' if archetypes else ''} "
+            f"{'Dominant archetype: ' + archetypes[0].name + ' — ' + archetypes[0].intervention_suggestion + '.' if archetypes else ''} "
             f"Archetype classification helps select appropriate systems-thinking interventions.",
         )
         return state
@@ -463,7 +463,7 @@ class SystemArchetypeClassifier:
                     confidence=0.8,
                     nodes=loop,
                     description="Short-term fix undermines long-term solution",
-                    intervention建议="Remove the fix, address root cause directly",
+                    intervention_suggestion="Remove the fix, address root cause directly",
                 )
         return None
 
@@ -480,7 +480,7 @@ class SystemArchetypeClassifier:
                             confidence=0.7,
                             nodes=[h1, h2],
                             description="Symptom treatment instead of root cause",
-                            intervention建议="Focus on fundamental solution, reduce dependency on symptomatic fix",
+                            intervention_suggestion="Focus on fundamental solution, reduce dependency on symptomatic fix",
                         )
         return None
 
@@ -498,7 +498,7 @@ class SystemArchetypeClassifier:
                         confidence=0.6,
                         nodes=[goal],
                         description="Performance standards slip over time",
-                        intervention建议="Recommit to original goals, make goals visible",
+                        intervention_suggestion="Recommit to original goals, make goals visible",
                     )
         return None
 
@@ -515,7 +515,7 @@ class SystemArchetypeClassifier:
                     confidence=0.75,
                     nodes=list(nodes1 | nodes2),
                     description="Rivals compete to get ahead, both lose",
-                    intervention建议="Unilaterally de-escalate, seek win-win",
+                    intervention_suggestion="Unilaterally de-escalate, seek win-win",
                 )
         return None
 
@@ -536,7 +536,7 @@ class SystemArchetypeClassifier:
                         confidence=0.8,
                         nodes=[max_hub],
                         description="Winner takes all, resources concentrate",
-                        intervention建议="Break the feedback loop, redistribute resources",
+                        intervention_suggestion="Break the feedback loop, redistribute resources",
                     )
         return None
 
@@ -555,7 +555,7 @@ class SystemArchetypeClassifier:
                     confidence=0.7,
                     nodes=overloaded,
                     description="Shared resource depleted by overuse",
-                    intervention建议="Regulate access, create property rights",
+                    intervention_suggestion="Regulate access, create property rights",
                 )
         return None
 
@@ -571,7 +571,7 @@ class SystemArchetypeClassifier:
                         confidence=0.65,
                         nodes=[nid],
                         description="Rules produce unintended consequences",
-                        intervention建议="Simplify rules, focus on goals not compliance",
+                        intervention_suggestion="Simplify rules, focus on goals not compliance",
                     )
         return None
 
@@ -586,7 +586,7 @@ class SystemArchetypeClassifier:
                     confidence=0.6,
                     nodes=loop,
                     description="Gradual erosion of standards",
-                    intervention建议="Reset goals to original standard, measure performance",
+                    intervention_suggestion="Reset goals to original standard, measure performance",
                 )
         return None
 
@@ -607,7 +607,7 @@ class SystemArchetypeClassifier:
                         confidence=0.65,
                         nodes=[hub],
                         description="Dependency on external intervention",
-                        intervention建议="Provide support while building internal capacity",
+                        intervention_suggestion="Provide support while building internal capacity",
                     )
         return None
 
@@ -622,7 +622,7 @@ class SystemArchetypeClassifier:
                         confidence=0.7,
                         nodes=chain,
                         description="Growth hits limits, investment lags",
-                        intervention建议="Invest ahead of growth, expand capacity proactively",
+                        intervention_suggestion="Invest ahead of growth, expand capacity proactively",
                     )
         return None
 
@@ -635,7 +635,7 @@ class SystemArchetypeClassifier:
                 confidence=0.75,
                 nodes=hubs,
                 description="Leader sees system, acts on it",
-                intervention建议="Develop shared vision, empower distributed decision-making",
+                intervention_suggestion="Develop shared vision, empower distributed decision-making",
             )
         return None
 
@@ -653,7 +653,7 @@ class SystemArchetypeClassifier:
                             confidence=0.7,
                             nodes=[g1, g2],
                             description="Two goals conflict structurally",
-                            intervention建议="Find higher-level goal that unifies both",
+                            intervention_suggestion="Find higher-level goal that unifies both",
                         )
         return None
 

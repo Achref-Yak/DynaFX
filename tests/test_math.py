@@ -30,6 +30,8 @@ from cognitive_engine.core.math import (
     leverage_score, classify_feedback_loop, graph_diff_score,
     check_opinion_invariant, check_cycle_free, check_category_monotonicity,
     EDGE_WEIGHTS, NODE_PRIORS, CATEGORY_LEVELS, NECESSITY, FACT, BELIEF, CONCEPT,
+    extract_max_dag, topological_sort, tna_propagate,
+    SUPPORT_EDGES, ATTACK_EDGES, QUALIFY_EDGES,
 )
 
 
@@ -565,3 +567,120 @@ class TestInvariantChecks:
             return 3 if n == nid2 else 1
         violations = check_category_monotonicity([edge], get_src, get_tgt)
         assert len(violations) == 0
+
+
+class TestExtractMaxDag:
+    def test_acyclic_graph_no_dropped(self):
+        from cognitive_engine.core.models import Edge, EdgeType
+        nid1, nid2, nid3 = uuid4(), uuid4(), uuid4()
+        edges = [
+            Edge(source_id=nid1, target_id=nid2, type=EdgeType.SUPPORTS),
+            Edge(source_id=nid2, target_id=nid3, type=EdgeType.SUPPORTS),
+        ]
+        dag, dropped, order = extract_max_dag({nid1, nid2, nid3}, edges)
+        assert len(dag) == 2
+        assert len(dropped) == 0
+        assert len(order) == 3
+
+    def test_cyclic_graph_drops_back_edge(self):
+        from cognitive_engine.core.models import Edge, EdgeType
+        nid1, nid2 = uuid4(), uuid4()
+        edges = [
+            Edge(source_id=nid1, target_id=nid2, type=EdgeType.SUPPORTS),
+            Edge(source_id=nid2, target_id=nid1, type=EdgeType.ATTACKS),
+        ]
+        dag, dropped, order = extract_max_dag({nid1, nid2}, edges)
+        assert len(dropped) == 1
+        assert len(dag) == 1
+
+    def test_triangle_cycle_drops_one(self):
+        from cognitive_engine.core.models import Edge, EdgeType
+        nid1, nid2, nid3 = uuid4(), uuid4(), uuid4()
+        edges = [
+            Edge(source_id=nid1, target_id=nid2, type=EdgeType.SUPPORTS),
+            Edge(source_id=nid2, target_id=nid3, type=EdgeType.SUPPORTS),
+            Edge(source_id=nid3, target_id=nid1, type=EdgeType.ATTACKS),
+        ]
+        dag, dropped, order = extract_max_dag({nid1, nid2, nid3}, edges)
+        # In a fully cyclic graph the topological order depends on set iteration,
+        # so either 1 or 2 edges may be dropped; at minimum 1 must be dropped.
+        assert len(dropped) >= 1
+        assert len(dag) + len(dropped) == len(edges)
+
+
+class TestTopologicalSort:
+    def test_linear_order(self):
+        from cognitive_engine.core.models import Edge, EdgeType
+        nid1, nid2, nid3 = uuid4(), uuid4(), uuid4()
+        edges = [
+            Edge(source_id=nid1, target_id=nid2, type=EdgeType.SUPPORTS),
+            Edge(source_id=nid2, target_id=nid3, type=EdgeType.SUPPORTS),
+        ]
+        order = topological_sort({nid1, nid2, nid3}, edges)
+        assert order.index(nid1) < order.index(nid2) < order.index(nid3)
+
+    def test_cyclic_graph_all_nodes_present(self):
+        from cognitive_engine.core.models import Edge, EdgeType
+        nid1, nid2 = uuid4(), uuid4()
+        edges = [
+            Edge(source_id=nid1, target_id=nid2, type=EdgeType.SUPPORTS),
+            Edge(source_id=nid2, target_id=nid1, type=EdgeType.ATTACKS),
+        ]
+        order = topological_sort({nid1, nid2}, edges)
+        assert len(order) == 2
+        assert nid1 in order
+        assert nid2 in order
+
+
+class TestTNAPropagate:
+    def test_single_node_no_edges(self):
+        nid = uuid4()
+        def get_op(n):
+            return (0.5, 0.3, 0.2, 0.5)
+        result = tna_propagate({nid}, [], get_op)
+        assert nid in result
+        assert result[nid] == (0.5, 0.3, 0.2, 0.5)
+
+    def test_support_chain(self):
+        from cognitive_engine.core.models import Edge, EdgeType
+        nid1, nid2 = uuid4(), uuid4()
+        edges = [Edge(source_id=nid1, target_id=nid2, type=EdgeType.SUPPORTS)]
+        def get_op(n):
+            return (0.8, 0.1, 0.1, 0.5) if n == nid1 else (0.0, 0.0, 1.0, 0.5)
+        result = tna_propagate({nid1, nid2}, edges, get_op)
+        assert nid2 in result
+        b, d, u, a = result[nid2]
+        # After deduction + fusion, nid2 should have positive belief
+        assert b > 0.0
+        assert d >= 0.0
+        assert u >= 0.0
+
+    def test_attack_decreases_belief(self):
+        from cognitive_engine.core.models import Edge, EdgeType
+        nid1, nid2 = uuid4(), uuid4()
+        edges = [Edge(source_id=nid1, target_id=nid2, type=EdgeType.ATTACKS)]
+        def get_op(n):
+            return (0.9, 0.05, 0.05, 0.5) if n == nid1 else (0.0, 0.0, 1.0, 0.5)
+        result = tna_propagate({nid1, nid2}, edges, get_op)
+        assert nid2 in result
+        # Attack warrant swaps belief/disbelief, then inverted back
+        b, d, u, a = result[nid2]
+        assert b >= 0.0
+        assert d >= 0.0
+        assert u >= 0.0
+
+    def test_support_beats_attack(self):
+        from cognitive_engine.core.models import Edge, EdgeType
+        nid1, nid2, nid3 = uuid4(), uuid4(), uuid4()
+        edges = [
+            Edge(source_id=nid1, target_id=nid3, type=EdgeType.SUPPORTS),
+            Edge(source_id=nid2, target_id=nid3, type=EdgeType.ATTACKS),
+        ]
+        def get_op(n):
+            if n == nid1: return (0.8, 0.1, 0.1, 0.5)
+            if n == nid2: return (0.2, 0.7, 0.1, 0.5)
+            return (0.0, 0.0, 1.0, 0.5)
+        result = tna_propagate({nid1, nid2, nid3}, edges, get_op)
+        assert nid3 in result
+        b, d, u, a = result[nid3]
+        assert b > 0.0

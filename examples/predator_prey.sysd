@@ -1,0 +1,12 @@
+// Predator-Prey (Lotka-Volterra) in .sysd DSL
+model 'Lotka-Volterra'
+  dt 0.1
+  from 0 to 50
+
+  stock 'Prey': 100
+    + 'Births': Prey * 0.1
+    - 'Deaths': Prey * Predators * 0.005
+
+  stock 'Predators': 25
+    + 'Growth': Prey * Predators * 0.004
+    - 'Starvation': Predators * 0.06

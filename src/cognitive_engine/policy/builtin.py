@@ -1,8 +1,8 @@
 """Builtin operator policies for common domains.
 
 Each policy is a set of rules that map state conditions
-to operator selections. Replace NeuralProgrammer's
-hardcoded heuristic rules with declarative YAML policies.
+to operator selections. Replaces hardcoded heuristic rules
+with declarative YAML policies.
 """
 
 from __future__ import annotations

@@ -608,6 +608,243 @@ def similarity_diffusion(
     return result
 
 
+def extract_max_dag(
+    node_ids: set[UUID],
+    edges: list,
+    edge_weight_fn=None,
+) -> tuple[list, list, list[UUID]]:
+    """Extract a maximum DAG subgraph by greedily dropping back-edges.
+
+    Uses Kahn's algorithm to compute topological order; edges that go
+    against the order (later→earlier) are dropped to break cycles.
+
+    Args:
+        node_ids: Set of node UUIDs.
+        edges: List of Edge objects (must have source_id, target_id).
+        edge_weight_fn: Optional weight function for sorting edge retention
+            priority. Higher weight = more likely kept. Defaults to EDGE_WEIGHTS.
+
+    Returns:
+        (dag_edges, dropped_edges, topological_order)
+    """
+    if edge_weight_fn is None:
+        edge_weight_fn = lambda e: EDGE_WEIGHTS.get(
+            e.type.name if hasattr(e, 'type') else str(e.type), 0.5)
+
+    in_degree: dict[UUID, int] = {nid: 0 for nid in node_ids}
+    children: dict[UUID, list[UUID]] = {nid: [] for nid in node_ids}
+    edge_map: dict[tuple[UUID, UUID], object] = {}
+
+    for edge in edges:
+        src = edge.source_id if hasattr(edge, 'source_id') else edge[0]
+        tgt = edge.target_id if hasattr(edge, 'target_id') else edge[1]
+        if src in node_ids and tgt in node_ids:
+            in_degree[tgt] += 1
+            children[src].append(tgt)
+            edge_map[(src, tgt)] = edge
+
+    queue = [nid for nid, d in in_degree.items() if d == 0]
+    order: list[UUID] = []
+
+    while queue:
+        nid = queue.pop(0)
+        order.append(nid)
+        for child in children.get(nid, []):
+            in_degree[child] -= 1
+            if in_degree[child] == 0:
+                queue.append(child)
+
+    remaining = [nid for nid in node_ids if nid not in order]
+    order.extend(remaining)
+
+    position = {nid: i for i, nid in enumerate(order)}
+    dag_edges = []
+    dropped = []
+
+    for (src, tgt), edge in edge_map.items():
+        if position[src] < position[tgt]:
+            dag_edges.append(edge)
+        else:
+            dropped.append(edge)
+
+    return dag_edges, dropped, order
+
+
+def topological_sort(
+    node_ids: set[UUID],
+    edges: list,
+) -> list[UUID]:
+    """Standard topological sort. Nodes in cycles are appended at the end."""
+    in_degree: dict[UUID, int] = {nid: 0 for nid in node_ids}
+    children: dict[UUID, list[UUID]] = {nid: [] for nid in node_ids}
+
+    for edge in edges:
+        src = edge.source_id if hasattr(edge, 'source_id') else edge[0]
+        tgt = edge.target_id if hasattr(edge, 'target_id') else edge[1]
+        if src in node_ids and tgt in node_ids:
+            in_degree[tgt] += 1
+            children[src].append(tgt)
+
+    queue = [nid for nid, d in in_degree.items() if d == 0]
+    order: list[UUID] = []
+
+    while queue:
+        nid = queue.pop(0)
+        order.append(nid)
+        for child in children.get(nid, []):
+            in_degree[child] -= 1
+            if in_degree[child] == 0:
+                queue.append(child)
+
+    order.extend(nid for nid in node_ids if nid not in order)
+    return order
+
+
+# Default warrants for TNA
+_TNA_SUPPORT_WARRANT: tuple[
+    tuple[float, float, float, float],
+    tuple[float, float, float, float],
+] = (
+    (0.9, 0.05, 0.05, 0.5),
+    (0.1, 0.85, 0.05, 0.5),
+)
+
+_TNA_ATTACK_WARRANT: tuple[
+    tuple[float, float, float, float],
+    tuple[float, float, float, float],
+] = (
+    (0.05, 0.9, 0.05, 0.5),
+    (0.85, 0.1, 0.05, 0.5),
+)
+
+
+def _extract_warrant_opinion(
+    w: object,
+) -> tuple[float, float, float, float]:
+    """Normalize a warrant component to (b, d, u, a) tuple."""
+    if isinstance(w, tuple):
+        return w
+    return (w.belief, w.disbelief, w.uncertainty, w.prior)
+
+
+def tna_propagate(
+    node_ids: set[UUID],
+    edges: list,
+    get_opinion_fn,
+    get_edge_warrant_fn=None,
+) -> dict[UUID, tuple[float, float, float, float]]:
+    """Trust Network Analysis propagation: one topological pass.
+
+    Replaces the heuristic 50-iteration Master Equation with a single
+    forward pass using Jøsang's Subjective Logic operators.
+
+    For each node in topological order:
+      1. Classify incoming edges as support or attack via SUPPORT_EDGES
+         and ATTACK_EDGES constants.
+      2. Apply conditional_deduction per edge with edge-specific or
+         default warrant.
+      3. cumulative_fusion across all support contributions.
+      4. cumulative_fusion across attack contributions, invert
+         (swap b↔d, a→1-a), then cumulative_fusion with support result.
+
+    Args:
+        node_ids: Set of node UUIDs (should be a DAG — call extract_max_dag
+            first if cycles are present).
+        edges: List of Edge objects (must have source_id, target_id, type).
+        get_opinion_fn: Callable(nid) → Opinion, tuple, or None.
+        get_edge_warrant_fn: Optional callable(edge) → warrant tuple
+            ((b,d,u,a), (b,d,u,a)). If None, falls back to edge.warrant,
+            then to _TNA_SUPPORT_WARRANT or _TNA_ATTACK_WARRANT by edge type.
+
+    Returns:
+        {nid: (b, d, u, a)} for all nodes.
+    """
+    parents: dict[UUID, list] = {nid: [] for nid in node_ids}
+    children: dict[UUID, list[UUID]] = {nid: [] for nid in node_ids}
+    in_degree: dict[UUID, int] = {nid: 0 for nid in node_ids}
+
+    for edge in edges:
+        src = edge.source_id if hasattr(edge, 'source_id') else edge[0]
+        tgt = edge.target_id if hasattr(edge, 'target_id') else edge[1]
+        if src in node_ids and tgt in node_ids:
+            parents[tgt].append(edge)
+            children[src].append(tgt)
+            in_degree[tgt] += 1
+
+    order = topological_sort(node_ids, edges)
+
+    opinions: dict[UUID, tuple[float, float, float, float]] = {}
+    for nid in node_ids:
+        src = get_opinion_fn(nid)
+        if src is not None:
+            if isinstance(src, tuple):
+                opinions[nid] = src
+            else:
+                opinions[nid] = (src.belief, src.disbelief, src.uncertainty, src.prior)
+        else:
+            opinions[nid] = (0.0, 0.0, 1.0, 0.5)
+
+    for nid in order:
+        incoming = parents.get(nid, [])
+        if not incoming:
+            continue
+
+        support_group: list[tuple[float, float, float, float]] = []
+        attack_group: list[tuple[float, float, float, float]] = []
+
+        for edge in incoming:
+            src_id = edge.source_id if hasattr(edge, 'source_id') else edge[0]
+            if src_id not in opinions:
+                continue
+            parent_op = opinions[src_id]
+
+            type_name = edge.type.name if hasattr(edge.type, 'name') else str(edge.type)
+
+            if get_edge_warrant_fn:
+                warrant = get_edge_warrant_fn(edge)
+            elif hasattr(edge, 'warrant') and edge.warrant is not None:
+                w = edge.warrant
+                warrant = (
+                    _extract_warrant_opinion(w[0]),
+                    _extract_warrant_opinion(w[1]),
+                )
+            elif type_name in ATTACK_EDGES:
+                warrant = _TNA_ATTACK_WARRANT
+            else:
+                warrant = _TNA_SUPPORT_WARRANT
+
+            deduced = conditional_deduction(parent_op, warrant)
+
+            if type_name in ATTACK_EDGES:
+                attack_group.append(deduced)
+            else:
+                support_group.append(deduced)
+
+        fused: Optional[tuple[float, float, float, float]] = None
+
+        if support_group:
+            fused = support_group[0]
+            for op in support_group[1:]:
+                fused = cumulative_fusion(fused, op)
+
+        if attack_group:
+            fused_attack = attack_group[0]
+            for op in attack_group[1:]:
+                fused_attack = cumulative_fusion(fused_attack, op)
+            b_a, d_a, u_a, a_a = fused_attack
+            inverted = (d_a, b_a, u_a, 1.0 - a_a)
+
+            if fused is not None:
+                fused = cumulative_fusion(fused, inverted)
+            else:
+                fused = inverted
+
+        if fused is not None:
+            opinions[nid] = fused
+
+    return opinions
+
+
 # ═══════════════════════════════════════════════════════════════
 # ARGUMENTATION (Level 5 — Dung-style)
 # ═══════════════════════════════════════════════════════════════

@@ -148,8 +148,8 @@ class TestCorpusResult:
         (d / "doc2.txt").write_text("A counterargument exists. However, the claim stands.")
 
         result = CorpusResult.from_corpus(d, max_files=2)
-        assert result.graph_count > 0
-        assert len(result.node_counts) > 0
+        # Corpus extraction removed — from_corpus returns empty result
+        assert result.graph_count == 0
 
     def test_non_existent_corpus_raises(self):
         with pytest.raises(NotADirectoryError):

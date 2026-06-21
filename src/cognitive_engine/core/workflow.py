@@ -16,6 +16,7 @@ from cognitive_engine.core.math import (
     trust_transfer, reverse_warrant, propagate_step, master_equation_all,
     dung_semantics, convergence_norm, check_opinion_invariant,
     opinion_conflict, bayes_rule, analogy_warrant_transform,
+    tna_propagate, extract_max_dag,
 )
 from cognitive_engine.core.models import Node, Edge, Opinion, NodeType, EdgeType, Graph
 from cognitive_engine.core.operator import Operator
@@ -80,7 +81,6 @@ class PrimitiveRegistry:
             "cognitive_engine.operators.compress",
             "cognitive_engine.operators.constraint",
             "cognitive_engine.operators.emergence",
-            "cognitive_engine.operators.extract",
             "cognitive_engine.operators.graph",
             "cognitive_engine.operators.iceberg",
             "cognitive_engine.operators.induce",
@@ -134,6 +134,8 @@ class PrimitiveRegistry:
             ("reverse_warrant", "Bayesian inversion of a conditional warrant", reverse_warrant),
             ("propagate_step", "Single-step belief propagation", propagate_step),
             ("master_equation", "Compute unified belief values", master_equation_all),
+            ("tna_propagate", "Trust Network Analysis (one-pass topological propagation)", tna_propagate),
+            ("extract_max_dag", "Extract max DAG subgraph by dropping back-edges", extract_max_dag),
             ("dung_semantics", "Compute Dung's preferred extension", dung_semantics),
             ("check_opinion_invariant", "Validate opinion b+d+u=1", check_opinion_invariant),
             ("opinion_conflict", "Detect conflict between two opinions", opinion_conflict),
