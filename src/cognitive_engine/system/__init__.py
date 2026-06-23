@@ -1,33 +1,10 @@
-"""System modeling module for cognitive_engine.
+"""System Dynamics (SD) — stocks, flows, equations, simulation.
 
-Provides operators for converting human-defined knowledge graphs
-into simulatable system dynamics models.
+Works on its own system: SysdModel, DSL, RK4/Euler solvers,
+emergent properties, consistency checking, Vensim import.
+Independent of Subjective Logic.
 """
 
-from cognitive_engine.system.operators import (
-    # Read operators
-    list_nodes,
-    get_node,
-    get_edge,
-    query_contested,
-    query_by_role,
-    get_trace_history,
-    # Write operators
-    create_node,
-    create_edge,
-    set_role,
-    set_parameter,
-    merge_nodes,
-    retract,
-    # Data classes
-    Role,
-    RoleAssignment,
-    TraceEntry,
-)
-from cognitive_engine.system.parameters import (
-    bind_parameters,
-    get_parameter_summary,
-)
 from cognitive_engine.system.equations import (
     compile_equations,
     get_equation_summary,
@@ -35,15 +12,7 @@ from cognitive_engine.system.equations import (
     rk4_step,
     euler_step,
     Equation,
-    LoopClassification,
     LoopType,
-)
-from cognitive_engine.system.validation import (
-    validate_system_internal,
-    get_validation_summary,
-    ArgumentType,
-    ValidationResult,
-    ValidationResultDetail,
 )
 from cognitive_engine.system.bfo import (
     get_bfo_alignment,
@@ -55,25 +24,37 @@ from cognitive_engine.system.bfo import (
     get_bfo_summary,
     BfoContinuantCategory,
 )
+from cognitive_engine.system.emergent import (
+    EmergentProperty,
+    Condition,
+    Effect,
+    ComparisonOp,
+    EffectType,
+    ConsistencyResult,
+    ConsistencyViolation,
+    run_consistency_checks,
+)
+from cognitive_engine.system.agent import (
+    AgentInstance,
+    ABMEngine,
+)
+from cognitive_engine.system.des import (
+    DESEngine,
+    EventQueue,
+    Queue,
+    Resource,
+    QueueStats,
+    ResourceStats,
+)
+from cognitive_engine.system.units import (
+    Unit,
+    UnitRegistry,
+    UnitChecker,
+    UnitCheckResult,
+    UnitViolation,
+)
 
 __all__ = [
-    # Read operators
-    "list_nodes",
-    "get_node",
-    "get_edge",
-    "query_contested",
-    "query_by_role",
-    "get_trace_history",
-    # Write operators
-    "create_node",
-    "create_edge",
-    "set_role",
-    "set_parameter",
-    "merge_nodes",
-    "retract",
-    # Parameter binding
-    "bind_parameters",
-    "get_parameter_summary",
     # Equation compilation
     "compile_equations",
     "get_equation_summary",
@@ -81,14 +62,7 @@ __all__ = [
     "rk4_step",
     "euler_step",
     "Equation",
-    "LoopClassification",
     "LoopType",
-    # Validation
-    "validate_system_internal",
-    "get_validation_summary",
-    "ArgumentType",
-    "ValidationResult",
-    "ValidationResultDetail",
     # BFO alignment
     "get_bfo_alignment",
     "get_all_bfo_alignments",
@@ -98,8 +72,29 @@ __all__ = [
     "get_occurrent_roles",
     "get_bfo_summary",
     "BfoContinuantCategory",
-    # Data classes
-    "Role",
-    "RoleAssignment",
-    "TraceEntry",
+    # Emergent properties
+    "EmergentProperty",
+    "Condition",
+    "Effect",
+    "ComparisonOp",
+    "EffectType",
+    "ConsistencyResult",
+    "ConsistencyViolation",
+    "run_consistency_checks",
+    # ABM
+    "AgentInstance",
+    "ABMEngine",
+    # DES
+    "DESEngine",
+    "EventQueue",
+    "Queue",
+    "Resource",
+    "QueueStats",
+    "ResourceStats",
+    # Units
+    "Unit",
+    "UnitRegistry",
+    "UnitChecker",
+    "UnitCheckResult",
+    "UnitViolation",
 ]

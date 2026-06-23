@@ -1,0 +1,64 @@
+// ─────────────────────────────────────────────────────────────────
+// Signal Chain Template — reusable leading-indicator → outcome pattern
+// ─────────────────────────────────────────────────────────────────
+//
+// The Python equivalent is SignalChain in cognitive_engine.templates:
+//
+//     model = SignalChain(name='...', trace_expr='...', ...)
+//
+// To use via .sysd:
+//   1. Define your trace expression as an aux
+//   2. Include this template with numeric params
+//   3. The template references sc_trace — define it before including
+//
+// Example:
+//   model 'Food Delivery'
+//     aux FD_sc_trace: pizza_orders * seasonality
+//     include templates/signal_chain as FD
+//       params: detection_delay=14, decision_lag=7,
+//               outcome_threshold=0.3
+//
+// Template structure:
+//   trace signal → DELAY3 (detection) → SMOOTH (interpretation)
+//   → IF (threshold gate) → impact → core stock
+// ─────────────────────────────────────────────────────────────────
+
+submodel SignalChain
+
+  // ── Overridable parameters (set via include params) ──────
+  aux detection_delay: 15
+  aux decision_lag: 7
+  aux outcome_threshold: 0.3
+  aux outcome_gain: 1.0
+  aux core_stock_initial: 10000
+  aux core_stock_name: "Active_Users"
+
+  // ── Signal pipeline (references the overridable params) ──
+  // sc_trace must be defined by the including model
+  aux sc_detected: DELAY3(sc_trace, detection_delay)
+  aux sc_interpreted: SMOOTH(sc_detected, decision_lag)
+  aux sc_impact: IF(sc_interpreted > outcome_threshold,
+                     (sc_interpreted - outcome_threshold) * outcome_gain, 0)
+
+  // ── Core stock ──────────────────────────────────────────
+  stock core_stock: core_stock_initial
+    + sc_trace
+    - sc_impact
+
+  // ── Tracking stocks (visible in results) ────────────────
+  stock signal_Trace: 0
+    + sc_trace
+    - signal_Trace
+
+  stock signal_Detected: 0
+    + sc_detected
+    - signal_Detected
+
+  stock signal_Interpreted: 0
+    + sc_interpreted
+    - signal_Interpreted
+
+  // ── Optional feedback loop (balancing) ──────────────────
+  // Uncomment to enable:
+  // aux sc_feedback: IF(sc_impact > 0, -sc_impact * 0.5, 0)
+  // aux sc_trace_modulated: MAX(0, sc_trace + sc_feedback)

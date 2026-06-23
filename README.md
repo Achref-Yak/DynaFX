@@ -116,7 +116,6 @@ src/cognitive_engine/
     relate.py         — Relation scoring (textual, semantic, numeric, entity, topic)
     propagate.py      — Belief propagation via Master Equation
     constraint.py     — BFO constraint enforcement
-    rule_apply.py     — Rule engine integration
     systems.py        — FeedbackLoopDetector, LeveragePointScorer, SystemArchetypeClassifier
     stock_flow.py     — Stock-flow analysis
     simulate.py       — What-if simulation
@@ -133,9 +132,6 @@ src/cognitive_engine/
     feedback.py       — FeedbackStore with SL Beta fusion
     consolidate.py    — Leiden communities, build_pattern()
     models.py         — Fact, FactArchive, LTMPattern
-  rules/              — Declarative rules
-    engine.py         — Pattern matching, negation-as-failure
-    parser.py         — parse_rules() dict/JSON→Rule
   policy/             — Operator policy engine
     engine.py         — PolicyEngine
     builtin.py        — DEFAULT_POLICY, SCIENTIFIC_POLICY

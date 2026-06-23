@@ -193,3 +193,53 @@ def classify_fusion_situation(
                 return FusionSituation.DEPENDENT_SOURCES
 
     return FusionSituation.INDEPENDENT_SOURCES
+
+
+def consensus_to_fusion_situation(
+    consensus_level: "ConsensusLevel",
+    source_count: int,
+) -> FusionSituation:
+    """Map an EvidenceMatrix consensus level to a FusionSituation category.
+
+    This bridges the EvidenceMatrix analysis (opinion-based) with the
+    FusionSituation taxonomy (graph-based). For cases where graph topology
+    is unavailable, this provides a reasonable approximation.
+    """
+    from cognitive_engine.reason.evidence import ConsensusLevel
+
+    if source_count < 2:
+        return FusionSituation.INDEPENDENT_SOURCES
+
+    if consensus_level == ConsensusLevel.CONTESTED:
+        return FusionSituation.CONFLICTING_VIEWS
+    elif consensus_level == ConsensusLevel.STRONG_DISAGREEMENT:
+        return FusionSituation.CONFLICTING_VIEWS
+    elif consensus_level == ConsensusLevel.STRONG_AGREEMENT:
+        return FusionSituation.INDEPENDENT_SOURCES
+    else:  # MILD_AGREEMENT
+        return FusionSituation.INDEPENDENT_SOURCES
+
+    conflict_detected = False
+    for i in range(len(contributions)):
+        for j in range(i + 1, len(contributions)):
+            if _opinions_conflict(contributions[i], contributions[j]):
+                conflict_detected = True
+                break
+        if conflict_detected:
+            break
+
+    if conflict_detected:
+        return FusionSituation.CONFLICTING_VIEWS
+
+    source_ids = {e.source_id for e in incoming_edges if e.source_id in graph.nodes}
+
+    if len(source_ids) < len(incoming_edges):
+        return FusionSituation.SAME_SOURCE
+
+    src_list = list(source_ids)
+    for i in range(len(src_list)):
+        for j in range(i + 1, len(src_list)):
+            if _shared_ancestor(src_list[i], src_list[j], graph):
+                return FusionSituation.DEPENDENT_SOURCES
+
+    return FusionSituation.INDEPENDENT_SOURCES

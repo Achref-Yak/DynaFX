@@ -299,3 +299,68 @@ model 'Test'
     assert len(d.graph.edges) == 2
     meta = d.graph.metadata.get("sysd_model", {})
     assert meta["name"] == "Test"
+
+
+# ── Aux variables ───────────────────────────────────────────────
+
+
+def test_parse_aux():
+    src = """
+model 'AuxTest'
+  dt 1
+  from 0 to 10
+  stock 'S': 100
+    - 'Out': rate
+  aux 'rate': S * 0.1
+"""
+    m = parse_sysd(src)
+    assert len(m.aux_vars) == 1
+    assert m.aux_vars[0].name == "rate"
+    assert m.aux_vars[0].expr == "S * 0.1"
+
+
+def test_parse_multiple_auxes():
+    src = """
+model 'MultiAux'
+  dt 1
+  from 0 to 10
+  stock 'S': 100
+    - 'Out': rate * discount
+  aux 'rate': S * 0.1
+  aux 'discount': 0.95
+"""
+    m = parse_sysd(src)
+    assert len(m.aux_vars) == 2
+    assert m.aux_vars[0].name == "rate"
+    assert m.aux_vars[1].name == "discount"
+
+
+def test_simulate_aux():
+    m = parse_sysd('''
+model 'AuxSim'
+  dt 1
+  from 0 to 5
+  stock 'S': 100
+    - 'Out': rate
+  aux 'rate': S * 0.1
+''')
+    result = m.simulate(method="rk4")
+    # Exponential decay: dS/dt = -0.1*S → S(5) = 100*exp(-0.5) ≈ 60.65
+    assert abs(result["final_state"][0] - 60.653) < 0.01
+
+
+def test_aux_with_table():
+    m = parse_sysd('''
+model 'AuxTbl'
+  dt 1
+  from 0 to 5
+  table 'ramp'
+    x: [0, 5]
+    y: [0, 50]
+  stock 'X': 0
+    + 'In': tbl_val
+  aux 'tbl_val': ramp(t)
+''')
+    result = m.simulate()
+    # ramp(t) = 10*t, ∫₀⁵ 10t dt = 125
+    assert abs(result["final_state"][0] - 125.0) < 1e-9

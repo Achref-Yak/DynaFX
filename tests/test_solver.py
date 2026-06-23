@@ -2,7 +2,6 @@
 
 from uuid import uuid4
 
-from cognitive_engine.core.models import Opinion
 from cognitive_engine.system.equations import (
     Equation,
     _parse_expression,
@@ -27,7 +26,6 @@ def _make_eq(
         inflow_expression=inflow,
         outflow_expression=outflow,
         full_expression=f"d({name})/dt = {inflow} - {outflow}",
-        confidence=Opinion(),
         metadata={"stock_value": stock_value},
     )
 
@@ -170,7 +168,6 @@ def test_simulate_no_stock_value():
         inflow_expression="ten(10)",
         outflow_expression="0",
         full_expression="d(empty)/dt = tenor(10) - 0",
-        confidence=Opinion(),
         metadata={},
     )
     result = simulate_equations([eq], t_span=(0.0, 3.0), dt=1.0, method="rk4")

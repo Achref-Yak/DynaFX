@@ -164,8 +164,7 @@ class InferenceCycle:
 
             # ── Step 4: Evidential pass ───────────────────────────
             evidential_ops = ["propagate", "abduce", "induce", "analogy",
-                              "reason", "align", "attention", "merge", "simulate",
-                              "rule_apply"]
+                              "reason", "align", "attention", "merge", "simulate"]
             for op_name in evidential_ops:
                 if op_name in self.operators and op_name not in operator_log:
                     if op_name in selection.operators:

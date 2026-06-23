@@ -18,8 +18,6 @@ from cognitive_engine.core.models import (
     Graph,
     Node,
     NodeType,
-    Opinion,
-    Parameter,
 )
 
 logger = logging.getLogger(__name__)
@@ -44,27 +42,18 @@ class Equation:
     inflow_expression: str
     outflow_expression: str
     full_expression: str
-    confidence: Opinion
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass(frozen=True)
-class LoopClassification:
-    """Classification of a feedback loop."""
-    loop_id: str
-    nodes: List[UUID]
-    edges: List[UUID]
-    loop_type: str  # "reinforcing", "balancing", "goal_seeking", "unknown"
-    gain_sign: str  # "+", "-", or "?"
-    confidence: Opinion
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 def _get_parameter_value(node: Node) -> Optional[float]:
-    """Extract parameter value from node."""
+    """Extract numeric value from node metadata.
+
+    Reads a plain float from metadata["parameter"] or metadata["stock_value"].
+    """
     param = node.metadata.get('parameter')
-    if param is not None and isinstance(param, Parameter):
-        return param.value
+    if param is not None:
+        if isinstance(param, (int, float)):
+            return float(param)
     return None
 
 
@@ -176,22 +165,6 @@ def _compile_stock_equation(
     else:
         full_expr = f"d({stock_name})/dt = {inflow_expr}"
 
-    # Calculate confidence based on parameter confidence
-    confidences = []
-    for nid in inflow_ids + outflow_ids:
-        node = graph.nodes.get(nid)
-        if node:
-            param = node.metadata.get('parameter')
-            if param and isinstance(param, Parameter) and param.opinion:
-                confidences.append(param.opinion)
-
-    if confidences:
-        avg_belief = sum(c.belief for c in confidences) / len(confidences)
-        avg_uncertainty = sum(c.uncertainty for c in confidences) / len(confidences)
-        confidence = Opinion(belief=avg_belief, disbelief=0.1, uncertainty=avg_uncertainty)
-    else:
-        confidence = Opinion(belief=0.5, disbelief=0.2, uncertainty=0.3)
-
     return Equation(
         stock_id=stock_id,
         stock_name=stock_name,
@@ -201,7 +174,6 @@ def _compile_stock_equation(
         inflow_expression=inflow_expr,
         outflow_expression=outflow_expr,
         full_expression=full_expr,
-        confidence=confidence,
         metadata={
             "stock_value": _get_parameter_value(stock_node),
         },
@@ -212,14 +184,14 @@ def _classify_loop_polarity(
     graph: Graph,
     cycle_nodes: List[UUID],
     cycle_edges: List[UUID],
-) -> Tuple[str, str, Opinion]:
+) -> Tuple[str, str]:
     """Classify loop polarity based on edge signs.
 
     Returns:
-        (loop_type, gain_sign, confidence)
+        (loop_type, gain_sign)
     """
     if not cycle_edges:
-        return LoopType.UNKNOWN, "?", Opinion(belief=0.3, disbelief=0.3, uncertainty=0.4)
+        return LoopType.UNKNOWN, "?"
 
     # Count positive and negative edges
     positive_count = 0
@@ -237,7 +209,7 @@ def _classify_loop_polarity(
     # Determine loop type
     total_edges = positive_count + negative_count
     if total_edges == 0:
-        return LoopType.UNKNOWN, "?", Opinion(belief=0.3, disbelief=0.3, uncertainty=0.4)
+        return LoopType.UNKNOWN, "?"
 
     # Calculate gain sign (product of all edge signs)
     # Even number of negative edges = positive gain, odd = negative gain
@@ -248,15 +220,7 @@ def _classify_loop_polarity(
         gain_sign = "-"
         loop_type = LoopType.BALANCING
 
-    # Confidence based on clarity of signs
-    clarity = abs(positive_count - negative_count) / total_edges
-    confidence = Opinion(
-        belief=0.5 + clarity * 0.3,
-        disbelief=0.1,
-        uncertainty=0.4 - clarity * 0.3,
-    )
-
-    return loop_type, gain_sign, confidence
+    return loop_type, gain_sign
 
 
 def compile_equations(graph: Graph) -> List[Equation]:
@@ -292,7 +256,6 @@ def compile_equations(graph: Graph) -> List[Equation]:
                 inflow_expression="?",
                 outflow_expression="?",
                 full_expression=f"d({stock_node.text})/dt = ? (template mismatch)",
-                confidence=Opinion(belief=0.2, disbelief=0.3, uncertainty=0.5),
                 metadata={"template_mismatch": True},
             ))
             logger.warning(
@@ -318,10 +281,6 @@ def get_equation_summary(equations: List[Equation]) -> Dict[str, Any]:
         "equations_with_template_mismatch": sum(
             1 for eq in equations
             if eq.metadata.get("template_mismatch", False)
-        ),
-        "average_confidence": (
-            sum(eq.confidence.belief for eq in equations) / len(equations)
-            if equations else 0.0
         ),
     }
 
