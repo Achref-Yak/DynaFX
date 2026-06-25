@@ -10,7 +10,7 @@ test-v:
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m pytest tests/ -v
 
 run:
-	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m cognitive_engine.cli $(FILE) --output $(OUTPUT)
+	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m cognitive_engine.system $(FILE)
 
 clean:
 	rm -rf .pytest_cache __pycache__

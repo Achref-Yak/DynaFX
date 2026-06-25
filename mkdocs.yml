@@ -1,5 +1,5 @@
-site_name: Cognitive Reasoning Graph Engine
-site_description: A provably uncertainty-bounded pipeline for extracting structured reasoning graphs from text
+site_name: Cognitive Engine
+site_description: Multi-paradigm system dynamics framework (SD + ABM + DES) with RDF/OWL/SPARQL cognitive reasoning engine and SL confidence grading
 repo_url: https://github.com/Achref-Yak/reasoning_engine
 edit_uri: edit/main/docs/
 theme:
@@ -15,16 +15,8 @@ theme:
     - toc.integrate
 nav:
   - Home: index.md
-  - Getting Started: getting-started.md
   - Architecture: architecture.md
-  - Pipeline: pipeline.md
-  - CLI Reference: cli.md
-  - Data Models: models.md
-  - Configuration: configuration.md
-  - Formal Theory: theory.md
   - Development: development.md
-  - Legacy:
-      - Tutorial: tutorial.md
 markdown_extensions:
   - admonition
   - pymdownx.details

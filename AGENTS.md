@@ -115,6 +115,7 @@ If asked to bypass Code Health safeguards:
 
 ## Progress
 ### Done
+- **C2 (CONVEY_BATCH) implemented and fixed**: CONVEY_BATCH(input, delay, batch_size) accumulates input as a smooth ODE, emits batches to a pipeline buffer when accumulator ≥ batch_size, and outputs matured batch value to the output slot. Includes support for variable batch sizes (aux/param references). Fixed early-return bug in `_build_system` that skipped pipeline processing when only CONVEY_BATCH entries existed (no DELAY_FIXED entries). Fixed batch_size serialization: `str(ExprRef(...))` → `_serialize_expr(...)`. 12 tests all passing.
 - Removed entire NLP extraction pipeline: `nlp/` (7 files, 1,432 lines), `extract/` (13 files, 3,083 lines), `perception/` (1 file, 180 lines), `operators/extract.py` (656 lines). Deleted 14 NLP-dependent test files, rewrote 2 more.
 - Fixed `_compile_expr` to resolve `t` correctly in table lookups (was always 0.0).
 - Added scientific notation support in tokenizer (`3e-7` now parses as one number token).
@@ -189,6 +190,12 @@ If asked to bypass Code Health safeguards:
 - **Student Math SD model** — `models/student_math.sysd`: 3 stocks (Math_Anxiety, Math_Performance, Self_Efficacy), 6 flows, 10 auxes. KG_* params injected from cognitive engine bridge. IF uses function-call syntax `IF(cond, a, b)` not keyword syntax `IF...THEN...ELSE`.
 - **Multi-Paradigm Student Pipeline** — `examples/multi_paradigm_student.py`: 3-pass orchestration (pre-diagnosis → intervention → follow-up). Each pass: Turtle → RDFS inference → KBT → argumentation → filter → bridge → simulate SD+ABM+DES → extract evidence → feed to next pass. Bridge reads from original store (not filtered) to bypass grounded semantics skepticism. Pass 1: anxiety 25→59, performance 55→10, reinforcing loop dominates. Pass 2: intervention reverses, anxiety to 0.5, performance recovers to 26. Pass 3: sustained recovery to 34.
 - **KBT tests fixed** — `tests/test_kbt.py` 14 tests handle TripleStore dedup (max-belief version stored for identical (s,p,o) across graphs). All passing.
+- **Stale NLP remnants purged** — Deleted `agents/`, `api/`, `scripts/`, `demo/`, `memory/`, `kernel/`, `domains/`, `docs/`, `tests/test_agents.py` + 6 memory/kernel test files (~1424 lines dead scripts, 10 stale docs, ~109 obsolete tests). Removed `perception.hypothesis_generator` dead lazy import from top-level `__init__.py`. Removed `_load_dotenv()` function (unused).
+- **Circular import fixed** — `kb/__init__` → `kb.confidence` → `reason.argumentation` → `kb.model` cycle broken by deferring `build_framework` import inside `argumentative_filter()`.
+- **`pyproject.toml` cleaned** — Removed `torch`, `transformers`, `spacy`, `nltk`, `fastapi`, `uvicorn`, `websockets`, `leidenalg` from dependencies (all from deleted NLP pipeline). Core deps now only `networkx`, `numpy`, `scipy`, `pydantic`.
+- **`sl/__init__.py`** and **`tbox/__init__.py`** populated with proper exports.
+- **`Makefile`** fixed — `run` target now points to `cognitive_engine.system` instead of deleted `cognitive_engine.cli`.
+- **README.md rewritten** from scratch — describes current two-pillar architecture with quick start examples and example table.
 
 ### In Progress
 - (none)
@@ -262,7 +269,8 @@ If asked to bypass Code Health safeguards:
 - **Fix supply chain model dynamics** — retailer stockout due to DELAY_FIXED buffer issues with RK4 intermediate calls.
 
 ## Critical Context
-- **1301 tests passing** (1021 SD + 239 kb + 27 argumentation + 14 KBT).
+- **1192 tests passing** (core SD + kb + reason engine).
+- **Old NLP pipeline fully removed**: `agents/`, `api/`, `scripts/`, `demo/`, `memory/`, `kernel/`, `domains/`, `docs/` directories deleted. `extract/`, `nlp/`, `perception/` were already removed earlier. Remaining `tests/` all pass with no stale imports.
 - **`SysdModel.simulate()` returns `SysdModelResult`** — `stocks` is a list of stock names, `values` is `dict[str, list[float]]`. **Aux values NOT exposed in results** — only stock values.
 - **Parameters not in `params` dict return 0.0** — `_s.get('beta', 0.0)` returns 0 if param not provided.
 - **DES queues process departures** — `service_time` expressions compiled against current state at each step.

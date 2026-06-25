@@ -252,3 +252,29 @@ stock X: 10
     result = m.validate()
     # No "unknown identifier" errors for builtins
     assert result.is_valid or not any("unknown" in e.lower() for e in result.errors)
+
+
+# ── Stochastic functions ─────────────────────────────────────────
+
+def test_uniform_in_expression():
+    """UNIFORM(a,b) produces values in [a, b) range when sampled during sim."""
+    vals = []
+    for _ in range(50):
+        r = _sim("""
+stock X: 0
+  + inflow: UNIFORM(5, 10)
+""")
+        vals.append(r["values"]["X"][-1])
+    # All values should be between 5*100 and 10*100 (if uniform produced ~avg 7.5)
+    for v in vals:
+        assert 400 < v < 1000, f"UNIFORM({v}) out of expected range"
+
+
+def test_lognormal_in_expression():
+    """LOGNORMAL(mu, sigma) produces positive values."""
+    for _ in range(20):
+        r = _sim("""
+stock X: 0
+  + inflow: LOGNORMAL(2, 0.5)
+""")
+        assert r["values"]["X"][-1] > 0

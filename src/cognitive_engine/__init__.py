@@ -1,34 +1,5 @@
 import importlib as _importlib
 
-def _load_dotenv():
-    import os
-    from pathlib import Path
-    cwd = Path.cwd()
-    for p in [cwd, *cwd.parents]:
-        env_path = p / ".env"
-        if env_path.exists():
-            try:
-                with open(env_path, "r", encoding="utf-8") as f:
-                    for line in f:
-                        line = line.strip()
-                        if not line or line.startswith("#"):
-                            continue
-                        if "=" in line:
-                            k, v = line.split("=", 1)
-                            k = k.strip()
-                            v = v.strip()
-                            if (v.startswith('"') and v.endswith('"')) or (v.startswith("'") and v.endswith("'")):
-                                v = v[1:-1]
-                            if k and k not in os.environ:
-                                os.environ[k] = v
-                break
-            except Exception:
-                pass
-    if "HG_TOKEN" in os.environ and "HF_TOKEN" not in os.environ:
-        os.environ["HF_TOKEN"] = os.environ["HG_TOKEN"]
-
-_load_dotenv()
-
 _lazy_modules: dict[str, list[str]] = {
     "core.models": [
         "Graph", "Node", "NodeType", "Edge", "EdgeType",
@@ -40,8 +11,6 @@ _lazy_modules: dict[str, list[str]] = {
     "core.trace": ["StateDelta", "TraceBuffer"],
     "core.loom": ["Weave", "weave"],
     "reason.evidence": ["CorpusResult"],
-    "kernel.assertion_gate": ["AssertionGate", "Assertion", "GateResult"],
-    "kernel.inference_cycle": ["InferenceCycle", "CycleReport", "InferenceResult"],
     "policy.schema": ["WhenCondition", "ThenAction", "PolicyRule", "OperatorPolicy"],
     "policy.engine": ["PolicyEngine"],
     "policy.builtin": ["DEFAULT_POLICY", "SCIENTIFIC_POLICY", "BUILTIN_POLICIES"],
@@ -72,8 +41,6 @@ _lazy_modules: dict[str, list[str]] = {
         "mutual_information_from_counts", "entropy_of_distribution",
         "interaction_complexity", "domain_entanglement", "blob_type_entropy",
     ],
-    "mp.scenario": ["Event", "ScenarioGenerator", "Assertion"],
-    "perception.hypothesis_generator": ["HypothesisGenerator"],
 }
 
 _lazy_map: dict[str, str] = {}

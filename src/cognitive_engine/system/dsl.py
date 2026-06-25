@@ -23,6 +23,7 @@ import csv
 import math
 import random
 import re
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 from types import CodeType
@@ -175,7 +176,12 @@ class SysdModel:
         }
         return d
 
-    def import_data(self, path: str) -> dict[str, Any]:
+    def import_data(
+        self,
+        path: str,
+        fill: str = "forward",
+        time_unit: str = "auto",
+    ) -> dict[str, Any]:
         """Import time series data from a CSV file.
 
         CSV format: first column is time, subsequent columns are variable names.
@@ -183,30 +189,150 @@ class SysdModel:
         forcing functions or calibration data.
 
         The data is also stored in self._imported_data for use during simulation.
+
+        Args:
+            path: Path to CSV file.
+            fill: Missing data strategy: "forward" (forward-fill),
+                  "interpolate" (linear), "zero" (fill with 0.0).
+            time_unit: "auto" (auto-detect datetime or float),
+                       "hours", "days", "seconds" (convert datetime to this unit).
+                       For float columns, parsed directly regardless of time_unit.
         """
         import csv
+        from datetime import datetime
+
+        raw = self._read_csv_auto(path, time_unit)
+        data = self._fill_missing(raw, fill)
+        self._imported_data = data
+        return data
+
+    def _read_csv_auto(
+        self, path: str, time_unit: str = "auto",
+    ) -> dict[str, list[tuple[float, float]]]:
+        """Read CSV, auto-detecting datetime vs float time column."""
+        import csv
+        from datetime import datetime
+
         data: dict[str, list[tuple[float, float]]] = {}
         with open(path, newline="", encoding="utf-8") as f:
             reader = csv.reader(f)
             header = next(reader)
             for col_name in header[1:]:
                 data[col_name.strip()] = []
-            for row in reader:
-                if not row:
+
+            rows = list(reader)
+            if not rows:
+                return data
+
+            # Detect time column type from first non-empty row
+            time_is_datetime = False
+            time_ref: Optional[datetime] = None
+            for row in rows:
+                if row and row[0].strip():
+                    first_val = row[0].strip()
+                    try:
+                        float(first_val)
+                    except ValueError:
+                        try:
+                            time_ref = datetime.fromisoformat(first_val)
+                            time_is_datetime = True
+                        except (ValueError, TypeError):
+                            pass
+                    break
+
+            for row in rows:
+                if not row or not row[0].strip():
                     continue
+                raw_t = row[0].strip()
                 try:
-                    t = float(row[0])
-                except (ValueError, IndexError):
+                    if time_is_datetime:
+                        dt = datetime.fromisoformat(raw_t)
+                        if time_ref is None:
+                            time_ref = dt
+                        t = (dt - time_ref).total_seconds() / 3600.0  # hours
+                        if time_unit == "days":
+                            t /= 24.0
+                        elif time_unit == "seconds":
+                            t *= 3600.0
+                    else:
+                        t = float(raw_t)
+                except (ValueError, TypeError):
                     continue
+
                 for i, col_name in enumerate(header[1:], 1):
                     if i < len(row):
-                        try:
-                            val = float(row[i])
-                            data[col_name.strip()].append((t, val))
-                        except ValueError:
-                            pass
-        self._imported_data = data
+                        raw_val = row[i].strip()
+                        if raw_val:
+                            try:
+                                val = float(raw_val)
+                                data[col_name.strip()].append((t, val))
+                            except ValueError:
+                                data[col_name.strip()].append((t, None))
+                        else:
+                            data[col_name.strip()].append((t, None))
+
         return data
+
+    @staticmethod
+    def _fill_missing(
+        data: dict[str, list[tuple[float, float | None]]],
+        fill: str = "forward",
+    ) -> dict[str, list[tuple[float, float]]]:
+        """Fill missing (None) values in imported time series."""
+        result: dict[str, list[tuple[float, float]]] = {}
+        for name, series in data.items():
+            filled: list[tuple[float, float]] = []
+            # First pass: collect valid indices
+            valid_indices = [i for i, (_, v) in enumerate(series) if v is not None]
+            if not valid_indices:
+                result[name] = [(t, 0.0) for t, _ in series]
+                continue
+
+            if fill == "zero":
+                result[name] = [(t, v if v is not None else 0.0) for t, v in series]
+                continue
+
+            last_val: float = series[valid_indices[0]][1]  # type: ignore[assignment]
+            for i, (t, v) in enumerate(series):
+                if v is not None:
+                    filled.append((t, v))
+                    last_val = v
+                elif fill == "forward":
+                    filled.append((t, last_val))
+                elif fill == "interpolate":
+                    # Find next valid index after i
+                    next_valid = next((j for j in valid_indices if j > i), None)
+                    if next_valid is not None:
+                        prev_valid = valid_indices[max(k for k, idx in enumerate(valid_indices) if idx < i)] if any(idx < i for idx in valid_indices) else i
+                        if prev_valid != i and next_valid > prev_valid:
+                            prev_t, prev_v = series[prev_valid]
+                            next_t, next_v = series[next_valid]
+                            frac = ((t - prev_t) / (next_t - prev_t)) if next_t > prev_t else 1.0
+                            interp_val = prev_v + frac * (next_v - prev_v)
+                            filled.append((t, interp_val))
+                        else:
+                            filled.append((t, last_val))
+                    else:
+                        filled.append((t, last_val))
+            result[name] = filled
+        return result
+
+    def merge_data(self, paths: list[str], fill: str = "forward", time_unit: str = "auto") -> dict[str, Any]:
+        """Import and merge data from multiple CSV files.
+
+        All files are read with the same time reference. Returns a single
+        dict combining all variable columns. Conflicts raise ValueError.
+        """
+        merged: dict[str, list[tuple[float, float]]] = {}
+        for path in paths:
+            raw = self._read_csv_auto(path, time_unit)
+            for name, series in raw.items():
+                if name in merged:
+                    raise ValueError(f"Duplicated variable '{name}' across CSV files")
+                merged[name] = series
+        merged = self._fill_missing(merged, fill)
+        self._imported_data = merged
+        return merged
 
     def get_imported_interpolator(self, name: str):
         """Get a linear interpolation function for imported data.
@@ -261,7 +387,17 @@ class SysdModel:
         # Cache compiled artifacts for subsequent simulate() calls
         if self._compiled_cache is None:
             self._compiled_cache = _compile_system(self)
-        f, stock_names, y0, aux_count = _build_system(self, params, self.emergent_props, seed=42, cache=self._compiled_cache)
+        build_result = _build_system(self, params, self.emergent_props, seed=42, cache=self._compiled_cache)
+        f = build_result[0]
+        stock_names = build_result[1]
+        y0 = build_result[2]
+        aux_count = build_result[3]
+        pipeline_info = build_result[4]
+
+        # Initialize pipeline delays at t0
+        if pipeline_info is not None:
+            y0 = list(y0)
+            pipeline_info["process"](t_span[0], y0, params)
 
         # Initialize ABM engine if agents are defined
         abm_engine = None
@@ -286,7 +422,7 @@ class SysdModel:
                         st_node = ExprParser(q.service_time).parse()
                         st_compiled = _compile_expr(st_node, set(), set())
                         q_obj._compiled_service_time = lambda _c=st_compiled: eval(
-                            _c, {"__builtins__": {}}, {**params, **dict(zip(stock_names, y))}
+                            _c, {"__builtins__": {}}, {**params, **dict(zip(stock_names, y0))}
                         )
                     except Exception:
                         pass
@@ -319,6 +455,10 @@ class SysdModel:
             else:
                 y = step_fn(f, t0, y, direction * step, params)
                 t0 += direction * step
+
+            # Process pipeline delays (DELAY_FIXED / CONVEY) — ONCE per step
+            if pipeline_info is not None:
+                pipeline_info["process"](t0, y, params)
 
             # Run ABM step if agents exist
             if abm_engine:
@@ -374,7 +514,7 @@ class SysdModel:
     def validate(self, params: Optional[set[str]] = None) -> ValidationResult:
         result = ValidationResult()
         all_names: set[str] = set()
-        all_names.update(_BUILTIN_NAMES)
+        all_names.update(_get_builtin_names())
         for s in self.stocks:
             all_names.add(s.name)
         for a in self.aux_vars:
@@ -707,15 +847,22 @@ class ValidationResult:
 
 # ── Builtin names for validation ─────────────────────────────────
 
-_BUILTIN_NAMES: set[str] = {
+_BASE_BUILTIN_NAMES: set[str] = {
     "t", "dt",
     # Math
     "MIN", "MAX", "IF", "ABS", "EXP", "LN", "SQRT", "SIN", "COS", "PI",
     # Smoothing / delays
-    "SMOOTH", "SMOOTHI", "DELAY3", "DELAYN", "DELAY_FIXED",
+    "SMOOTH", "SMOOTHI", "DELAY3", "DELAYN", "DELAY_FIXED", "CONVEY", "CONVEY_BATCH",
     # Time functions
     "PULSE", "STEP", "RAMP", "NOISE",
+    # Stochastic distributions
+    "UNIFORM", "LOGNORMAL",
 }
+
+def _get_builtin_names() -> set[str]:
+    """Return base builtin names merged with any registered plugin builtins."""
+    from cognitive_engine.registry import get_registered_builtins
+    return _BASE_BUILTIN_NAMES | set(get_registered_builtins().keys())
 
 
 # ── Lookup table ────────────────────────────────────────────────
@@ -977,7 +1124,8 @@ class CompiledSystem:
     smooth_ode_strs: list[str]
     smooth_delay_exprs: list[str]
     smooth_init_exprs: list[str]
-    delay_fixed_compiled: list[tuple[str, str, float]]
+    delay_fixed_compiled: list[tuple[str, str, str]]
+    cbatch_compiled: list[tuple[str, str, str, str, str]]
     builtins: dict[str, Any]
     # Pre-compiled code objects (avoids string re-parsing on every eval)
     aux_code: list[CodeType]
@@ -985,6 +1133,7 @@ class CompiledSystem:
     outflow_code: list[CodeType]
     smooth_ode_code: list[CodeType]
     df_input_code: list[CodeType]
+    df_delay_code: list[CodeType]
 
 
 def _compile_system(model: SysdModel) -> CompiledSystem:
@@ -1021,29 +1170,48 @@ def _compile_system(model: SysdModel) -> CompiledSystem:
         aux_expr_nodes.append(modified)
 
     smooth_names: list[str] = []
-    delay_fixed_entries: list[tuple[str, str, float]] = []
+    delay_fixed_entries: list[tuple[str, str, str]] = []
+    cbatch_entries: list[tuple[str, str, str, float, str]] = []  # (acc_name, input_expr, delay_str, batch_size, out_name)
     smooth_delay_exprs: list[str] = []
     smooth_init_exprs: list[str] = []
+    _last_cbatch_acc: str | None = None
     for entry in smooth_params:
-        entry_type, aux_name, input_expr_str, delay_time, init_val = entry
+        entry_type, aux_name, input_expr_str, delay_time, fifth = entry
         smooth_names.append(aux_name)
         all_names.append(aux_name)
-        # Store delay/init as expression strings for runtime evaluation
         delay_str = _serialize_expr(delay_time) if isinstance(delay_time, ExprNode) else str(delay_time)
-        init_str = _serialize_expr(init_val) if isinstance(init_val, ExprNode) else str(init_val)
-        smooth_delay_exprs.append(delay_str)
-        smooth_init_exprs.append(init_str)
-        # Evaluate init at parse time for base_y0 (fallback 0.0)
-        try:
-            base_y0.append(float(eval(init_str, {"__builtins__": {}})))
-        except Exception:
+        if entry_type == "convey_batch":
+            _last_cbatch_acc = aux_name
+            batch_size_expr = fifth
+            batch_str = _serialize_expr(batch_size_expr) if isinstance(batch_size_expr, ExprNode) else str(batch_size_expr)
+            cbatch_entries.append((aux_name, input_expr_str, delay_str, batch_str, ""))
+            smooth_delay_exprs.append(delay_str)
+            smooth_init_exprs.append("0.0")
             base_y0.append(0.0)
-        if entry_type == "delay_fixed":
+        elif entry_type == "convey_batch_out":
+            # Output slot: no ODE, no delay, set by pipeline processing
+            if _last_cbatch_acc is not None:
+                # Find and update the matching cbatch entry
+                for _cbe_i in range(len(cbatch_entries)):
+                    if cbatch_entries[_cbe_i][0] == _last_cbatch_acc:
+                        cbatch_entries[_cbe_i] = (
+                            cbatch_entries[_cbe_i][0], cbatch_entries[_cbe_i][1],
+                            cbatch_entries[_cbe_i][2], cbatch_entries[_cbe_i][3], aux_name,
+                        )
+                        break
+            smooth_delay_exprs.append("0.0")
+            smooth_init_exprs.append("0.0")
+            base_y0.append(0.0)
+        else:
+            init_str = _serialize_expr(fifth) if isinstance(fifth, ExprNode) else str(fifth)
+            smooth_delay_exprs.append(delay_str)
+            smooth_init_exprs.append(init_str)
             try:
-                delay_val = float(eval(delay_str, {"__builtins__": {}}))
+                base_y0.append(float(eval(init_str, {"__builtins__": {}})))
             except Exception:
-                delay_val = 1.0
-            delay_fixed_entries.append((aux_name, input_expr_str, delay_val))
+                base_y0.append(0.0)
+            if entry_type in ("delay_fixed", "convey"):
+                delay_fixed_entries.append((aux_name, input_expr_str, delay_str))
 
     inflow_strs: list[str] = []
     outflow_strs: list[str] = []
@@ -1059,8 +1227,10 @@ def _compile_system(model: SysdModel) -> CompiledSystem:
         input_node = ExprParser(input_expr_str).parse()
         input_compiled = _compile_expr(input_node, name_set, aux_set)
         delay_str = smooth_delay_exprs[i]
-        if entry_type == "delay_fixed":
+        if entry_type in ("delay_fixed", "convey", "convey_batch_out"):
             smooth_ode_strs.append("0.0")
+        elif entry_type == "convey_batch":
+            smooth_ode_strs.append(f"{input_compiled}")
         else:
             smooth_ode_strs.append(
                 f"({input_compiled} - _s.get('{aux_name}', 0.0)) / ({delay_str})"
@@ -1075,6 +1245,7 @@ def _compile_system(model: SysdModel) -> CompiledSystem:
     aux_compile_ordered = [aux_compile_strs[i] for i in aux_order]
 
     import math
+    from cognitive_engine.registry import get_registered_builtins
     builtins = {
         "MIN": min, "MAX": max,
         "IF": lambda c, a, b: a if c else b,
@@ -1086,8 +1257,9 @@ def _compile_system(model: SysdModel) -> CompiledSystem:
         "COS": math.cos,
         "PI": math.pi,
     }
+    builtins.update(get_registered_builtins())
 
-    delay_fixed_compiled: list[tuple[str, str, float]] = []
+    delay_fixed_compiled: list[tuple[str, str, str]] = []
     for df_name, df_input_str, df_delay in delay_fixed_entries:
         df_node = ExprParser(df_input_str).parse()
         df_compiled = _compile_expr(df_node, name_set, aux_set)
@@ -1100,6 +1272,7 @@ def _compile_system(model: SysdModel) -> CompiledSystem:
     outflow_code = [compile(s, _co, "eval") for s in outflow_strs]
     smooth_ode_code = [compile(s, _co, "eval") for s in smooth_ode_strs]
     df_input_code = [compile(entry[1], _co, "eval") for entry in delay_fixed_compiled]
+    df_delay_code = [compile(entry[2], _co, "eval") for entry in delay_fixed_compiled]
 
     return CompiledSystem(
         stock_names=stock_names,
@@ -1117,12 +1290,14 @@ def _compile_system(model: SysdModel) -> CompiledSystem:
         smooth_delay_exprs=smooth_delay_exprs,
         smooth_init_exprs=smooth_init_exprs,
         delay_fixed_compiled=delay_fixed_compiled,
+        cbatch_compiled=cbatch_entries,
         builtins=builtins,
         aux_code=aux_code,
         inflow_code=inflow_code,
         outflow_code=outflow_code,
         smooth_ode_code=smooth_ode_code,
         df_input_code=df_input_code,
+        df_delay_code=df_delay_code,
     )
 
 
@@ -1132,10 +1307,12 @@ def _build_system(
     emergent_props: Optional[list] = None,
     seed: int = 42,
     cache: Optional[CompiledSystem] = None,
-) -> tuple[Callable, list[str], list[float], int]:
+) -> tuple[Callable, list[str], list[float], int, dict[str, Any] | None]:
     """Build ODE system from SysdModel.
 
-    Returns: (f(t, y, params), all_names, y0, aux_state_count)
+    Returns: (f(t, y, params), all_names, y0, aux_state_count, pipeline_delay_infos)
+    where pipeline_delay_infos is a dict containing shared buffer and processing
+    callable for DELAY_FIXED/CONVEY, or None if no pipeline delays exist.
     """
     if cache is None:
         cache = _compile_system(model)
@@ -1149,6 +1326,7 @@ def _build_system(
     smooth_names = cache.smooth_names
     smooth_ode_strs = cache.smooth_ode_strs
     delay_fixed_compiled = cache.delay_fixed_compiled
+    cbatch_compiled = cache.cbatch_compiled
     _builtins = cache.builtins
     # Pre-compiled code objects
     _aux_code = cache.aux_code
@@ -1156,14 +1334,21 @@ def _build_system(
     _outflow_code = cache.outflow_code
     _smooth_ode_code = cache.smooth_ode_code
     _df_input_code = cache.df_input_code
+    _df_delay_code = cache.df_delay_code
 
     import random as _random
     _rng = _random.Random(seed)  # seeded for reproducibility
 
-    # Module-level buffer for DELAY_FIXED transport delays: {name: [(t, val), ...]}
-    _delay_fixed_buffers: dict[str, list[tuple[float, float]]] = {
-        name: [] for name, _, _ in delay_fixed_compiled
-    }
+    # ── Pipeline delay buffers (DELAY_FIXED / CONVEY) ─────────────
+    # State is managed OUTSIDE f() to avoid RK4 intermediate corruption.
+    # Each buffer is a deque of (exit_time, value) pairs.
+    # Buffers are seeded with initial value so delays work from t=0.
+    _pipeline_buffers: dict[str, deque[tuple[float, float]]] = {}
+    for df_name, _, df_delay in delay_fixed_compiled:
+        _pipeline_buffers[df_name] = deque()
+    # CONVEY_BATCH pipeline buffers (separate from delay_fixed)
+    _cbatch_pipe_buffers: dict[str, deque[tuple[float, float]]] = {}
+    _cbatch_count = len(cbatch_compiled)
 
     # Pre-compute things that don't change between f() calls
     _no_builtins = {"__builtins__": {}}
@@ -1195,10 +1380,15 @@ def _build_system(
     # Pre-compute callable params (lookup tables etc.)
     _callable_params = [(k, v) for k, v in params.items() if hasattr(v, "__call__")]
 
+    _cbatch_remainder: dict[str, float] = {}
+
     def f(t: float, y: list[float], p: dict) -> list[float]:
         _s = dict(zip(all_names, y))
         # Merge pre-computed numeric params + runtime numeric params
         _s.update(_numeric_params)
+        # Restore CONVEY_BATCH accumulator state (pipeline overwrites y with output)
+        for _cba_name, _cba_val in _cbatch_remainder.items():
+            _s[_cba_name] = _cba_val
         if p:
             for k, v in p.items():
                 if isinstance(v, (int, float)):
@@ -1215,6 +1405,10 @@ def _build_system(
                 slope * (end - start)
             ),
             "NOISE": lambda amplitude: _rng.uniform(-amplitude, amplitude),
+            "UNIFORM": lambda a, b: _rng.uniform(a, b),
+            "LOGNORMAL": lambda mu, sigma: (
+                _rng.lognormvariate(mu, sigma) if sigma > 0 else mu
+            ),
         }
         # Inject lookup tables and callables into eval namespace only (not _s)
         for _k, _v in _callable_params:
@@ -1223,15 +1417,14 @@ def _build_system(
             for _k, _v in p.items():
                 if hasattr(_v, "__call__"):
                     _ns[_k] = _v
-        # Inject resolved smooth delay/init values into namespace
-        # The delay expression strings reference parameter names (e.g., "sentiment_delay")
-        # which are already in _numeric_params. But we also need to handle the case
-        # where the delay is a literal number embedded in the expression.
-        # The smooth_ode_strs already contain the delay expression inline,
-        # so we just need to make sure any variable references resolve.
         # Evaluate auxes in dependency order (using pre-compiled code objects)
+        # Numeric params override aux expressions when the name matches
         for _i in range(len(aux_names_ordered)):
-            _a[aux_names_ordered[_i]] = eval(_aux_code[_i], _no_builtins, _ns)
+            _aname = aux_names_ordered[_i]
+            if _aname in _numeric_params:
+                _a[_aname] = _numeric_params[_aname]
+            else:
+                _a[_aname] = eval(_aux_code[_i], _no_builtins, _ns)
         _ns["_a"] = _a
         # Check emergent properties — threshold crossings modify state
         if emergent_props:
@@ -1244,26 +1437,8 @@ def _build_system(
                     _a.update(_modified)
                     _ns["_s"] = _s
                     _ns["_a"] = _a
-        # Process DELAY_FIXED transport delays
-        for _dfi in range(_df_count):
-            df_name, df_compiled, df_delay = delay_fixed_compiled[_dfi]
-            try:
-                input_val = eval(_df_input_code[_dfi], _no_builtins, _ns)
-            except Exception:
-                input_val = 0.0
-            _delay_fixed_buffers[df_name].append((t, input_val))
-            target_t = t - df_delay
-            delayed_val = 0.0
-            buf = _delay_fixed_buffers[df_name]
-            if buf:
-                if target_t <= buf[0][0]:
-                    delayed_val = buf[0][1]
-                else:
-                    for i in range(len(buf) - 1, -1, -1):
-                        if buf[i][0] <= target_t:
-                            delayed_val = buf[i][1]
-                            break
-            _s[df_name] = delayed_val
+        # NO pipeline delay processing here — that's done in simulate() loop
+        # to avoid RK4 buffer corruption. Delay values are pre-set in y.
         # Stock equations (using pre-compiled code objects)
         dydt: list[float] = []
         for i in range(_stock_count):
@@ -1275,7 +1450,136 @@ def _build_system(
             dydt.append(eval(_smooth_ode_code[_si], _no_builtins, _ns))
         return dydt
 
-    return f, all_names, y0, len(smooth_names)
+    if _df_count == 0 and _cbatch_count == 0:
+        return f, all_names, y0, len(smooth_names), None
+
+    # ── Pipeline delay processing (called ONCE per step from simulate) ──
+    _pipeline_delay_values: dict[str, float] = {}
+
+    def _process_pipeline_delays(t: float, y: list[float], p: dict) -> None:
+        """Update pipeline delay buffers and inject values into y.
+        Must be called exactly ONCE per step, after f() completes.
+        """
+        _s = dict(zip(all_names, y))
+        _s.update(_numeric_params)
+        if p:
+            for k, v in p.items():
+                if isinstance(v, (int, float)):
+                    _s[k] = v
+        _a: dict[str, float] = {}
+        _ns: dict = {
+            **_builtins, **_numeric_params, "_s": _s, "_p": params, "_a": _a, "t": t,
+            "PULSE": lambda volume, start, width: volume if start <= t < start + width else 0.0,
+            "STEP": lambda height, start: height if t >= start else 0.0,
+            "RAMP": lambda slope, start, end: (
+                0.0 if t < start else
+                slope * (t - start) if t <= end else
+                slope * (end - start)
+            ),
+            "NOISE": lambda amplitude: _rng.uniform(-amplitude, amplitude),
+            "UNIFORM": lambda a, b: _rng.uniform(a, b),
+            "LOGNORMAL": lambda mu, sigma: (
+                _rng.lognormvariate(mu, sigma) if sigma > 0 else mu
+            ),
+        }
+        for _k, _v in _callable_params:
+            _ns[_k] = _v
+        if p:
+            for _k, _v in p.items():
+                if hasattr(_v, "__call__"):
+                    _ns[_k] = _v
+        for _i in range(len(aux_names_ordered)):
+            _aname = aux_names_ordered[_i]
+            if _aname in _numeric_params:
+                _a[_aname] = _numeric_params[_aname]
+            else:
+                _a[_aname] = eval(_aux_code[_i], _no_builtins, _ns)
+        _ns["_a"] = _a
+        _ns.update(_a)
+
+        for _dfi in range(_df_count):
+            df_name, df_compiled, df_delay_str = delay_fixed_compiled[_dfi]
+            try:
+                input_val = eval(_df_input_code[_dfi], _no_builtins, _ns)
+            except Exception:
+                input_val = 0.0
+            # Evaluate delay at runtime (supports stochastic: UNIFORM, LOGNORMAL)
+            try:
+                df_delay = float(eval(_df_delay_code[_dfi], _no_builtins, _ns))
+            except Exception:
+                df_delay = 1.0
+            df_delay = max(0.0, df_delay)
+            # Append the input with its exit time to the FIFO buffer
+            exit_t = t + df_delay
+            _pipeline_buffers[df_name].append((exit_t, input_val))
+            # Emit all entries whose exit time has passed
+            emitted = 0.0
+            while _pipeline_buffers[df_name]:
+                e_time, e_val = _pipeline_buffers[df_name][0]
+                if e_time <= t:
+                    emitted = e_val
+                    _pipeline_buffers[df_name].popleft()
+                else:
+                    break
+            # If nothing emitted yet, use the oldest entry's value
+            if not _pipeline_buffers[df_name]:
+                _pipeline_delay_values[df_name] = emitted
+            else:
+                _pipeline_delay_values[df_name] = emitted
+            # Inject into state vector y so next f() sees it
+            idx = all_names.index(df_name)
+            y[idx] = _pipeline_delay_values[df_name]
+
+        # ── CONVEY_BATCH processing ─────────────────────────────────
+        if _cbatch_count > 0:
+            for _cbi in range(_cbatch_count):
+                acc_name, cb_input_str, cb_delay_str, cb_batch, out_name = cbatch_compiled[_cbi]
+                acc_idx = all_names.index(acc_name)
+                acc_val = y[acc_idx]
+                pipe_name = f"{acc_name}_pipe"
+                if pipe_name not in _cbatch_pipe_buffers:
+                    _cbatch_pipe_buffers[pipe_name] = deque()
+                # Evaluate batch size at runtime
+                try:
+                    batch_val = float(eval(cb_batch, {"__builtins__": {}}, _ns))
+                except Exception:
+                    batch_val = 1.0
+                batch_val = max(0.1, batch_val)
+                # Emit batches if accumulator >= batch_size
+                if acc_val >= batch_val:
+                    batches = int(acc_val / batch_val)
+                    emit_amount = batch_val * batches
+                    try:
+                        batch_delay = float(eval(cb_delay_str, {"__builtins__": {}}, _ns))
+                    except Exception:
+                        batch_delay = 1.0
+                    batch_delay = max(0.0, batch_delay)
+                    _cbatch_pipe_buffers[pipe_name].append((t + batch_delay, emit_amount))
+                    acc_val -= emit_amount
+                # Emit matured batches from pipeline
+                emitted_batch = 0.0
+                while _cbatch_pipe_buffers[pipe_name]:
+                    e_time, e_val = _cbatch_pipe_buffers[pipe_name][0]
+                    if e_time <= t:
+                        emitted_batch += e_val
+                        _cbatch_pipe_buffers[pipe_name].popleft()
+                    else:
+                        break
+                # Save remainder and keep y[acc] in sync
+                _cbatch_remainder[acc_name] = acc_val
+                y[acc_idx] = acc_val
+                # Write output to the out_name slot (not accumulator)
+                if out_name:
+                    out_idx = all_names.index(out_name)
+                    y[out_idx] = emitted_batch
+
+    pipeline_info = {
+        "buffers": _pipeline_buffers,
+        "process": _process_pipeline_delays,
+        "names": [entry[0] for entry in delay_fixed_compiled],
+        "compiled": delay_fixed_compiled,
+    }
+    return f, all_names, y0, len(smooth_names), pipeline_info
 
 
 def _replace_smooths(
@@ -1361,6 +1665,35 @@ def _replace_smooths(
             input_expr = _serialize_expr(args[0])
             smooth_params.append(("delay_fixed", aux_name, input_expr, delay, 0.0))
             return ExprRef(aux_name)
+        if node.name == "CONVEY" and len(args) >= 2:
+            delay_node = args[1]
+            if isinstance(delay_node, ExprLiteral):
+                delay = delay_node.value
+            else:
+                delay = delay_node
+            aux_name = f"_convey_{len(smooth_params)}"
+            input_expr = _serialize_expr(args[0])
+            smooth_params.append(("convey", aux_name, input_expr, delay, 0.0))
+            return ExprRef(aux_name)
+        if node.name == "CONVEY_BATCH" and len(args) >= 3:
+            delay_node = args[1]
+            if isinstance(delay_node, ExprLiteral):
+                delay = delay_node.value
+            else:
+                delay = delay_node
+            batch_node = args[2]
+            if isinstance(batch_node, ExprLiteral):
+                batch_size = batch_node.value
+            else:
+                batch_size = batch_node
+            acc_name = f"_cbatch_acc_{len(smooth_params)}"
+            out_name = f"_cbatch_out_{len(smooth_params)}"
+            input_expr = _serialize_expr(args[0])
+            # Accumulator state (ODE = input, internal only)
+            smooth_params.append(("convey_batch", acc_name, input_expr, delay, batch_size))
+            # Output reference (set by pipeline processing each step)
+            smooth_params.append(("convey_batch_out", out_name, "0.0", 0.0, 0.0))
+            return ExprRef(out_name)
         return ExprFuncCall(node.name, args)
     return node
 
@@ -1811,9 +2144,12 @@ def _expand_includes(model: SysdModel) -> SysdModel:
 
         # Build replacement map from original names to prefixed names
         # Only replace names that are actual variables (not function names)
+        from cognitive_engine.registry import get_registered_builtins
         _FUNC_NAMES = {"SMOOTH", "SMOOTHI", "DELAY3", "DELAYN", "DELAY_FIXED",
+                       "CONVEY", "CONVEY_BATCH",
                        "MIN", "MAX", "IF", "ABS", "EXP", "LN", "SQRT",
-                       "SIN", "COS", "PI", "PULSE", "STEP", "RAMP", "NOISE"}
+                        "SIN", "COS", "PI", "PULSE", "STEP", "RAMP", "NOISE",
+                        "UNIFORM", "LOGNORMAL"} | set(get_registered_builtins().keys())
         replacements: dict[str, str] = {}
 
         # Collect all known names from the template

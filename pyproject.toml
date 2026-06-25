@@ -5,31 +5,22 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "cognitive-engine"
 version = "0.1.0"
-description = "Cognitive Reasoning Graph Engine — A provably uncertainty-bounded pipeline for argument extraction and formal verification"
+description = "Multi-paradigm system dynamics framework (SD + ABM + DES) with RDF/OWL/SPARQL cognitive reasoning engine and SL confidence grading"
 requires-python = ">=3.12"
 dependencies = [
     "networkx>=3.0",
     "numpy>=1.24",
     "scipy>=1.10",
     "pydantic>=2.0",
-    "torch>=2.0",
-    "transformers>=4.30",
-    "spacy>=3.7",
-    "nltk>=3.9",
-    "fastapi>=0.115",
-    "uvicorn[standard]>=0.34",
-    "websockets>=14",
-    "leidenalg>=0.10",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
-    "pytest-asyncio>=0.25",
 ]
 
 [project.scripts]
-cognitive-engine = "cognitive_engine.api.main:run"
+cognitive-engine = "cognitive_engine.system.__main__:main"
 
 [tool.setuptools.package-data]
 cognitive_engine = ["default_priors.json"]
@@ -51,19 +42,6 @@ warn_unused_ignores = true
 show_error_codes = true
 
 [[tool.mypy.overrides]]
-module = [
-    "torch.*",
-    "transformers.*",
-    "spacy.*",
-    "nltk.*",
-    "leidenalg.*",
-    "networkx.*",
-    "fastapi.*",
-    "uvicorn.*",
-]
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
 module = "cognitive_engine.reason.*"
 ignore_errors = true
 
@@ -73,8 +51,6 @@ module = [
     "cognitive_engine.core.math",
     "cognitive_engine.core.diff",
     "cognitive_engine.core.pipeline",
-    "cognitive_engine.perception.*",
-    "cognitive_engine.api.*",
     "cognitive_engine.domains.*",
     "cognitive_engine.schemas.*",
 ]

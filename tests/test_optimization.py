@@ -222,3 +222,5 @@ model 'OptDict'
         d = result.to_dict()
         assert "best_params" in d
         assert "best_objective" in d
+
+

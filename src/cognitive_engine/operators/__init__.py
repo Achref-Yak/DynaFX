@@ -4,7 +4,6 @@ Every operator satisfies:
     O: (State, **kwargs) -> State
 
 Operator implementations live in sub-modules:
-    extract.py        — Text -> Graph
     systems.py        — Feedback loops, leverage points, archetypes
     propagate.py      — 8-level belief propagation
     schema.py (core)  — Schema application (Σ)

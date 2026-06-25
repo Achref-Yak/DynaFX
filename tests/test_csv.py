@@ -75,8 +75,10 @@ model 'Test'
             path = f.name
         try:
             m = parse_sysd("model 'T'\n  stock X: 0\n  dt 1")
-            data = m.import_data(path)
-            assert len(data["value"]) == 2  # abc row skipped
+            data = m.import_data(path, fill="forward")
+            assert len(data["value"]) == 3
+            # Non-numeric row becomes None → forward-filled to 100
+            assert data["value"] == [(0.0, 100.0), (1.0, 100.0), (2.0, 200.0)]
         finally:
             os.unlink(path)
 

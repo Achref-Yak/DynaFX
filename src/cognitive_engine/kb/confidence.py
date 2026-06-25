@@ -10,10 +10,6 @@ from cognitive_engine.core.models import Opinion
 from cognitive_engine.kb.model import Triple, TriplePattern
 from cognitive_engine.kb.sparql import QueryResult
 from cognitive_engine.kb.store import TripleStore
-from cognitive_engine.reason.argumentation import (
-    AttackType,
-    build_framework,
-)
 from cognitive_engine.reason.fusion import (
     consensus_compromise,
     cumulative_fusion,
@@ -145,6 +141,7 @@ def argumentative_filter(
     Returns:
         A new TripleStore containing only acceptable triples.
     """
+    from cognitive_engine.reason.argumentation import build_framework
     af = build_framework(
         store, source_graphs,
         min_belief=min_belief,
