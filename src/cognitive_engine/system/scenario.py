@@ -88,8 +88,16 @@ class ScenarioComparison:
         path: str,
         stocks: Optional[list[str]] = None,
         title: Optional[str] = None,
+        return_fig: bool = False,
     ) -> None:
-        """Overlay all scenarios for each specified stock."""
+        """Overlay all scenarios for each specified stock.
+
+        Args:
+            path: Output path. Ignored when return_fig=True.
+            stocks: Stock names to include (default: all).
+            title: Optional plot title.
+            return_fig: If True, return the Figure instead of saving.
+        """
         plt = self._get_mpl()
         if plt is None:
             return
@@ -112,6 +120,8 @@ class ScenarioComparison:
             ax.grid(True)
         axes[-1].set_xlabel("Time")
         fig.tight_layout()
+        if return_fig:
+            return fig
         fig.savefig(path)
         plt.close(fig)
 
@@ -124,14 +134,16 @@ class ScenarioComparison:
         baseline: int = 0,
         mode: str = "absolute",
         title: Optional[str] = None,
+        return_fig: bool = False,
     ) -> None:
         """Plot deviation of each scenario from a baseline.
 
         Args:
-            path: Output path for the plot.
+            path: Output path. Ignored when return_fig=True.
             stocks: Stock names to include (default: all).
             baseline: Index of the baseline scenario (default: 0).
             mode: "absolute" or "relative" (fractional deviation).
+            return_fig: If True, return the Figure instead of saving.
         """
         plt = self._get_mpl()
         if plt is None:
@@ -167,6 +179,8 @@ class ScenarioComparison:
             ax.grid(True)
         axes[-1].set_xlabel("Time")
         fig.tight_layout()
+        if return_fig:
+            return fig
         fig.savefig(path)
         plt.close(fig)
 
@@ -180,6 +194,7 @@ class ScenarioComparison:
         t: Optional[float] = None,
         n_steps: int = 20,
         title: Optional[str] = None,
+        return_fig: bool = False,
     ) -> None:
         """Generate a tornado diagram for parameter sensitivity.
 
@@ -188,11 +203,12 @@ class ScenarioComparison:
         The output_stock value at time t is measured for each extreme.
 
         Args:
-            path: Output path for the plot.
+            path: Output path. Ignored when return_fig=True.
             param_ranges: param_name -> (low, high).
             output_stock: The stock whose value to measure.
             t: Time point to measure (default: final time).
             n_steps: Number of steps between low and high for the sweep.
+            return_fig: If True, return the Figure instead of saving.
         """
         plt = self._get_mpl()
         if plt is None:
@@ -253,6 +269,8 @@ class ScenarioComparison:
                    color="gray", linestyle="--", linewidth=0.5)
         ax.grid(True, axis="x")
         fig.tight_layout()
+        if return_fig:
+            return fig, impacts
         fig.savefig(path)
         plt.close(fig)
 

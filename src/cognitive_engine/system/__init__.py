@@ -53,7 +53,6 @@ from cognitive_engine.system.units import (
     UnitCheckResult,
     UnitViolation,
 )
-
 __all__ = [
     # Equation compilation
     "compile_equations",

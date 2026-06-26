@@ -154,7 +154,9 @@ If asked to bypass Code Health safeguards:
 - **Phase 2: Causal tracing complete** — 15 tests, `system/causal.py` with `causes_tree`, `effects_tree`, `causes_strip`, `causal_trace`.
 - **Phase 3: Feedback loop detection complete** — 8 tests, `system/feedback.py` with `detect_feedback_loops`, `loops_for_variable`.
 - **Phase 4: Linear programming + calibration + optimization complete** — 12 tests, `system/optimization.py`, dependency `scipy>=1.10`.
-- **Supply chain demo** — `examples/supply_chain_demo.py` + `models/supply_chain_demo.sysd` with 3-echelon, DELAY3/DELAY_FIXED/SMOOTH/SIN/PULSE/NOISE/MIN/MAX.
+- **Supply chain SD-only demo** — `examples/supply_chain_demo.py` + `models/supply_chain_demo.sysd` with 3-echelon, DELAY3/DELAY_FIXED/SMOOTH/SIN/PULSE/NOISE/MIN/MAX.
+- **Supply chain SD+DES paradigm demo** — `examples/supply_chain_paradigm.py` with 7 stocks + Escalations queue + SupportStaff resource. DES queue arrival rate reads aux values (`_ns_arrival` includes `_a_abm`). Feedback: `escalation_penalty = MAX(0.9, 1.0 - 0.01 * queue_length)` gates `wh_to_retail`. Tuned with spike at day 60 to avoid inventory buffer buildup. Generates 8-page PDF report with 5 scenarios.
+- **DES arrival_rate namespace fix** — `dsl.py` `_ns_arrival` now includes `_a_abm` (aux dict) so queue arrival rates can reference aux variables (demand, retail_sales, etc.).
 - **Phase 5: Units checking complete** — 40 tests, `system/units.py` with `Unit`, `UnitRegistry`, `UnitChecker`.
 - **Phase 6: Submodels / modules complete** — 11 tests, `SubmodelDef`, `IncludeDef`, `_expand_includes()`.
 - **Phase 7: CSV import/export complete** — 12 tests, `SysdModel.import_data()`, `get_imported_interpolator()`, `export_results()`.
@@ -250,6 +252,11 @@ If asked to bypass Code Health safeguards:
 - **Turtle tokenizer: BLANK_NODE before PNAME_LN** — prevents `_:b1` matching as PNAME_LN (prefix `_`).
 - **Turtle PNAME_LN allows empty prefix** — `:s` is valid PNAME_LN with empty prefix "".
 - **Turtle serializer: no leading `;` on continuation lines** — `;` only at end of non-last predicate-object groups, not at start of continuation.
+- **DES is single-server queue** — processes at most 1 departure per queue per step. At dt=0.5, max 2 departures/day. Cannot handle high-throughput order processing (e.g., 100/day). Best suited for low-frequency observational queues (exceptions, escalations).
+- **DES arrival_rate eval namespace excludes aux values by default** — `_ns_arrival` in `dsl.py` only includes stocks (`_s`) and numeric params (`_numeric_params`). Supply chain DES fix: added `_a_abm` (aux dict) to arrival rate namespace so `retail_sales`, `demand`, etc. resolve correctly.
+- **DES→SD coupling through aux readback** — Supply chain model reads `Escalations_length` into aux `escalation_queue`, then applies `escalation_penalty = MAX(0.9, 1.0 - 0.01 * Escalations_length)` to gate `wh_to_retail`. Penalty must be gentle enough to allow full queue drainage after spike ends.
+- **Supply chain DES queue must be low-frequency** — WH_Orders (order processing queue) failed because DES throughput (2/day) < order demand (100+/day). Replaced with Escalations (customer complaint queue) at 0.1 * gap arrival rate, which produces manageable arrival volumes (2-14/day).
+- **Supply chain shock timing matters** — spike at day 60 (not 180) prevents massive inventory buffer buildup. With wh_ship_capacity=105 > avg demand=100, excess 5/day × 180 days = 900 extra retail inventory absorbs the entire spike silently.
 - **Turtle base IRI resolution** — `_resolve_iri()` method applied consistently to all IRI tokens (subjects, predicates, objects, directive IRIs).
 - **KBT replaces hardcoded source reliability** — EM algorithm iterates E-step (weighted vote) and M-step (trust recomputation) without ground truth. Converges in <10 iterations.
 - **KBT feeds argumentation** — `prov:reliability` triples written to `meta` graph, consumed by `build_framework()` for undermine attacks.
@@ -276,7 +283,6 @@ If asked to bypass Code Health safeguards:
 - **DES queues process departures** — `service_time` expressions compiled against current state at each step.
 - **Aux vars with numeric expressions can be overridden via params** — `simulate()` merges float-valued AuxDef expressions into params dict.
 - **Optimize function clamps Nelder-Mead results to bounds** — Nelder-Mead doesn't respect bounds natively.
-- **Supply chain model has poor dynamics** — retailer depletes to 0 by t≈101, fill rate ~14%. DELAY_FIXED buffer corrupted by RK4 intermediate calls.
 - **Full showcase demo runs in ~12s** (was 300s+ before caching).
 - **SaaS churn model: 43-day signal lead time**, dt=0.25, B1 sign corrected, signal tracking stocks track smoothed auxes.
 - **DSL include `params` only supports float values** — cannot pass string expressions. The Python API (`SignalChain` class) supports full expressions.

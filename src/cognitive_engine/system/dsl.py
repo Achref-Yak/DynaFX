@@ -99,6 +99,7 @@ class QueueDef:
     capacity: int = -1       # -1 = unlimited
     initial: int = 0
     service_time: str = ""   # expression or distribution name
+    arrival_rate: str = ""   # optional arrival rate expression
 
 
 @dataclass
@@ -401,10 +402,14 @@ class SysdModel:
 
         # Initialize ABM engine if agents are defined
         abm_engine = None
+        abm_initial_metrics: dict[str, float] = {}
         if self.agents:
             from cognitive_engine.system.agent import ABMEngine
             abm_engine = ABMEngine(self.agents)
             abm_engine.initialize()
+            # Compute initial ABM metrics and merge into params for t=0 aux eval
+            abm_initial_metrics = abm_engine.get_metrics()
+            params.update(abm_initial_metrics)
 
         # Initialize DES engine if queues/resources/events are defined
         des_engine = None
@@ -441,11 +446,30 @@ class SysdModel:
                             event_queue=des_engine.event_queue,
                         )
 
+        # Compile DES arrival rate expressions for queue injection
+        des_arrival_injectors: list[tuple[str, Any]] = []
+        des_arrival_accum: dict[str, float] = {}
+        if des_engine:
+            for q in self.queues:
+                if q.arrival_rate:
+                    try:
+                        from cognitive_engine.system.dsl import ExprParser
+                        ar_node = ExprParser(q.arrival_rate).parse()
+                        ar_compiled = _compile_expr(ar_node, set(), set())
+                        ar_code = compile(ar_compiled, "<arrival_rate>", "eval")
+                        des_arrival_injectors.append((q.name, ar_code))
+                        des_arrival_accum[q.name] = 0.0
+                    except Exception:
+                        pass
+
         t0, t_end = t_span
         direction = 1 if t_end >= t0 else -1
         y = list(y0)
         times = [t0]
         y_hist = [list(y)]
+        params_history = [dict(params)]
+        abm_metrics_history: list[dict[str, float]] = [dict(abm_initial_metrics)] if abm_engine else []
+        des_metrics_history: list[dict[str, float]] = [{}] if des_engine else []
 
         while abs(t0 - t_end) > 1e-12:
             remaining = abs(t_end - t0)
@@ -460,12 +484,69 @@ class SysdModel:
             if pipeline_info is not None:
                 pipeline_info["process"](t0, y, params)
 
+            # Compute aux values from current state for ABM visibility
+            _aux_info = getattr(f, '_aux_info', None)
+            _a_abm: dict[str, float] = {}
+            if _aux_info is not None:
+                _np_abm_build, _cp_abm, _b_abm, _nb_abm, _anames_abm, _acode_abm, _sc_abm = _aux_info
+                _np_abm = {k: v for k, v in params.items() if isinstance(v, (int, float))}
+                _s_abm = dict(zip(stock_names, y))
+                _s_abm.update(_np_abm)
+                _ns_abm = {
+                    **_b_abm, **_np_abm, "_s": _s_abm, "_a": _a_abm, "_p": params, "t": t0,
+                    "PULSE": lambda volume, start, width, _t=t0: volume if start <= _t < start + width else 0.0,
+                    "STEP": lambda height, start, _t=t0: height if _t >= start else 0.0,
+                    "RAMP": lambda slope, start, end, _t=t0: 0.0 if _t < start else slope * (_t - start) if _t <= end else slope * (end - start),
+                    "NOISE": lambda _amplitude: 0.0,
+                    "UNIFORM": lambda _a, _b: (_a + _b) / 2.0,
+                    "LOGNORMAL": lambda mu, _sigma: mu,
+                }
+                for _k, _v in _cp_abm:
+                    _ns_abm[_k] = _v
+                for _i, _aname in enumerate(_anames_abm):
+                    if _aname in _np_abm:
+                        _a_abm[_aname] = _np_abm[_aname]
+                    else:
+                        _a_abm[_aname] = eval(_acode_abm[_i], _nb_abm, _ns_abm)
+                _s_abm.update(_a_abm)
+
             # Run ABM step if agents exist
             if abm_engine:
                 shared_state = dict(zip(stock_names, y))
-                shared_state.update(params)  # include parameters for agent conditions
+                shared_state.update(params)
+                if _aux_info is not None:
+                    shared_state.update(_a_abm)
                 abm_metrics = abm_engine.step(t0, step, shared_state)
                 params.update(abm_metrics)
+                abm_metrics_history.append(dict(abm_metrics))
+
+            # Inject DES arrivals from arrival_rate expressions
+            if des_arrival_injectors:
+                import math
+                _builtins_ar = {
+                    "__builtins__": {},
+                    "MIN": min, "MAX": max,
+                    "IF": lambda c, a, b: a if c else b,
+                    "ABS": abs, "EXP": math.exp, "LN": math.log,
+                    "SQRT": math.sqrt, "SIN": math.sin, "COS": math.cos,
+                    "PI": math.pi,
+                }
+                _s_ar = dict(zip(stock_names, y))
+                _s_ar.update({k: v for k, v in params.items() if isinstance(v, (int, float))})
+                _p_ar = dict(params)
+                _ns_arrival = {"_s": _s_ar, "_p": _p_ar, "t": t0}
+                if _a_abm:
+                    _s_ar.update(_a_abm)
+                for _qname, _ar_code in des_arrival_injectors:
+                    _rate = eval(_ar_code, _builtins_ar, _ns_arrival)
+                    if _rate > 0 and _qname in des_engine.queues:
+                        des_arrival_accum[_qname] += _rate * step
+                        while des_arrival_accum[_qname] >= 1.0:
+                            des_engine.queues[_qname].enqueue(
+                                {"source": _qname, "time": t0}, t0,
+                                event_queue=des_engine.event_queue,
+                            )
+                            des_arrival_accum[_qname] -= 1.0
 
             # Run DES step if queues/resources/events exist
             if des_engine:
@@ -487,9 +568,52 @@ class SysdModel:
                             pass
                 des_metrics = des_engine.step(t0 - direction * step, step)
                 params.update(des_metrics)
+                des_metrics_history.append(dict(des_metrics))
 
             times.append(t0)
             y_hist.append(list(y))
+            params_history.append(dict(params))
+
+        # Record aux variable values at each timestep (post-hoc)
+        # Uses per-step params_history so ABM/DES metrics are visible.
+        aux_values: dict[str, list[float]] = {}
+        if self._compiled_cache and self._compiled_cache.aux_names_ordered:
+            _aux_anames = self._compiled_cache.aux_names_ordered
+            _aux_code = self._compiled_cache.aux_code
+            _aux_builtins = self._compiled_cache.builtins
+            _full_names = self._compiled_cache.all_names
+            _no_builtins = {"__builtins__": {}}
+            for _si, (_t, _y_full) in enumerate(zip(times, y_hist)):
+                _step_p = dict(params_history[_si]) if _si < len(params_history) else dict(params)
+                for _tbl in self.tables:
+                    _step_p[_tbl.name] = LookupTable(_tbl.x, _tbl.y)
+                _step_p["dt"] = step
+                _num_p = {k: v for k, v in _step_p.items() if isinstance(v, (int, float))}
+                _call_p = [(k, v) for k, v in _step_p.items() if hasattr(v, "__call__")]
+                _s = dict(zip(_full_names, _y_full))
+                _s.update(_num_p)
+                _a: dict[str, float] = {}
+                _ns = {
+                    **_aux_builtins, **_num_p, "_s": _s, "_p": _step_p, "_a": _a, "t": _t,
+                    "PULSE": lambda volume, start, width, _t=_t: volume if start <= _t < start + width else 0.0,
+                    "STEP": lambda height, start, _t=_t: height if _t >= start else 0.0,
+                    "RAMP": lambda slope, start, end, _t=_t: (
+                        0.0 if _t < start else slope * (_t - start) if _t <= end else slope * (end - start)
+                    ),
+                    "NOISE": lambda _amplitude: 0.0,
+                    "UNIFORM": lambda _a, _b: (_a + _b) / 2.0,
+                    "LOGNORMAL": lambda mu, _sigma: mu,
+                }
+                for _k, _v in _call_p:
+                    _ns[_k] = _v
+                for _i, _aname in enumerate(_aux_anames):
+                    if _aname in _num_p:
+                        _a[_aname] = _num_p[_aname]
+                    else:
+                        _a[_aname] = eval(_aux_code[_i], _no_builtins, _ns)
+                    _ns["_a"] = _a
+                for _aname in _aux_anames:
+                    aux_values.setdefault(_aname, []).append(_a[_aname])
 
         if aux_count:
             pure_stocks = len(stock_names) - aux_count
@@ -509,6 +633,9 @@ class SysdModel:
             model_name=self.name,
             abm_engine=abm_engine,
             des_engine=des_engine,
+            aux_values=aux_values,
+            abm_metrics_history=abm_metrics_history,
+            des_metrics_history=des_metrics_history,
         )
 
     def validate(self, params: Optional[set[str]] = None) -> ValidationResult:
@@ -718,6 +845,9 @@ class SysdModelResult:
     model_name: str = ""
     abm_engine: Any = None  # ABMEngine if agents were simulated
     des_engine: Any = None  # DESEngine if queues/resources/events were simulated
+    aux_values: dict[str, list[float]] = field(default_factory=dict)
+    abm_metrics_history: list[dict[str, float]] = field(default_factory=list)
+    des_metrics_history: list[dict[str, float]] = field(default_factory=list)
 
     def __getitem__(self, key: str) -> Any:
         return getattr(self, key)
@@ -1451,6 +1581,7 @@ def _build_system(
         return dydt
 
     if _df_count == 0 and _cbatch_count == 0:
+        f._aux_info = (_numeric_params, _callable_params, _builtins, _no_builtins, aux_names_ordered, cache.aux_code, _stock_count)
         return f, all_names, y0, len(smooth_names), None
 
     # ── Pipeline delay processing (called ONCE per step from simulate) ──
@@ -1579,6 +1710,7 @@ def _build_system(
         "names": [entry[0] for entry in delay_fixed_compiled],
         "compiled": delay_fixed_compiled,
     }
+    f._aux_info = (_numeric_params, _callable_params, _builtins, _no_builtins, aux_names_ordered, cache.aux_code, _stock_count)
     return f, all_names, y0, len(smooth_names), pipeline_info
 
 
@@ -1889,24 +2021,34 @@ def _build_tree(lines: list[_TokenLine]) -> SysdModel:
         # ── DES keywords ────────────────────────────────────────
         if keyword == "queue":
             name, _ = _parse_name_value(args)
-            # Parse capacity from args like "Line": capacity 3, service_time 2
+            # Parse capacity/service_time from args like "Q": capacity 3, service_time 2
             capacity = -1
+            service_time = ""
             if ":" in args:
                 after_colon = args.split(":", 1)[1]
                 for part in after_colon.split(","):
-                    part = part.strip().lower()
-                    if part.startswith("capacity"):
+                    part = part.strip()
+                    pl = part.lower()
+                    if pl.startswith("capacity"):
+                        val = ""
                         if "=" in part:
                             val = part.split("=", 1)[1]
                         elif " " in part:
                             val = part.split(None, 1)[1]
-                        else:
-                            continue
-                        try:
-                            capacity = int(float(val.strip()))
-                        except ValueError:
-                            pass
-            qd = QueueDef(name=name, capacity=capacity)
+                        if val:
+                            try:
+                                capacity = int(float(val.strip()))
+                            except ValueError:
+                                pass
+                    elif pl.startswith("service_time"):
+                        val = ""
+                        if "=" in part:
+                            val = part.split("=", 1)[1]
+                        elif " " in part:
+                            val = part.split(None, 1)[1]
+                        if val:
+                            service_time = val.strip()
+            qd = QueueDef(name=name, capacity=capacity, service_time=service_time)
             model.queues.append(qd)
             while stack and stack[-1][0] >= indent:
                 stack.pop()
@@ -1917,6 +2059,12 @@ def _build_tree(lines: list[_TokenLine]) -> SysdModel:
             parent = stack[-1][1] if stack else None
             if isinstance(parent, QueueDef):
                 parent.service_time = _split_expr(args)
+            continue
+
+        if keyword == "arrival_rate":
+            parent = stack[-1][1] if stack else None
+            if isinstance(parent, QueueDef):
+                parent.arrival_rate = _split_expr(args)
             continue
 
         if keyword == "resource":

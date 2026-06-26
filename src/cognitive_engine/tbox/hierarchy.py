@@ -276,6 +276,11 @@ def build_mdm_type_hierarchy() -> TypeHierarchy:
     h.add_type("QUALITY", parent="PROPERTY", description="Qualitative property")
     h.add_type("QUANTITY", parent="PROPERTY", description="Quantitative property")
 
+    # ── Observation types (raw simulation output) ─────────────────
+    h.add_type("OBSERVATION", description="Root of observation types")
+    h.add_type("SIMULATION_OBSERVATION", parent="OBSERVATION",
+               description="Metric observation from a simulation run")
+
     # ── Interaction types ────────────────────────────────────────
     h.add_type("INTERACTION", description="Root of all interaction types")
 
