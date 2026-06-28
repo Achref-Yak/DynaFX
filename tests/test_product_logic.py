@@ -1,7 +1,7 @@
 from uuid import uuid4
 
-from cognitive_engine.core.models import Graph, Node, NodeType, Edge, EdgeType, Severity
-from cognitive_engine.reason.product_logic import (
+from dynafx.core.models import Graph, Node, NodeType, Edge, EdgeType, Severity
+from dynafx.reason.product_logic import (
     validate_categories,
     valuate,
     negation_cat,

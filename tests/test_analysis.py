@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import pytest
 
-from cognitive_engine.core.models import (
+from dynafx.core.models import (
     Edge,
     EdgeType,
     Graph,
@@ -15,7 +15,7 @@ from cognitive_engine.core.models import (
     NodeType,
     Opinion,
 )
-from cognitive_engine.analysis import (
+from dynafx.analysis import (
     EvidenceChain,
     EvidenceClassification,
     EvidenceItem,

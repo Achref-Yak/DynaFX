@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from cognitive_engine.core.models import (
+from dynafx.core.models import (
     ConversationTree,
     Graph, Node, NodeType,
     Edge, EdgeType,

@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import pytest
-from cognitive_engine.core.state import State
-from cognitive_engine.core.models import Graph, Node, NodeType, Edge, EdgeType
-from cognitive_engine.operators.systems import (
+from dynafx.core.state import State
+from dynafx.core.models import Graph, Node, NodeType, Edge, EdgeType
+from dynafx.operators.systems import (
     FeedbackLoopDetector,
     LeveragePointScorer,
     SystemArchetypeClassifier,

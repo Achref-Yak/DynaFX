@@ -1,4 +1,4 @@
-"""Plugin modules for cognitive_engine.
+"""Plugin modules for dynafx.
 
 Plugins extend the core framework with custom builtin functions and
 DES hooks via the registry API. Import a plugin to activate it:

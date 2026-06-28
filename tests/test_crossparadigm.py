@@ -5,7 +5,7 @@ the unified state dict.
 """
 
 import pytest
-from cognitive_engine.system.dsl import parse_sysd
+from dynafx.system.dsl import parse_sysd
 
 
 class TestSDAndABM:
@@ -168,7 +168,7 @@ class TestCLIIntegration:
             f.write(model_content)
             f.flush()
             result = subprocess.run(
-                ["python", "-m", "cognitive_engine.system", "simulate", f.name,
+                ["python", "-m", "dynafx.system", "simulate", f.name,
                  "--paradigm", "all"],
                 capture_output=True, text=True, timeout=30
             )
@@ -191,7 +191,7 @@ class TestCLIIntegration:
             f.write(model_content)
             f.flush()
             result = subprocess.run(
-                ["python", "-m", "cognitive_engine.system", "simulate", f.name,
+                ["python", "-m", "dynafx.system", "simulate", f.name,
                  "--paradigm", "sd"],
                 capture_output=True, text=True, timeout=30
             )

@@ -2,15 +2,15 @@
 
 import pytest
 
-from cognitive_engine.core.models import Opinion
-from cognitive_engine.kb.model import (
+from dynafx.core.models import Opinion
+from dynafx.kb.model import (
     BlankNode,
     Literal,
     NamedNode,
     Triple,
     TriplePattern,
 )
-from cognitive_engine.kb.store import TripleStore
+from dynafx.kb.store import TripleStore
 
 
 # ── Fixtures ─────────────────────────────────────────────────────

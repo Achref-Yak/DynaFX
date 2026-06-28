@@ -2,8 +2,8 @@
 
 import pytest
 
-from cognitive_engine.core.models import Opinion
-from cognitive_engine.kb.confidence import (
+from dynafx.core.models import Opinion
+from dynafx.kb.confidence import (
     FusionResult,
     QueryGrade,
     _are_consistent,
@@ -12,9 +12,9 @@ from cognitive_engine.kb.confidence import (
     fuse_graphs,
     grade_query,
 )
-from cognitive_engine.kb.model import NamedNode, Triple, TriplePattern
-from cognitive_engine.kb.sparql import QueryResult
-from cognitive_engine.kb.store import TripleStore
+from dynafx.kb.model import NamedNode, Triple, TriplePattern
+from dynafx.kb.sparql import QueryResult
+from dynafx.kb.store import TripleStore
 
 
 # ── Helpers ───────────────────────────────────────────────────────

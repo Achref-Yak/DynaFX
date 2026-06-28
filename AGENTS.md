@@ -75,7 +75,7 @@ If asked to bypass Code Health safeguards:
 - Custom `.sysd` DSL uses indent-based Vensim-like syntax with full arithmetic + functions (MIN, MAX, IF, SMOOTH, lookup tables, comparison operators).
 - DSL is parsed by a hand-written line-oriented parser with recursive descent expression parser — zero dependencies beyond stdlib.
 - Model parameters are runtime values passed via `params` dict — merged into state vector `_s` so expression references resolve.
-- **SD/SL clean separation**: SD structures carry no SL types. SL files live in `cognitive_engine/sl/` package, not `system/`.
+- **SD/SL clean separation**: SD structures carry no SL types. SL files live in `dynafx/sl/` package, not `system/`.
 - **ABM agent state is numeric only** — no SL opinions on agents. Pluggable via generic dict.
 - **DES includes full queuing theory** — resource pools, capacity constraints, utilization stats.
 - **Unified state dict**: SD, ABM, and DES all write to the same `state: dict[str, float]` during simulation, enabling cross-paradigm interactions.
@@ -124,17 +124,17 @@ If asked to bypass Code Health safeguards:
 - **Aux variables (P0)**: `AuxDef` dataclass, `aux_vars` field, `aux` keyword parsing, `_compile_expr` extended with `aux_names`, `_build_system` compiles/topo-sorts/evaluates auxes before stock equations.
 - **Fixed params resolving**: parameters passed at simulate time merge into state vector `_s` so expression references resolve.
 - **Validation (P1)**: `SysdModel.validate(params=set)` with name resolution, flow conservation, non-negativity bounds, zero-divisor detection.
-- **CLI entry point (P1)**: `src/cognitive_engine/system/__main__.py` with `simulate`, `validate`, `list` subcommands. Extended with `--paradigm` flag (sd/abm/des/all) and `--stats` flag.
+- **CLI entry point (P1)**: `src/dynafx/system/__main__.py` with `simulate`, `validate`, `list` subcommands. Extended with `--paradigm` flag (sd/abm/des/all). (v0.3.0: removed dead `--stats`/`--dir` flags, fixed paradigm mutation via `copy.deepcopy`.)
 - **Plotting API (P1)**: `SysdModelResult` class with `.plot(path, stocks, subplots, title)` and `.plot_with_bands(path, mean, std, p5, p95)`.
 - **Sensitivity (P1)**: `SysdModel.simulate_ensemble(params, fixed_params, n, method, seed)` with uniform/normal/lognormal distributions.
-- **Vensim `.mdl` import (P1)**: `src/cognitive_engine/system/vensim.py` parses INTEG stocks, WITH LOOKUP tables, TIME→t mapping, SMOOTH/DELAY1 mapping, continuation line joining.
+- **Vensim `.mdl` import (P1)**: `src/dynafx/system/vensim.py` parses INTEG stocks, WITH LOOKUP tables, TIME→t mapping, SMOOTH/DELAY1 mapping, continuation line joining.
 - **Model library (P1)**: 12+ curated `.sysd` models in `models/` plus `pandemic_seirvh.sysd`.
-- **SD ontology (P2)**: `src/cognitive_engine/system/ontology.py` with stock/flow subtype inference (MATERIAL/INFORMATION/FINANCIAL), cross-type flow validation.
+- **SD ontology (P2)**: `src/dynafx/system/ontology.py` with stock/flow subtype inference (MATERIAL/INFORMATION/FINANCIAL), cross-type flow validation.
 - **Pandemic model bug fixes**: recovery_fraction dynamic compensation, ICU_Fatality time-normalization, vaccination inflow to Recovered, healthcare_stress_avg consumed by IF-gate and Expansion flow.
 - **Deleted `rules/engine.py`** — dead code in SD context. Removed entire `rules/` package.
 - **EmergentProperty dataclass** (`emergent.py`): `Condition`, `Effect`, `ComparisonOp`, `EffectType`, `ConsistencyResult`, `ConsistencyViolation`, `run_consistency_checks`, 4 checker functions.
 - **SD/SL clean separation completed**: Removed `Opinion`/`Parameter` from `Equation.confidence`. Removed `LoopClassification`. Removed `Parameter` import from dsl.py. Removed `opinion: Opinion` from `EmergentProperty`. Removed backward compat `Parameter` handling in `equations.py`.
-- **SL files moved to `cognitive_engine/sl/`**: `operators.py`, `validation.py`, `parameters.py` moved out of `system/`.
+- **SL files moved to `dynafx/sl/`**: `operators.py`, `validation.py`, `parameters.py` moved out of `system/`.
 - **Accuracy test suite**: `tests/test_accuracy.py` — 8 tests against analytical solutions.
 - **ABM engine complete**: `AgentDef`, `AgentPropDef`, `AgentRuleDef` dataclasses. `_parse_agent_property()`, `_parse_agent_rule()` helpers. `AgentInstance` (perceive/decide/act), `ABMEngine` (step/get_metrics). Condition evaluation via safe eval with `always` keyword. Effects: `+=`, `-=`, `*=`, `/=`, `=` (absolute set returning delta). Property clamping. Aggregated metrics. Integrated into `SysdModel.simulate()`.
 - **ABM bug fixes**: `_eval_condition` now supports `always` keyword. Multi-rule parsing fixed — stack pop moved before parent check so same-indent rules don't merge into one. `shared_state.update(params)` so ABM agents can see parameters. CLI fixed: `_agents` → `instances`, `agent_id` → `id`.
@@ -167,21 +167,21 @@ If asked to bypass Code Health safeguards:
 - **SaaS churn signal example script complete** — `examples/saas_churn_signal.py` with 5 scenarios, 8-param sensitivity, feedback loops, causal trace, signal lead time.
 - **SMOOTH/DELAY dynamic parameter resolution** — non-literal delay args stored as `ExprNode`, evaluated at runtime with params dict, `_ns` includes `**_numeric_params`.
 - **Signal tracking stocks restructured** — track smoothed auxes, not raw inputs.
-- **EvidenceMatrix complete** — `src/cognitive_engine/reason/evidence.py` with `ConsensusLevel`, `PairwiseAgreement`, `ClaimAssessment`, `EvidenceMatrix`, `EvidenceMatrixResult`. L1-distance agreement scoring. 27 tests in `tests/test_evidence_matrix.py`.
+- **EvidenceMatrix complete** — `src/dynafx/reason/evidence.py` with `ConsensusLevel`, `PairwiseAgreement`, `ClaimAssessment`, `EvidenceMatrix`, `EvidenceMatrixResult`. L1-distance agreement scoring. 27 tests in `tests/test_evidence_matrix.py`.
 - **EvidenceMatrix consensus → FusionSituation integration** — `consensus_to_fusion_situation()` in `fusion.py`, `classify_fusion_situations()` method on `EvidenceMatrixResult`.
 - **EvidenceMatrix exported** — `__init__.py` exports `ClaimAssessment`, `ConsensusLevel`, `EvidenceMatrix`, `EvidenceMatrixResult`, `PairwiseAgreement`.
-- **`src/cognitive_engine/templates/` package created** — `SignalChain` class in `signal_chain.py` constructs a `SysdModel` for the leading-indicator → outcome pattern.
+- **`src/dynafx/templates/` package created** — `SignalChain` class in `signal_chain.py` constructs a `SysdModel` for the leading-indicator → outcome pattern.
 - **Template `.sysd` reference file** — `templates/signal_chain.sysd` documents the structure for DSL-side use.
 - **Signal showcase example** — `examples/signal_showcase.py` builds and simulates all 9 leading indicator domains with comparison table.
 - **`SignalChain` updated with `threshold_direction` parameter** — supports "below" direction for decline signals (foot traffic, card payments).
 - **Showcase lead times fixed** — analytical computation from model parameters (pipeline delay + threshold sensitivity), all 9 domains produce lead times (18-111 days).
 - **Cognitive reasoning engine plan written** — `upcoming2.plan` with 7 source + 6 test files, 130 tests, ~1610 source lines.
-- **Phase 1: RDF data model** — `src/cognitive_engine/kb/model.py` with `RDFNode`, `NamedNode`, `BlankNode`, `Literal`, `Triple`, `TriplePattern`, XSD shortcuts, namespace constants (RDF/RDFS/OWL). 41 tests all passing.
-- **Phase 2: TripleStore** — `src/cognitive_engine/kb/store.py` with `TripleStore` class, SPO/POS/OSP nested-index prefix strategy, named graph per source, dedup by max-belief opinion, graph isolation/copy/removal. 40 tests all passing.
-- **Phase 3: Turtle/N-Triples** — `src/cognitive_engine/kb/turtle.py` with tokenizer, recursive descent parser, serializer, N-Triples support, base IRI resolution. 40 tests all passing.
-- **Phase 4: SPARQL** — `src/cognitive_engine/kb/sparql.py` with lexer (case-insensitive keywords), recursive descent parser, algebra tree, filter expressions, evaluator producing `QueryResult`. 35 tests all passing.
-- **Phase 5: Inference engine** — `src/cognitive_engine/kb/inference.py` with `Rule`, `Var`, `InferencePattern`, `RuleEngine` (forward-chaining), RDFS (7 rules) and OWL RL (4 rules) rule sets, opinion propagation (min/product/average). 53 tests all passing.
-- **Phase 6: Confidence layer** — `src/cognitive_engine/kb/confidence.py` with `fuse_graphs()`, `grade_query()`. 30 tests all passing.
+- **Phase 1: RDF data model** — `src/dynafx/kb/model.py` with `RDFNode`, `NamedNode`, `BlankNode`, `Literal`, `Triple`, `TriplePattern`, XSD shortcuts, namespace constants (RDF/RDFS/OWL). 41 tests all passing.
+- **Phase 2: TripleStore** — `src/dynafx/kb/store.py` with `TripleStore` class, SPO/POS/OSP nested-index prefix strategy, named graph per source, dedup by max-belief opinion, graph isolation/copy/removal. 40 tests all passing.
+- **Phase 3: Turtle/N-Triples** — `src/dynafx/kb/turtle.py` with tokenizer, recursive descent parser, serializer, N-Triples support, base IRI resolution. 40 tests all passing.
+- **Phase 4: SPARQL** — `src/dynafx/kb/sparql.py` with lexer (case-insensitive keywords), recursive descent parser, algebra tree, filter expressions, evaluator producing `QueryResult`. 35 tests all passing.
+- **Phase 5: Inference engine** — `src/dynafx/kb/inference.py` with `Rule`, `Var`, `InferencePattern`, `RuleEngine` (forward-chaining), RDFS (7 rules) and OWL RL (4 rules) rule sets, opinion propagation (min/product/average). 53 tests all passing.
+- **Phase 6: Confidence layer** — `src/dynafx/kb/confidence.py` with `fuse_graphs()`, `grade_query()`. 30 tests all passing.
 - **Phase 7: `kb/__init__.py`** — public exports, integration wiring to `reason/` and `tbox/`.
 - **Phase 8: Scenario comparison** — `system/scenario.py` with `ScenarioDef`, `ScenarioResult`, `ScenarioComparison` (plot_comparison, plot_deviation, tornado, summary, deviation_table). 20 tests all passing.
 - **Argumentation engine** — `reason/argumentation.py` with `Argument`, `Attack`, `AttackType`, `SupportType`, `ArgumentationFramework` (Dung grounded/preferred semantics), `build_framework()` (rebut, undermine, source reliability attacks). Integrated into `kb/confidence.py` as `argumentative_filter()`. 27 tests all passing.
@@ -189,19 +189,24 @@ If asked to bypass Code Health safeguards:
 - **KBT (Knowledge-Based Trust) engine** — `reason/kbt.py` with `KBTResult`, `compute_kbt()` EM algorithm that scores source reliability without ground truth. Iterates E-step (infer likely true values by weighted vote) and M-step (recompute source trust from accuracy). Outputs `prov:reliability` triples to `meta` graph. 14 tests all passing.
 - **Argumentation showcase** — `examples/argumentation_showcase.py` demonstrates full pipeline: Turtle parse → named graphs → RDFS inference → SL consensus → argumentation filter → fusion. Source reliability scored by KBT.
 - **Knowledge Fusion Showcase** — `examples/knowledge_fusion_showcase.py` demonstrates KG → KBT → EvidenceMatrix → Argumentation → filter → SL fusion → SPARQL grading in a single pipeline.
-- **Student Math SD model** — `models/student_math.sysd`: 3 stocks (Math_Anxiety, Math_Performance, Self_Efficacy), 6 flows, 10 auxes. KG_* params injected from cognitive engine bridge. IF uses function-call syntax `IF(cond, a, b)` not keyword syntax `IF...THEN...ELSE`.
+- **Student Math SD model** — `models/student_math.sysd`: 3 stocks (Math_Anxiety, Math_Performance, Self_Efficacy), 6 flows, 10 auxes. KG_* params injected from DynaFX bridge. IF uses function-call syntax `IF(cond, a, b)` not keyword syntax `IF...THEN...ELSE`.
 - **Multi-Paradigm Student Pipeline** — `examples/multi_paradigm_student.py`: 3-pass orchestration (pre-diagnosis → intervention → follow-up). Each pass: Turtle → RDFS inference → KBT → argumentation → filter → bridge → simulate SD+ABM+DES → extract evidence → feed to next pass. Bridge reads from original store (not filtered) to bypass grounded semantics skepticism. Pass 1: anxiety 25→59, performance 55→10, reinforcing loop dominates. Pass 2: intervention reverses, anxiety to 0.5, performance recovers to 26. Pass 3: sustained recovery to 34.
 - **KBT tests fixed** — `tests/test_kbt.py` 14 tests handle TripleStore dedup (max-belief version stored for identical (s,p,o) across graphs). All passing.
 - **Stale NLP remnants purged** — Deleted `agents/`, `api/`, `scripts/`, `demo/`, `memory/`, `kernel/`, `domains/`, `docs/`, `tests/test_agents.py` + 6 memory/kernel test files (~1424 lines dead scripts, 10 stale docs, ~109 obsolete tests). Removed `perception.hypothesis_generator` dead lazy import from top-level `__init__.py`. Removed `_load_dotenv()` function (unused).
 - **Circular import fixed** — `kb/__init__` → `kb.confidence` → `reason.argumentation` → `kb.model` cycle broken by deferring `build_framework` import inside `argumentative_filter()`.
 - **`pyproject.toml` cleaned** — Removed `torch`, `transformers`, `spacy`, `nltk`, `fastapi`, `uvicorn`, `websockets`, `leidenalg` from dependencies (all from deleted NLP pipeline). Core deps now only `networkx`, `numpy`, `scipy`, `pydantic`.
 - **`sl/__init__.py`** and **`tbox/__init__.py`** populated with proper exports.
-- **`Makefile`** fixed — `run` target now points to `cognitive_engine.system` instead of deleted `cognitive_engine.cli`.
+- **`Makefile`** fixed — `run` target now points to `dynafx.system` instead of deleted `dynafx.cli`.
 - **README.md rewritten** from scratch — describes current two-pillar architecture with quick start examples and example table.
+- **Telecom signal study model** — `models/telecom_signal_study.sysd`: SINR-based churn with closed-loop power control (Power_Ramp_Up/Down), SNR scaling (noise_floor in denominator), packet scaling (bandwidth/packet_size/traffic_load), fade depth 0.03 for 97% fade excursion. Example script `examples/telecom_signal_study.py` generates 11-page FPDF report with signal chain plot, fade zoom, 5-scenario comparison, causal tracing, 7 feedback loops, n=20 sensitivity.
+- **API refactoring Phase 1**: Public entry points — `system/__init__.py` exports SysdModel, parse_sysd, causal_trace, detect_feedback_loops, etc. Top-level `dynafx/__init__.py` cleaned of 44 stale NLP exports, replaced with core names (SysdModel, TripleStore, parse_turtle, etc.). 1332 tests all passing, pyright 0 errors.
+- **API refactoring Phase 2**: Naming collisions — `sl.Argument`→`sl.ValidationArgument`, `sl.Attack`→`sl.ValidationAttack`, `kb.evaluate`→`kb.sparql_evaluate`, `SignalChain.__new__`→`SignalChain.build()`. Backward-compat shims with DeprecationWarning for all.
+- **API refactoring Phase 3**: SL consolidation deferred (risk of legacy `core.models` dependency in `sl/`). Docstring fix: `sl/__init__.py` directs users to `dynafx.reason` for core SL algebra.
+- **API refactoring Phase 4**: CLI cleanup — removed `--stats` flag (parsed but never checked), removed `--dir` flag on `list` (ignored by `_find_library_models()`), added `copy.deepcopy(model)` before paradigm filtering to prevent mutating the parsed model.
+- **API refactoring Phase 5**: Docstrings — `SysdModel`, `SysdModel.simulate()`, `SysdModelResult`, `FlowDef`, `StockDef`, `AuxDef`.
 
 ### In Progress
 - (none)
-
 ### Blocked
 - (none)
 
@@ -214,7 +219,7 @@ If asked to bypass Code Health safeguards:
 - **Parameters merged into state vector** — so expression references to param names resolve via `_s.get()`.
 - **Time functions defined inside `f()` closure** — PULSE, STEP, RAMP, NOISE capture `t` from the inner function scope.
 - **PI compiled as literal constant** — `_COMPILED_CONSTANTS` dict prevents PI from being looked up in `_s.get()`.
-- **SD/SL clean separation** — SL files in `cognitive_engine/sl/`, SD in `cognitive_engine/system/`.
+- **SD/SL clean separation** — SL files in `dynafx/sl/`, SD in `dynafx/system/`.
 - **Bridge functions deleted** — user explicitly rejected bridging.
 - **ABM agent state is numeric only** — no SL opinions on agents.
 - **DES with full queuing theory** — resource pools, capacity, utilization stats from the start.
@@ -242,8 +247,11 @@ If asked to bypass Code Health safeguards:
 - **EvidenceMatrix uses L1-distance agreement** — `1 - mean(|b_a-b_b|, |d_a-d_d|)`. Simpler, more intuitive than direction-based scoring.
 - **EvidenceMatrix uses cumulative_fusion** — fuses opinions across sources per claim, classifies consensus by conflict/agreement ratios.
 - **Python API is the primary template path** — `SignalChain` class constructs `SysdModel` directly. DSL include approach limited to numeric param overrides.
-- **`SignalChain.__new__` returns a `SysdModel` instance** — `model = SignalChain(...)` gives a ready-to-simulate `SysdModel`, no `.sysd` file needed.
+- **`SignalChain.build()` is the canonical API** — `SignalChain.__new__` deprecated in favor of `SignalChain.build()`. `SignalChain(...)` still works with a DeprecationWarning.
 - **Template structure: trace → DELAY3 → SMOOTH → IF → impact → core stock outflow** — the trace signal is a leading indicator that modulates an existing process, not the stock's inflow.
+- **Top-level `dynafx/__init__.py` exports only core names** — no stale NLP exports. `SysdModel`, `TripleStore`, `parse_turtle`, `parse_sysd` are the primary public exports.
+- **Renamed exports keep DeprecationWarning shims** — `sl.Argument`→`sl.ValidationArgument`, `sl.Attack`→`sl.ValidationAttack`, `kb.evaluate`→`kb.sparql_evaluate` all have `__getattr__` shims that warn.
+- **`system/__init__.py` is the SD public API** — re-exports `SysdModel`, `parse_sysd`, `parse_sysd_file`, `causal_trace`, `detect_feedback_loops`, `lp_minimize`, `calibrate`, `optimize`, `SysdModelResult`, `ScenarioComparison`, `UnitsError`.
 - **Two-pillar architecture** — SD engine (`system/`) and cognitive reasoning engine (`kb/` + `tbox/`) are separate packages sharing `reason/` as common SL substrate. Their data models and reasoning modes are incompatible, so clear separation is necessary.
 - **SL as "Confidence Layer"** — deterministic math (`Opinion`, `cumulative_fusion`, `EvidenceMatrix`) grades triples with belief, does not construct the graph itself. KB is standard semantic web machinery; SL makes it uncertainty-aware.
 - **Named graphs per source** — each information source is its own named graph, fusion merges across graphs via SL consensus, the primary SL integration point.
@@ -276,7 +284,7 @@ If asked to bypass Code Health safeguards:
 - **Fix supply chain model dynamics** — retailer stockout due to DELAY_FIXED buffer issues with RK4 intermediate calls.
 
 ## Critical Context
-- **1192 tests passing** (core SD + kb + reason engine).
+- **1332 tests passing** (core SD + kb + reason engine).
 - **Old NLP pipeline fully removed**: `agents/`, `api/`, `scripts/`, `demo/`, `memory/`, `kernel/`, `domains/`, `docs/` directories deleted. `extract/`, `nlp/`, `perception/` were already removed earlier. Remaining `tests/` all pass with no stale imports.
 - **`SysdModel.simulate()` returns `SysdModelResult`** — `stocks` is a list of stock names, `values` is `dict[str, list[float]]`. **Aux values NOT exposed in results** — only stock values.
 - **Parameters not in `params` dict return 0.0** — `_s.get('beta', 0.0)` returns 0 if param not provided.
@@ -286,7 +294,7 @@ If asked to bypass Code Health safeguards:
 - **Full showcase demo runs in ~12s** (was 300s+ before caching).
 - **SaaS churn model: 43-day signal lead time**, dt=0.25, B1 sign corrected, signal tracking stocks track smoothed auxes.
 - **DSL include `params` only supports float values** — cannot pass string expressions. The Python API (`SignalChain` class) supports full expressions.
-- **`SignalChain` builds a `SysdModel` with**: trace expr → multi-hop DELAY3 → SMOOTH → IF threshold → signal_impact → adjusted_outflow → core stock. Base inflow/outflow params included. Feedback loop optional. Tracking stocks for Trace/Detected/Interpreted. `threshold_direction` supports "above"/"below" for decline signals.
+- **`SignalChain.build()` is the canonical API** — `model = SignalChain.build(...)` returns a `SysdModel`. `SignalChain(...)` works with a DeprecationWarning.
 - **SignalChain showcase generates all 9 domains** — `examples/signal_showcase.py` builds, simulates, and compares all domains. Lead times computed analytically from pipeline delays + threshold sensitivity. All 9 produce lead times (18-111 days).
 - **Framework identified as "framework"** (not SaaS/PaaS/library), with capability to model OODA loops (Observe via state dict, Orient via causal tracing, Decide via ABM/IF logic, Act via state updates).
 - **Closest to AnyLogic (multi-paradigm)** and **Vensim (expression/causal logic)**, distinct by being code-first/Python-native.
@@ -298,36 +306,39 @@ If asked to bypass Code Health safeguards:
 - **Delta DES not yet paused** — needs both state in ServiceEvent and time-remaining tracking for multi-step operations.
 
 ## Relevant Files
-- `src/cognitive_engine/system/dsl.py` — main DSL: parser, expression AST, `_replace_smooths()` with ExprNode, `_build_system()` with `CompiledSystem` cache, `_compile_system()`, `SysdModel`, `SysdModelResult`. Submodel support: `SubmodelDef`, `IncludeDef`, `_expand_includes()`.
-- `src/cognitive_engine/system/units.py` — `Unit`, `UnitRegistry`, `UnitChecker`, 40 tests.
-- `src/cognitive_engine/system/causal.py` — 15 tests, `causes_tree`, `effects_tree`, `causes_strip`, `causal_trace`.
-- `src/cognitive_engine/system/feedback.py` — 8 tests, `detect_feedback_loops`, `loops_for_variable`.
-- `src/cognitive_engine/system/optimization.py` — `lp_minimize`, `calibrate`, `optimize`, 12 tests.
-- `src/cognitive_engine/system/agent.py` — `AgentInstance`, `ABMEngine`, `_eval_condition`.
-- `src/cognitive_engine/system/des.py` — `DESClock`, `EventQueue`, `Queue`, `Resource`, `DESEngine`, `QueueStats`, `ResourceStats`.
-- `src/cognitive_engine/system/emergent.py` — `EmergentProperty`, `Condition`, `Effect`, `run_consistency_checks`.
-- `src/cognitive_engine/system/equations.py` — `rk4_step()`, `euler_step()`.
-- `src/cognitive_engine/system/__main__.py` — CLI: simulate, validate, list.
-- `src/cognitive_engine/system/scenario.py` — `ScenarioDef`, `ScenarioResult`, `ScenarioComparison` with comparison/deviation/tornado/summary.
+- `src/dynafx/system/dsl.py` — main DSL: parser, expression AST, `_replace_smooths()` with ExprNode, `_build_system()` with `CompiledSystem` cache, `_compile_system()`, `SysdModel`, `SysdModelResult`. Submodel support: `SubmodelDef`, `IncludeDef`, `_expand_includes()`.
+- `src/dynafx/system/units.py` — `Unit`, `UnitRegistry`, `UnitChecker`, 40 tests.
+- `src/dynafx/system/causal.py` — 15 tests, `causes_tree`, `effects_tree`, `causes_strip`, `causal_trace`.
+- `src/dynafx/system/feedback.py` — 8 tests, `detect_feedback_loops`, `loops_for_variable`.
+- `src/dynafx/system/optimization.py` — `lp_minimize`, `calibrate`, `optimize`, 12 tests.
+- `src/dynafx/system/agent.py` — `AgentInstance`, `ABMEngine`, `_eval_condition`.
+- `src/dynafx/system/des.py` — `DESClock`, `EventQueue`, `Queue`, `Resource`, `DESEngine`, `QueueStats`, `ResourceStats`.
+- `src/dynafx/system/emergent.py` — `EmergentProperty`, `Condition`, `Effect`, `run_consistency_checks`.
+- `src/dynafx/system/equations.py` — `rk4_step()`, `euler_step()`.
+- `src/dynafx/system/__main__.py` — CLI: simulate, validate, list.
+- `src/dynafx/system/__init__.py` — SD public API: exports SysdModel, parse_sysd, causal_trace, detect_feedback_loops, etc.
+- `src/dynafx/system/scenario.py` — `ScenarioDef`, `ScenarioResult`, `ScenarioComparison` with comparison/deviation/tornado/summary.
 
-- `src/cognitive_engine/system/vensim.py` — Vensim `.mdl` import.
-- `src/cognitive_engine/system/ontology.py` — SD ontology.
-- `src/cognitive_engine/sl/` — SL package: `operators.py`, `validation.py`, `parameters.py`.
-- `src/cognitive_engine/reason/evidence.py` — `ConsensusLevel`, `PairwiseAgreement`, `ClaimAssessment`, `EvidenceMatrix`, `EvidenceMatrixResult`. L1-distance agreement, cumulative fusion consensus classification.
-- `src/cognitive_engine/reason/fusion.py` — `cumulative_fusion()`, `consensus_compromise()`, `classify_fusion_situation()`, `consensus_to_fusion_situation()`.
-- `src/cognitive_engine/templates/__init__.py` — exports `SignalChain`.
-- `src/cognitive_engine/templates/signal_chain.py` — `SignalChain` class: factory that builds a `SysdModel` for leading-indicator → outcome pattern. Parameters: trace_expr, detection_delay (list for multi-hop), decision_lag, outcome_threshold, outcome_sensitivity, threshold_direction, has_feedback, has_tracking.
+- `src/dynafx/system/vensim.py` — Vensim `.mdl` import.
+- `src/dynafx/system/ontology.py` — SD ontology.
+- `src/dynafx/sl/` — SL package: `operators.py`, `validation.py`, `parameters.py`.
+- `src/dynafx/reason/evidence.py` — `ConsensusLevel`, `PairwiseAgreement`, `ClaimAssessment`, `EvidenceMatrix`, `EvidenceMatrixResult`. L1-distance agreement, cumulative fusion consensus classification.
+- `src/dynafx/reason/fusion.py` — `cumulative_fusion()`, `consensus_compromise()`, `classify_fusion_situation()`, `consensus_to_fusion_situation()`.
+- `src/dynafx/templates/__init__.py` — exports `SignalChain`.
+- `src/dynafx/templates/signal_chain.py` — `SignalChain` class: factory that builds a `SysdModel` for leading-indicator → outcome pattern. Parameters: trace_expr, detection_delay (list for multi-hop), decision_lag, outcome_threshold, outcome_sensitivity, threshold_direction, has_feedback, has_tracking. `SignalChain.build(...)` is the canonical constructor.
 - `templates/signal_chain.sysd` — Reference `.sysd` template documenting the signal chain structure for DSL-side use.
 - `models/saas_churn_signal.sysd` — SaaS churn signal chain, dt=0.25, 43-day lead time.
+- `models/telecom_signal_study.sysd` — Telecom SINR-based churn model with closed-loop power control, SNR/packet scaling, fade dynamics.
 - `examples/saas_churn_signal.py` — SaaS churn demo with 5 scenarios, 8-param sensitivity, signal lead time.
 - `examples/signal_showcase.py` — All 9 leading indicator domains built with SignalChain, analytical lead times (18-111 days).
-- `src/cognitive_engine/kb/model.py` — RDF data model: `RDFNode`, `NamedNode`, `BlankNode`, `Literal`, `Triple`, `TriplePattern`, XSD types, RDF/RDFS/OWL namespace constants. 41 tests in `tests/test_kb_model.py`.
-- `src/cognitive_engine/kb/store.py` — `TripleStore` with SPO/POS/OSP nested-indices, named graphs, dedup by max-belief opinion, pattern matching for all 8 patterns, graph isolation/copy/removal. 40 tests in `tests/test_kb_store.py`.
-- `src/cognitive_engine/kb/turtle.py` — Turtle/N-Triples tokenizer, recursive descent parser, serializer. Supports @prefix/@base, a, all literal types, blank nodes, ; and , grouping, comments, base IRI resolution, empty-prefix PNAME_LN. 40 tests in `tests/test_kb_turtle.py`.
-- `src/cognitive_engine/kb/inference.py` — `Rule`, `Var`, `InferencePattern`, `RuleEngine` (forward-chaining), `rdfs_rules()` (7 rules), `owl_rl_rules()` (4 rules), `propagate_opinion()` (min/product/average). 53 tests in `tests/test_kb_inference.py`.
-- `src/cognitive_engine/kb/confidence.py` — `fuse_graphs()`, `grade_query()`, `argumentative_filter()`. 30 tests in `tests/test_kb_confidence.py`.
-- `src/cognitive_engine/reason/argumentation.py` — `Argument`, `Attack`, `AttackType`, `SupportType`, `ArgumentationFramework` (grounded/preferred semantics), `build_framework()` (rebut/undermine/undercut attacks from contradictory claims, low-belief triples, source reliability). 27 tests in `tests/test_argumentation.py`.
-- `src/cognitive_engine/reason/kbt.py` — `KBTResult`, `compute_kbt()` EM algorithm for source reliability scoring. Writes `prov:reliability` to `meta` graph. 14 tests.
+- `examples/telecom_signal_study.py` — Telecom signal study with 11-page FPDF report, 5 scenarios, causal tracing, sensitivity.
+- `src/dynafx/kb/model.py` — RDF data model: `RDFNode`, `NamedNode`, `BlankNode`, `Literal`, `Triple`, `TriplePattern`, XSD types, RDF/RDFS/OWL namespace constants. 41 tests in `tests/test_kb_model.py`.
+- `src/dynafx/kb/store.py` — `TripleStore` with SPO/POS/OSP nested-indices, named graphs, dedup by max-belief opinion, pattern matching for all 8 patterns, graph isolation/copy/removal. 40 tests in `tests/test_kb_store.py`.
+- `src/dynafx/kb/turtle.py` — Turtle/N-Triples tokenizer, recursive descent parser, serializer. Supports @prefix/@base, a, all literal types, blank nodes, ; and , grouping, comments, base IRI resolution, empty-prefix PNAME_LN. 40 tests in `tests/test_kb_turtle.py`.
+- `src/dynafx/kb/inference.py` — `Rule`, `Var`, `InferencePattern`, `RuleEngine` (forward-chaining), `rdfs_rules()` (7 rules), `owl_rl_rules()` (4 rules), `propagate_opinion()` (min/product/average). 53 tests in `tests/test_kb_inference.py`.
+- `src/dynafx/kb/confidence.py` — `fuse_graphs()`, `grade_query()`, `argumentative_filter()`. 30 tests in `tests/test_kb_confidence.py`.
+- `src/dynafx/reason/argumentation.py` — `Argument`, `Attack`, `AttackType`, `SupportType`, `ArgumentationFramework` (grounded/preferred semantics), `build_framework()` (rebut/undermine/undercut attacks from contradictory claims, low-belief triples, source reliability). 27 tests in `tests/test_argumentation.py`.
+- `src/dynafx/reason/kbt.py` — `KBTResult`, `compute_kbt()` EM algorithm for source reliability scoring. Writes `prov:reliability` to `meta` graph. 14 tests.
 - `tests/test_kbt.py` — 14 tests for KBT engine.
 - `examples/argumentation_showcase.py` — Full pipeline: Turtle → named graphs → RDFS inference → argumentation filter → SL fusion → query grading. Source reliability scored by KBT.
 - `tests/test_evidence_matrix.py` — 27 tests for EvidenceMatrix.

@@ -10,10 +10,10 @@ import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 os.environ.setdefault('TMPDIR', '/tmp')
 
-from cognitive_engine.system.dsl import parse_sysd_file
-from cognitive_engine.system.feedback import detect_feedback_loops
-from cognitive_engine.system.causal import causal_trace
-from cognitive_engine.system.units import UnitChecker
+from dynafx.system.dsl import parse_sysd_file
+from dynafx.system.feedback import detect_feedback_loops
+from dynafx.system.causal import causal_trace
+from dynafx.system.units import UnitChecker
 
 
 def main():

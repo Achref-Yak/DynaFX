@@ -32,7 +32,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from fpdf import FPDF
 
-from cognitive_engine.system.dsl import parse_sysd_file
+from dynafx.system.dsl import parse_sysd_file
 
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "models", "logistics_fleet.sysd")
 

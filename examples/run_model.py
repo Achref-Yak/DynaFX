@@ -3,7 +3,7 @@
 import sys
 from pathlib import Path
 
-from cognitive_engine.system.dsl import parse_sysd
+from dynafx.system.dsl import parse_sysd
 
 
 def main():

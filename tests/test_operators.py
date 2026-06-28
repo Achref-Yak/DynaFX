@@ -3,12 +3,12 @@
 import pytest
 from uuid import uuid4
 
-from cognitive_engine.core.concept import (
+from dynafx.core.concept import (
     ConceptDef,
     ConceptRegistry,
     TemporalSemantics,
 )
-from cognitive_engine.core.models import (
+from dynafx.core.models import (
     BfoCategory,
     Edge,
     EdgeType,
@@ -17,10 +17,10 @@ from cognitive_engine.core.models import (
     NodeType,
     Opinion,
 )
-from cognitive_engine.core.operator import Operator
-from cognitive_engine.core.pipeline import Pipeline
-from cognitive_engine.core.schema import Schema, merge_schemas
-from cognitive_engine.core.state import State, StateDelta
+from dynafx.core.operator import Operator
+from dynafx.core.pipeline import Pipeline
+from dynafx.core.schema import Schema, merge_schemas
+from dynafx.core.state import State, StateDelta
 
 
 # ============================================================
@@ -261,8 +261,8 @@ class TestOperators:
         return State(graph=graph, metadata={"text": text})
 
     def test_schema_operator(self):
-        from cognitive_engine.operators.schema import SchemaOperator
-        from cognitive_engine.schemas.research import RESEARCH_SCHEMA
+        from dynafx.operators.schema import SchemaOperator
+        from dynafx.schemas.research import RESEARCH_SCHEMA
         op = SchemaOperator()
         state = self._make_state()
         state.graph.nodes[uuid4()] = Node(text="test", type=NodeType.EVIDENCE)
@@ -270,14 +270,14 @@ class TestOperators:
         assert result.metadata["schema_applied"] == "research"
 
     def test_graph_operator(self):
-        from cognitive_engine.operators.graph import GraphOperator
+        from dynafx.operators.graph import GraphOperator
         op = GraphOperator()
         state = self._make_state()
         result = op(state)
         assert len(result.history) == 1
 
     def test_propagate_operator(self):
-        from cognitive_engine.operators.propagate import PropagateOperator
+        from dynafx.operators.propagate import PropagateOperator
         op = PropagateOperator()
         state = self._make_state()
         state.graph.nodes[uuid4()] = Node(text="test", type=NodeType.CLAIM)
@@ -285,7 +285,7 @@ class TestOperators:
         assert "beliefs" in result.metadata
 
     def test_constraint_operator(self):
-        from cognitive_engine.operators.constraint import ConstraintOperator
+        from dynafx.operators.constraint import ConstraintOperator
         op = ConstraintOperator()
         state = self._make_state()
         state.graph.nodes[uuid4()] = Node(text="test", type=NodeType.CLAIM)
@@ -293,7 +293,7 @@ class TestOperators:
         assert "constraint_beliefs" in result.metadata
 
     def test_attention_operator(self):
-        from cognitive_engine.operators.attention import AttentionOperator
+        from dynafx.operators.attention import AttentionOperator
         op = AttentionOperator()
         state = self._make_state()
         n1 = Node(text="claim", type=NodeType.CLAIM, opinion=(0.8, 0.1, 0.1, 0.5))
@@ -304,7 +304,7 @@ class TestOperators:
         assert len(result.graph.nodes) == 1
 
     def test_attention_threshold(self):
-        from cognitive_engine.operators.attention import AttentionOperator
+        from dynafx.operators.attention import AttentionOperator
         op = AttentionOperator()
         state = self._make_state()
         n1 = Node(text="strong", type=NodeType.CLAIM, opinion=(0.9, 0.05, 0.05, 0.5))
@@ -316,7 +316,7 @@ class TestOperators:
         assert list(result.graph.nodes.values())[0].text == "strong"
 
     def test_compress_operator(self):
-        from cognitive_engine.operators.compress import CompressOperator
+        from dynafx.operators.compress import CompressOperator
         op = CompressOperator()
         state = self._make_state()
         n1 = Node(text="root", type=NodeType.CLAIM, opinion=(0.9, 0.05, 0.05, 0.5))
@@ -330,14 +330,14 @@ class TestOperators:
         assert "compression_summary" in result.metadata
 
     def test_update_operator(self):
-        from cognitive_engine.operators.update import UpdateOperator
+        from dynafx.operators.update import UpdateOperator
         op = UpdateOperator()
         state = self._make_state()
         result = op(state, description="test update")
         assert len(result.history) == 1
 
     def test_merge_operator(self):
-        from cognitive_engine.operators.merge import MergeOperator
+        from dynafx.operators.merge import MergeOperator
         op = MergeOperator()
         state = self._make_state()
         state.graph.nodes[uuid4()] = Node(text="node1", type=NodeType.CLAIM)
@@ -350,7 +350,7 @@ class TestOperators:
         assert len(result.graph.nodes) == 2  # dedup
 
     def test_temporal_operator(self):
-        from cognitive_engine.operators.temporal import TemporalOperator
+        from dynafx.operators.temporal import TemporalOperator
         op = TemporalOperator()
         state = self._make_state()
         state.record("prev", "previous state")
@@ -358,7 +358,7 @@ class TestOperators:
         assert "temporal" in result.metadata
 
     def test_simulate_operator(self):
-        from cognitive_engine.operators.simulate import SimulateOperator
+        from dynafx.operators.simulate import SimulateOperator
         op = SimulateOperator()
         state = self._make_state()
         nid = uuid4()
@@ -367,7 +367,7 @@ class TestOperators:
         assert "simulation" in result.metadata
 
     def test_relate_operator_contradicts(self):
-        from cognitive_engine.operators.relate import RelateOperator
+        from dynafx.operators.relate import RelateOperator
         op = RelateOperator()
         state = self._make_state()
         n1 = Node(text="Lease clause 14 requires 60 days notice", type=NodeType.CLAIM)
@@ -382,7 +382,7 @@ class TestOperators:
         )
 
     def test_relate_operator_too_few_nodes(self):
-        from cognitive_engine.operators.relate import RelateOperator
+        from dynafx.operators.relate import RelateOperator
         op = RelateOperator()
         state = self._make_state()
         state.graph.nodes[uuid4()] = Node(text="only one node", type=NodeType.CLAIM)
@@ -415,7 +415,7 @@ class TestOperators:
         return state
 
     def test_relate_temporal_axiom_supersede_rebuts(self):
-        from cognitive_engine.operators.relate import RelateOperator
+        from dynafx.operators.relate import RelateOperator
         op = RelateOperator()
         state = self._make_temporal_test_state("PERSON_NAME", TemporalSemantics.SUPERSEEDE_WITH_HISTORY, "single")
         result = op(state, max_edges_per_node=5)
@@ -428,7 +428,7 @@ class TestOperators:
         )
 
     def test_relate_temporal_axiom_append_only_suppressed(self):
-        from cognitive_engine.operators.relate import RelateOperator
+        from dynafx.operators.relate import RelateOperator
         op = RelateOperator()
         state = self._make_temporal_test_state("TEMPERATURE", TemporalSemantics.APPEND_ONLY, "multiple")
         result = op(state, max_edges_per_node=5)
@@ -439,7 +439,7 @@ class TestOperators:
         )
 
     def test_relate_temporal_axiom_competing_preserved(self):
-        from cognitive_engine.operators.relate import RelateOperator
+        from dynafx.operators.relate import RelateOperator
         op = RelateOperator()
         state = self._make_temporal_test_state("CLAIM", TemporalSemantics.MUTATE_IN_PLACE, "multiple")
         result = op(state, max_edges_per_node=5)
@@ -451,7 +451,7 @@ class TestOperators:
         )
 
     def test_relate_temporal_axiom_different_concepts(self):
-        from cognitive_engine.operators.relate import RelateOperator
+        from dynafx.operators.relate import RelateOperator
         op = RelateOperator()
         state = self._make_temporal_test_state("TEMPERATURE", TemporalSemantics.APPEND_ONLY, "multiple")
         # Override second node with a different concept
@@ -485,7 +485,7 @@ class TestOperators:
         return state
 
     def test_relate_same_parent_produces_rebuts(self):
-        from cognitive_engine.operators.relate import RelateOperator
+        from dynafx.operators.relate import RelateOperator
         op = RelateOperator()
         state = self._make_same_parent_state()
         result = op(state, max_edges_per_node=5)
@@ -512,7 +512,7 @@ class TestOperators:
         n2.metadata["concept"] = "CON_B"
         state.graph.nodes[n1.id] = n1
         state.graph.nodes[n2.id] = n2
-        from cognitive_engine.operators.relate import RelateOperator
+        from dynafx.operators.relate import RelateOperator
         op = RelateOperator()
         result = op(state, max_edges_per_node=5)
         rebuts = [e for e in result.graph.edges.values() if e.type == EdgeType.REBUTS]
@@ -522,7 +522,7 @@ class TestOperators:
 
     def _make_bfo_test_state(self):
         """Two ICE nodes with a CONTRADICTS edge, plus a PROCESS node to test BFO filter."""
-        from cognitive_engine.core.models import BfoCategory
+        from dynafx.core.models import BfoCategory
         state = State(graph=Graph())
         n1 = Node(id=uuid4(), text="claim a", type=NodeType.CLAIM,
                   bfo_category=BfoCategory.INFORMATION_CONTENT_ENTITY)
@@ -536,8 +536,8 @@ class TestOperators:
         return state
 
     def test_bfo_filter_ice_to_ice_allowed(self):
-        from cognitive_engine.operators.relate import RelateOperator
-        from cognitive_engine.core.models import EDGE_BFO_CONSTRAINTS
+        from dynafx.operators.relate import RelateOperator
+        from dynafx.core.models import EDGE_BFO_CONSTRAINTS
         op = RelateOperator()
         allowed, _ = EDGE_BFO_CONSTRAINTS[EdgeType.INFERS]
         assert BfoCategory.INFORMATION_CONTENT_ENTITY in allowed
@@ -548,14 +548,14 @@ class TestOperators:
         assert op._check_bfo_compatibility(n1, n2, EdgeType.INFERS) is True
 
     def test_bfo_filter_process_to_ice_blocked(self):
-        from cognitive_engine.operators.relate import RelateOperator
+        from dynafx.operators.relate import RelateOperator
         op = RelateOperator()
         n1 = Node(bfo_category=BfoCategory.PROCESS)
         n2 = Node(bfo_category=BfoCategory.INFORMATION_CONTENT_ENTITY)
         assert op._check_bfo_compatibility(n1, n2, EdgeType.PART_OF) is False
 
     def test_bfo_filter_none_bfo_allowed(self):
-        from cognitive_engine.operators.relate import RelateOperator
+        from dynafx.operators.relate import RelateOperator
         op = RelateOperator()
         n1 = Node(bfo_category=None)
         n2 = Node(bfo_category=None)
@@ -571,22 +571,22 @@ class TestSchemas:
     """Test domain schemas."""
 
     def test_research_schema(self):
-        from cognitive_engine.schemas.research import RESEARCH_SCHEMA
+        from dynafx.schemas.research import RESEARCH_SCHEMA
         assert RESEARCH_SCHEMA.name == "research"
         assert RESEARCH_SCHEMA.merge_strategy == "average"
 
     def test_debate_schema(self):
-        from cognitive_engine.schemas.debate import DEBATE_SCHEMA
+        from dynafx.schemas.debate import DEBATE_SCHEMA
         assert DEBATE_SCHEMA.name == "debate"
         assert DEBATE_SCHEMA.merge_strategy == "keep_both"
 
     def test_get_schema(self):
-        from cognitive_engine.schemas import get_schema
+        from dynafx.schemas import get_schema
         schema = get_schema("research")
         assert schema.name == "research"
 
     def test_get_unknown_schema(self):
-        from cognitive_engine.schemas import get_schema
+        from dynafx.schemas import get_schema
         with pytest.raises(ValueError):
             get_schema("unknown")
 

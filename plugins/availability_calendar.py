@@ -18,8 +18,8 @@ within the window and 0.0 otherwise.
 from datetime import datetime, timezone
 from typing import Any
 
-from cognitive_engine.registry import register_builtin, register_resource_hook
-from cognitive_engine.system.des import Resource
+from dynafx.registry import register_builtin, register_resource_hook
+from dynafx.system.des import Resource
 
 
 class ResourceCalendar:

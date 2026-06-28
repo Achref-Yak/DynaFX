@@ -1,8 +1,8 @@
 """Tests for causal tracing: causes_tree, effects_tree, causes_strip, causal_trace."""
 
 import pytest
-from cognitive_engine.system.dsl import parse_sysd
-from cognitive_engine.system.causal import (
+from dynafx.system.dsl import parse_sysd
+from dynafx.system.causal import (
     causes_tree,
     effects_tree,
     causes_strip,

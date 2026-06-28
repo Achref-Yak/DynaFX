@@ -2,11 +2,11 @@
 
 import pytest
 
-from cognitive_engine.core.models import Opinion
-from cognitive_engine.kb.model import Literal, NamedNode, Triple, TriplePattern
-from cognitive_engine.kb.store import TripleStore
-from cognitive_engine.reason.argumentation import PROV_NS, SOURCE_RELIABILITY
-from cognitive_engine.reason.kbt import KBTResult, compute_kbt
+from dynafx.core.models import Opinion
+from dynafx.kb.model import Literal, NamedNode, Triple, TriplePattern
+from dynafx.kb.store import TripleStore
+from dynafx.reason.argumentation import PROV_NS, SOURCE_RELIABILITY
+from dynafx.reason.kbt import KBTResult, compute_kbt
 
 EX = "http://example.org/"
 acme = NamedNode(f"{EX}Acme")
@@ -212,7 +212,7 @@ class TestKBTIntegration:
     def test_kbt_feeds_argumentation(self):
         """Full pipeline: KBT → build_framework reads reliability
         → reliability values are accessible."""
-        from cognitive_engine.reason.argumentation import (
+        from dynafx.reason.argumentation import (
             AttackType,
             build_framework,
         )

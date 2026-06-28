@@ -1,9 +1,9 @@
 """Tests for ABM (Agent-Based Modeling) engine and DSL integration."""
 
-from cognitive_engine.system.dsl import (
+from dynafx.system.dsl import (
     parse_sysd, AgentDef, AgentPropDef, AgentRuleDef,
 )
-from cognitive_engine.system.agent import (
+from dynafx.system.agent import (
     AgentInstance, ABMEngine, _eval_condition, _eval_effect,
 )
 

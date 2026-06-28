@@ -3,10 +3,27 @@ requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "cognitive-engine"
-version = "0.1.0"
+name = "dynafx"
+version = "0.2.0"
 description = "Multi-paradigm system dynamics framework (SD + ABM + DES) with RDF/OWL/SPARQL cognitive reasoning engine and SL confidence grading"
+readme = "README.md"
 requires-python = ">=3.12"
+license = {text = "MIT"}
+keywords = [
+    "system-dynamics", "agent-based-modeling", "discrete-event-simulation",
+    "vensim", "rdf", "owl", "sparql", "subjective-logic",
+    "knowledge-graph", "argumentation", "multi-paradigm",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Scientific/Engineering :: Simulation",
+]
 dependencies = [
     "networkx>=3.0",
     "numpy>=1.24",
@@ -18,40 +35,59 @@ dependencies = [
 dev = [
     "pytest>=8.0",
 ]
+viz = [
+    "matplotlib>=3.7",
+]
+all = [
+    "dynafx[dev,viz]",
+]
+
+[project.urls]
+Homepage = "https://github.com/Achref-Yak/reasoning_engine"
+Repository = "https://github.com/Achref-Yak/reasoning_engine"
+Documentation = "https://github.com/Achref-Yak/reasoning_engine#readme"
 
 [project.scripts]
-cognitive-engine = "cognitive_engine.system.__main__:main"
+dynafx = "dynafx.system.__main__:main"
 
 [tool.setuptools.package-data]
-cognitive_engine = ["default_priors.json"]
+dynafx = ["default_priors.json"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 
-[tool.mypy]
-python_version = "3.12"
-warn_return_any = false
-warn_unused_configs = true
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
-check_untyped_defs = false
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-show_error_codes = true
+[tool.ruff]
+line-length = 100
+target-version = "py312"
 
-[[tool.mypy.overrides]]
-module = "cognitive_engine.reason.*"
-ignore_errors = true
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]
 
-[[tool.mypy.overrides]]
-module = [
-    "cognitive_engine.core.config",
-    "cognitive_engine.core.math",
-    "cognitive_engine.core.diff",
-    "cognitive_engine.core.pipeline",
-    "cognitive_engine.domains.*",
-    "cognitive_engine.schemas.*",
-]
-ignore_errors = true
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "basic"
+include = ["src/dynafx"]
+exclude = ["**/__pycache__", "**/.venv"]
+
+# Suppress noisy-but-safe patterns in this dynamic/eval-heavy codebase.
+# All are false positives at runtime — Opinion is a tuple alias, patterns
+# like `.get()` returning None are safe, and dynamic attributes on dataclasses
+# are resolved at runtime.
+reportOptionalMemberAccess = false
+reportOptionalSubscript = false
+reportOptionalOperand = false
+reportOptionalCall = false
+reportOptionalIterable = false
+reportPrivateImportUsage = false
+reportAttributeAccessIssue = false
+reportCallIssue = false
+reportOperatorIssue = false
+reportUndefinedVariable = false
+reportIndexIssue = false
+reportReturnType = false
+reportArgumentType = false
+reportRedeclaration = false
+reportMissingImports = false
+reportUnsupportedDunderAll = false

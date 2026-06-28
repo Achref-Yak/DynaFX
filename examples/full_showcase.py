@@ -33,11 +33,11 @@ import tempfile
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 os.environ.setdefault("TMPDIR", "/tmp")
 
-from cognitive_engine.system.dsl import parse_sysd_file, parse_sysd
-from cognitive_engine.system.units import UnitChecker
-from cognitive_engine.system.causal import causal_trace, causes_tree, effects_tree
-from cognitive_engine.system.feedback import detect_feedback_loops, loops_for_variable
-from cognitive_engine.system.optimization import calibrate, lp_minimize
+from dynafx.system.dsl import parse_sysd_file, parse_sysd
+from dynafx.system.units import UnitChecker
+from dynafx.system.causal import causal_trace, causes_tree, effects_tree
+from dynafx.system.feedback import detect_feedback_loops, loops_for_variable
+from dynafx.system.optimization import calibrate, lp_minimize
 
 
 def section(title: str) -> None:

@@ -15,8 +15,8 @@ import sys
 
 os.environ["TQDM_DISABLE"] = "1"
 
-from cognitive_engine.core.decomposer import SystemDecomposer
-from cognitive_engine.operators.detect_emergence import detect_feedback_loops
+from dynafx.core.decomposer import SystemDecomposer
+from dynafx.operators.detect_emergence import detect_feedback_loops
 
 
 def build_pipeline() -> dict:

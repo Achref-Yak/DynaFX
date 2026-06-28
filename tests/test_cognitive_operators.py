@@ -3,14 +3,14 @@
 import pytest
 from uuid import uuid4
 
-from cognitive_engine.core.models import (
+from dynafx.core.models import (
     Edge, EdgeType, Graph, Node, NodeType, Span,
 )
-from cognitive_engine.core.state import State
-from cognitive_engine.core.embeddings import EmbeddingModel
-from cognitive_engine.operators.abduce import AbductionOperator, Hypothesis
-from cognitive_engine.operators.induce import InductionOperator, InductionRule
-from cognitive_engine.operators.analogy import AnalogyOperator, AnalogyMapping, InferredEdge
+from dynafx.core.state import State
+from dynafx.core.embeddings import EmbeddingModel
+from dynafx.operators.abduce import AbductionOperator, Hypothesis
+from dynafx.operators.induce import InductionOperator, InductionRule
+from dynafx.operators.analogy import AnalogyOperator, AnalogyMapping, InferredEdge
 
 
 # ── Helper functions ──────────────────────────────────────────────

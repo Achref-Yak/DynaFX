@@ -2,8 +2,8 @@
 
 import pytest
 
-from cognitive_engine.core.models import Opinion
-from cognitive_engine.kb.inference import (
+from dynafx.core.models import Opinion
+from dynafx.kb.inference import (
     OWL_FUNCTIONAL_PROPERTY,
     OWL_INVERSE_OF,
     OWL_SAME_AS,
@@ -25,8 +25,8 @@ from cognitive_engine.kb.inference import (
     propagate_opinion,
     rdfs_rules,
 )
-from cognitive_engine.kb.model import BlankNode, Literal, NamedNode, Triple, TriplePattern
-from cognitive_engine.kb.store import TripleStore
+from dynafx.kb.model import BlankNode, Literal, NamedNode, Triple, TriplePattern
+from dynafx.kb.store import TripleStore
 
 
 # ── Var ──────────────────────────────────────────────────────────

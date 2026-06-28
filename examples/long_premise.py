@@ -2,7 +2,7 @@
 
 Run:  python examples/long_premise.py | python -m json.tool
 """
-from cognitive_engine import loom
+from dynafx import loom
 
 PREMISE = """\
 I am a 35-year-old software engineer named Alice, and I have been working at Contoso Corp \

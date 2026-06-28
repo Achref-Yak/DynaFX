@@ -1,8 +1,8 @@
 """Tests for SimulationController and BatchRunner."""
 import pytest
 import os
-from cognitive_engine.system.dsl import parse_sysd
-from cognitive_engine.system.controller import (
+from dynafx.system.dsl import parse_sysd
+from dynafx.system.controller import (
     SimulationController,
     batch_run,
 )

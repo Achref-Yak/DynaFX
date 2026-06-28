@@ -3,7 +3,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from cognitive_engine.core.models import (
+from dynafx.core.models import (
     Graph, Node, NodeType, Edge, EdgeType, ReasoningMode,
     Entity, WorldRelation, Interpretation, TypedEdge,
     Span, ConversationTree, Opinion,

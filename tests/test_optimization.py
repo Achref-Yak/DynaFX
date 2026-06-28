@@ -2,8 +2,8 @@
 
 import pytest
 import numpy as np
-from cognitive_engine.system.dsl import parse_sysd
-from cognitive_engine.system.optimization import (
+from dynafx.system.dsl import parse_sysd
+from dynafx.system.optimization import (
     lp_minimize,
     lp_maximize,
     calibrate,

@@ -18,19 +18,19 @@ import matplotlib.pyplot as plt
 import numpy as np
 from fpdf import FPDF
 
-from cognitive_engine.core.models import Opinion
-from cognitive_engine.kb.model import (
+from dynafx.core.models import Opinion
+from dynafx.kb.model import (
     Literal, NamedNode, Triple, TriplePattern,
 )
-from cognitive_engine.kb.store import TripleStore
-from cognitive_engine.kb.turtle import parse_turtle
-from cognitive_engine.kb.sparql import evaluate, parse_sparql
-from cognitive_engine.kb.inference import RuleEngine, rdfs_rules
-from cognitive_engine.kb.confidence import fuse_graphs, grade_query
-from cognitive_engine.reason.argumentation import AttackType, build_framework
-from cognitive_engine.reason.evidence import EvidenceMatrix
-from cognitive_engine.reason.fusion import cumulative_fusion
-from cognitive_engine.reason.kbt import compute_kbt
+from dynafx.kb.store import TripleStore
+from dynafx.kb.turtle import parse_turtle
+from dynafx.kb.sparql import evaluate, parse_sparql
+from dynafx.kb.inference import RuleEngine, rdfs_rules
+from dynafx.kb.confidence import fuse_graphs, grade_query
+from dynafx.reason.argumentation import AttackType, build_framework
+from dynafx.reason.evidence import EvidenceMatrix
+from dynafx.reason.fusion import cumulative_fusion
+from dynafx.reason.kbt import compute_kbt
 
 EX = "http://example.org/"
 OUTPUT_PDF = "reasoning_insights.pdf"
@@ -170,7 +170,7 @@ class LoRPDF(FPDF):
 
     def header(self):
         self.set_font("Helvetica", "I", 8)
-        self.cell(0, 6, self._s("Cognitive Engine — Line of Reasoning"), align="L")
+        self.cell(0, 6, self._s("DynaFX — Line of Reasoning"), align="L")
         self.ln(8)
 
     def footer(self):

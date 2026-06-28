@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from cognitive_engine.core.models import EvidenceCounts, Graph, Node, Edge, NodeType, EdgeType
-from cognitive_engine.reason.evidence import (
+from dynafx.core.models import EvidenceCounts, Graph, Node, Edge, NodeType, EdgeType
+from dynafx.reason.evidence import (
     CorpusResult,
     mean_opinion,
     mean_opinion_pair,

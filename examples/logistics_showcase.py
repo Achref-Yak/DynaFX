@@ -14,9 +14,9 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from cognitive_engine.system.dsl import parse_sysd_file, parse_sysd
-from cognitive_engine.system.des import DESEngine, Queue as DesQueue, Resource
-from cognitive_engine.registry import clear_all
+from dynafx.system.dsl import parse_sysd_file, parse_sysd
+from dynafx.system.des import DESEngine, Queue as DesQueue, Resource
+from dynafx.registry import clear_all
 
 # ── Activate plugins ─────────────────────────────────────────────
 import plugins.availability_calendar

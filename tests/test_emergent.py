@@ -1,8 +1,8 @@
 """Tests for emergent properties and stock-flow consistency checker."""
 
 import pytest
-from cognitive_engine.system.dsl import parse_sysd, SysdModel, StockDef, FlowDef, AuxDef
-from cognitive_engine.system.emergent import (
+from dynafx.system.dsl import parse_sysd, SysdModel, StockDef, FlowDef, AuxDef
+from dynafx.system.emergent import (
     EmergentProperty,
     Condition,
     Effect,

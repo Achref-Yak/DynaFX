@@ -2,7 +2,7 @@
 // Signal Chain Template — reusable leading-indicator → outcome pattern
 // ─────────────────────────────────────────────────────────────────
 //
-// The Python equivalent is SignalChain in cognitive_engine.templates:
+// The Python equivalent is SignalChain in dynafx.templates:
 //
 //     model = SignalChain(name='...', trace_expr='...', ...)
 //

@@ -3,12 +3,12 @@
 import pytest
 from uuid import uuid4
 
-from cognitive_engine.core.models import Graph, Node, NodeType
-from cognitive_engine.core.state import State
-from cognitive_engine.core.embeddings import EmbeddingModel
-from cognitive_engine.operators.compare import CompareOperator
-from cognitive_engine.operators.align import AlignOperator
-from cognitive_engine.operators.attention import AttentionOperator
+from dynafx.core.models import Graph, Node, NodeType
+from dynafx.core.state import State
+from dynafx.core.embeddings import EmbeddingModel
+from dynafx.operators.compare import CompareOperator
+from dynafx.operators.align import AlignOperator
+from dynafx.operators.attention import AttentionOperator
 
 
 

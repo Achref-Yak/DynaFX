@@ -12,8 +12,8 @@ removes Charlie's contradicted claims before fusion, producing cleaner
 results.
 """
 
-from cognitive_engine.core.models import Opinion
-from cognitive_engine.kb import (
+from dynafx.core.models import Opinion
+from dynafx.kb import (
     Literal,
     NamedNode,
     Triple,
@@ -31,7 +31,7 @@ from cognitive_engine.kb import (
     rdfs_rules,
     serialize_turtle,
 )
-from cognitive_engine.reason.argumentation import (
+from dynafx.reason.argumentation import (
     PROV_NS,
     SOURCE_RELIABILITY,
     AttackType,

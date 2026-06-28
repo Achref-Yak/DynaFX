@@ -1,7 +1,7 @@
 """Tests for Discrete Event Simulation (DES) engine."""
 
 import pytest
-from cognitive_engine.system.des import (
+from dynafx.system.des import (
     Event, EventQueue, Queue, Resource, DESEngine,
     QueueStats, ResourceStats, DESClock,
     Entity, Order, Shipment,
@@ -308,7 +308,7 @@ class TestShipment:
         assert s.items[0].sku == "X"
 
     def test_shipment_entity_in_queue(self):
-        from cognitive_engine.system.des import Queue
+        from dynafx.system.des import Queue
         q = Queue("dock", capacity=10)
         s = Shipment(id=1, source="A", destination="B")
         assert q.enqueue(s, t=0.0)
@@ -778,7 +778,7 @@ class TestDESEngine:
 
 class TestDesDslIntegration:
     def test_des_engine_created_when_queues_defined(self):
-        from cognitive_engine.system.dsl import parse_sysd
+        from dynafx.system.dsl import parse_sysd
         m = parse_sysd(
             'Test\ndt 1\nfrom 0 to 3\n'
             'queue \"Q\": capacity 5\n'
@@ -788,7 +788,7 @@ class TestDesDslIntegration:
         assert "Q" in r.des_engine.queues
 
     def test_des_engine_created_when_resources_defined(self):
-        from cognitive_engine.system.dsl import parse_sysd
+        from dynafx.system.dsl import parse_sysd
         m = parse_sysd(
             'Test\ndt 1\nfrom 0 to 3\n'
             'resource \"Server\": capacity 2\n'
@@ -798,7 +798,7 @@ class TestDesDslIntegration:
         assert "Server" in r.des_engine.resources
 
     def test_no_des_when_no_queues_resources(self):
-        from cognitive_engine.system.dsl import parse_sysd
+        from dynafx.system.dsl import parse_sysd
         m = parse_sysd(
             'Test\ndt 1\nfrom 0 to 3\n'
             'stock "S" = 10\n'
@@ -808,7 +808,7 @@ class TestDesDslIntegration:
         assert r.des_engine is None
 
     def test_des_coexists_with_sd(self):
-        from cognitive_engine.system.dsl import parse_sysd
+        from dynafx.system.dsl import parse_sysd
         m = parse_sysd(
             'Test\ndt 1\nfrom 0 to 5\n'
             'stock "population" = 1000\n'
@@ -823,7 +823,7 @@ class TestDesDslIntegration:
         assert "Server" in r.des_engine.resources
 
     def test_queue_capacity_respected(self):
-        from cognitive_engine.system.dsl import parse_sysd
+        from dynafx.system.dsl import parse_sysd
         m = parse_sysd(
             'Test\ndt 1\nfrom 0 to 3\n'
             'queue \"Q\": capacity 2\n'
@@ -833,7 +833,7 @@ class TestDesDslIntegration:
         assert q.capacity == 2
 
     def test_resource_capacity_respected(self):
-        from cognitive_engine.system.dsl import parse_sysd
+        from dynafx.system.dsl import parse_sysd
         m = parse_sysd(
             'Test\ndt 1\nfrom 0 to 3\n'
             'resource \"R\": capacity 5\n'

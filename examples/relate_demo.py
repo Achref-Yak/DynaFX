@@ -1,8 +1,8 @@
 """Standalone demo of the relate operator.  Run:  python examples/relate_demo.py"""
 import json
-from cognitive_engine.core.models import Graph, Node, NodeType, Opinion, EdgeType
-from cognitive_engine.core.state import State
-from cognitive_engine.operators.relate import RelateOperator
+from dynafx.core.models import Graph, Node, NodeType, Opinion, EdgeType
+from dynafx.core.state import State
+from dynafx.operators.relate import RelateOperator
 
 
 def main():

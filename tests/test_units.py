@@ -6,14 +6,14 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 os.environ.setdefault("TMPDIR", "/tmp")
 
-from cognitive_engine.system.units import (
+from dynafx.system.units import (
     Unit,
     UnitRegistry,
     UnitChecker,
     UnitCheckResult,
     UnitViolation,
 )
-from cognitive_engine.system.dsl import parse_sysd, SysdModel
+from dynafx.system.dsl import parse_sysd, SysdModel
 
 
 # ═══════════════════════════════════════════════════════════════

@@ -29,14 +29,26 @@ input.txt
 input2.txt
 file1.txt
 file2.txt
+output.txt
 
 # IDE
 .vscode/
 .idea/
-*.plan
 
 # OS
 .DS_Store
 Thumbs.db
 
+# Reports, plots, and transient outputs
+*.pdf
+*.png
+*.db
+memory.db
+reports/
+
+# Plans and notes
+plans/
+*.plan
+
+# YAML variants
 *.yaml

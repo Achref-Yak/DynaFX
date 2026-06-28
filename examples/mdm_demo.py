@@ -11,9 +11,9 @@ import json
 import sys
 from collections import defaultdict
 
-from cognitive_engine import loom
-from cognitive_engine.core.models import EdgeType
-from cognitive_engine.mdm.matrix import MultipleDomainMatrix
+from dynafx import loom
+from dynafx.core.models import EdgeType
+from dynafx.mdm.matrix import MultipleDomainMatrix
 
 PREMISE = """\
 Port X handles 60% of container throughput for the region. Due to labor \
@@ -186,7 +186,7 @@ def build_mdm(graph):
 def analyze_dung(graph):
     """Run Dung's argumentation on the graph beliefs."""
     from collections import defaultdict
-    from cognitive_engine.core.math import dung_semantics
+    from dynafx.core.math import dung_semantics
 
     beliefs = {}
     for nid, node in graph.nodes.items():

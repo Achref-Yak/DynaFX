@@ -1,6 +1,6 @@
 import pytest
 
-from cognitive_engine.core.models import (
+from dynafx.core.models import (
     Edge,
     FusionSituation,
     Graph,
@@ -8,14 +8,14 @@ from cognitive_engine.core.models import (
     NodeType,
     Opinion,
 )
-from cognitive_engine.reason.fusion import (
+from dynafx.reason.fusion import (
     classify_fusion_situation,
     consensus_compromise,
     cumulative_fusion,
     trust_transfer,
     weighted_belief_fusion,
 )
-from cognitive_engine.reason.sl_operators import conjunction, disjunction
+from dynafx.reason.sl_operators import conjunction, disjunction
 
 
 class TestConsensusCompromise:
@@ -191,7 +191,7 @@ class TestClassifyFusionSituation:
 
 class TestFusionEdgeToEdge:
     def test_non_conflicting_claims_use_cumulative(self):
-        from cognitive_engine.reason.sl_operators import _fusion_strategy
+        from dynafx.reason.sl_operators import _fusion_strategy
         n1 = Node(type=NodeType.CLAIM)
         n2 = Node(type=NodeType.CLAIM)
         e = Edge(source_id=n1.id, target_id=n2.id)
@@ -209,7 +209,7 @@ class TestFusionEdgeToEdge:
         assert sum(result[:3]) == pytest.approx(1.0)
 
     def test_evidence_to_evidence_uses_cumulative(self):
-        from cognitive_engine.reason.sl_operators import _fusion_strategy
+        from dynafx.reason.sl_operators import _fusion_strategy
         n1 = Node(type=NodeType.EVIDENCE)
         n2 = Node(type=NodeType.EVIDENCE)
         e = Edge(source_id=n1.id, target_id=n2.id)
@@ -227,7 +227,7 @@ class TestFusionEdgeToEdge:
         assert sum(result[:3]) == pytest.approx(1.0)
 
     def test_conflicting_evidence_uses_consensus_compromise(self):
-        from cognitive_engine.reason.sl_operators import _fusion_strategy
+        from dynafx.reason.sl_operators import _fusion_strategy
         n1 = Node(type=NodeType.EVIDENCE)
         n2 = Node(type=NodeType.EVIDENCE)
         e1 = Edge(source_id=n1.id, target_id=n2.id)
@@ -242,7 +242,7 @@ class TestFusionEdgeToEdge:
         assert abs(result[0] - result[1]) < 0.1
 
     def test_non_conflicting_mixed_types_now_uses_cumulative(self):
-        from cognitive_engine.reason.sl_operators import _fusion_strategy
+        from dynafx.reason.sl_operators import _fusion_strategy
         n1 = Node(type=NodeType.AXIOM)
         n2 = Node(type=NodeType.CLAIM)
         e = Edge(source_id=n1.id, target_id=n2.id)

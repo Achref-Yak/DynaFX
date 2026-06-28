@@ -17,30 +17,30 @@ Each pass reveals a different layer of the student's situation:
 from datetime import datetime
 from pathlib import Path
 
-from cognitive_engine.core.models import Opinion
-from cognitive_engine.kb.model import (
+from dynafx.core.models import Opinion
+from dynafx.kb.model import (
     Literal,
     NamedNode,
     Triple,
     TriplePattern,
 )
-from cognitive_engine.kb.store import TripleStore
-from cognitive_engine.kb.turtle import parse_turtle
-from cognitive_engine.kb.inference import RuleEngine, rdfs_rules
-from cognitive_engine.kb.confidence import (
+from dynafx.kb.store import TripleStore
+from dynafx.kb.turtle import parse_turtle
+from dynafx.kb.inference import RuleEngine, rdfs_rules
+from dynafx.kb.confidence import (
     fuse_graphs,
     grade_query,
 )
-from cognitive_engine.kb.sparql import evaluate, parse_sparql
-from cognitive_engine.kb.sparql import Variable as SPARQLVar
-from cognitive_engine.reason.argumentation import (
+from dynafx.kb.sparql import evaluate, parse_sparql
+from dynafx.kb.sparql import Variable as SPARQLVar
+from dynafx.reason.argumentation import (
     AttackType,
     build_framework,
 )
-from cognitive_engine.reason.evidence import ConsensusLevel, EvidenceMatrix
-from cognitive_engine.reason.fusion import cumulative_fusion
-from cognitive_engine.reason.kbt import compute_kbt
-from cognitive_engine.system.dsl import (
+from dynafx.reason.evidence import ConsensusLevel, EvidenceMatrix
+from dynafx.reason.fusion import cumulative_fusion
+from dynafx.reason.kbt import compute_kbt
+from dynafx.system.dsl import (
     AuxDef,
     AgentDef,
     AgentPropDef,

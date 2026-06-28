@@ -1,7 +1,7 @@
 """Tests for Vensim .mdl import."""
 
-from cognitive_engine.system.vensim import parse_mdl
-from cognitive_engine.system.dsl import parse_sysd
+from dynafx.system.vensim import parse_mdl
+from dynafx.system.dsl import parse_sysd
 
 
 SIMPLE_MDL = """Simple SIR|Simple SIR model

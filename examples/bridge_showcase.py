@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from fpdf import FPDF  # fpdf2 (2.8+)
 
-from cognitive_engine.system.dsl import parse_sysd
+from dynafx.system.dsl import parse_sysd
 
 
 # ── Model ─────────────────────────────────────────────────────

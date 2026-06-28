@@ -16,8 +16,8 @@ import numpy as np
 from fpdf import FPDF
 
 sys.path.insert(0, "src")
-from cognitive_engine.system.dsl import parse_sysd
-from cognitive_engine.system.scenario import ScenarioComparison, ScenarioResult
+from dynafx.system.dsl import parse_sysd
+from dynafx.system.scenario import ScenarioComparison, ScenarioResult
 
 # ══════════════════════════════════════════════════════════════
 # Model

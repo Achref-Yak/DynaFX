@@ -2,7 +2,7 @@
 
 import math
 import pytest
-from cognitive_engine.system.dsl import SysdModel, parse_sysd
+from dynafx.system.dsl import SysdModel, parse_sysd
 
 # ── DELAY3 Tests ────────────────────────────────────────────────
 
@@ -25,7 +25,7 @@ model 'Delay3Test'
 
     def test_delay3_creates_three_smooth_stages(self):
         """DELAY3(x, T) should create 3 smooth state variables with delay T/3 each."""
-        from cognitive_engine.system.dsl import _build_system
+        from dynafx.system.dsl import _build_system
         m = parse_sysd("""
 model 'Delay3Test'
   dt 0.5
@@ -126,7 +126,7 @@ model 'DN'
 
     def test_delayn_variable_stages(self):
         """DELAYN with more stages should create more smooth state variables."""
-        from cognitive_engine.system.dsl import _build_system
+        from dynafx.system.dsl import _build_system
         m5 = parse_sysd("""
 model 'D5'
   dt 0.5
@@ -160,7 +160,7 @@ model 'DNConv'
 
     def test_delayn_single_stage_equals_smooth(self):
         """DELAYN with N=1 should create same structure as SMOOTH."""
-        from cognitive_engine.system.dsl import _build_system
+        from dynafx.system.dsl import _build_system
         m_smooth = parse_sysd("""
 model 'Smooth'
   dt 0.5
@@ -229,7 +229,7 @@ model 'DFixed2'
 
     def test_delay_fixed_step_response(self):
         """DELAY_FIXED with step input should produce a delayed step."""
-        from cognitive_engine.system.dsl import _build_system
+        from dynafx.system.dsl import _build_system
         m = parse_sysd("""
 model 'DFixed3'
   dt 0.5
@@ -251,7 +251,7 @@ model 'DFixed3'
 class TestDelayValidation:
     def test_delay3_recognized_in_validation(self):
         """DELAY3 should be recognized as a valid builtin."""
-        from cognitive_engine.system.dsl import _get_builtin_names
+        from dynafx.system.dsl import _get_builtin_names
         builtins = _get_builtin_names()
         assert "DELAY3" in builtins
         assert "DELAYN" in builtins
@@ -278,7 +278,7 @@ model 'D3Valid'
 class TestCONVEY:
     def test_convey_recognized_in_builtins(self):
         """CONVEY should be a recognized builtin name."""
-        from cognitive_engine.system.dsl import _get_builtin_names
+        from dynafx.system.dsl import _get_builtin_names
         assert "CONVEY" in _get_builtin_names()
 
     def test_convey_creates_aux_variable(self):
@@ -292,7 +292,7 @@ model 'ConveyTest'
     + 'in': const_in
     - 'out': CONVEY(const_in, 5)
 """)
-        from cognitive_engine.system.dsl import _build_system
+        from dynafx.system.dsl import _build_system
         f, names, y0, aux_count, _ = _build_system(m, {})
         convey_vars = [n for n in names if "_convey_" in n]
         assert len(convey_vars) == 1, f"Expected 1 CONVEY var, got {convey_vars}"
@@ -422,7 +422,7 @@ model 'ConveyNoNeg'
 
 class TestCONVEYBatch:
     def test_convey_batch_recognized_in_builtins(self):
-        from cognitive_engine.system.dsl import _get_builtin_names
+        from dynafx.system.dsl import _get_builtin_names
         assert "CONVEY_BATCH" in _get_builtin_names()
 
     def test_convey_batch_accumulates_and_emits_pulses(self):
@@ -544,7 +544,7 @@ model 'DFNoEarly'
 
     def test_supply_chain_demo_rk4_euler_match(self):
         """Supply chain demo should give similar fill rates with RK4 and Euler."""
-        from cognitive_engine.system.dsl import parse_sysd_file
+        from dynafx.system.dsl import parse_sysd_file
         import os
         model_path = os.path.join(os.path.dirname(__file__), "..", "models", "supply_chain_demo.sysd")
         model = parse_sysd_file(model_path)
@@ -557,7 +557,7 @@ model 'DFNoEarly'
 
     def test_retailer_does_not_deplete(self):
         """Retailer inventory should never go to zero (regression: was depleting at t~101)."""
-        from cognitive_engine.system.dsl import parse_sysd_file
+        from dynafx.system.dsl import parse_sysd_file
         import os
         model_path = os.path.join(os.path.dirname(__file__), "..", "models", "supply_chain_demo.sysd")
         model = parse_sysd_file(model_path)

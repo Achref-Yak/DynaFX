@@ -2,7 +2,7 @@
 
 import pytest
 
-from cognitive_engine.kb.model import (
+from dynafx.kb.model import (
     BlankNode,
     Literal,
     NamedNode,
@@ -10,7 +10,7 @@ from cognitive_engine.kb.model import (
     TriplePattern,
     xsd,
 )
-from cognitive_engine.kb.turtle import (
+from dynafx.kb.turtle import (
     parse_ntriples,
     parse_turtle,
     serialize_ntriples,
@@ -221,7 +221,7 @@ class TestSerialize:
         assert "@prefix" in output
 
     def test_opinion_comment(self):
-        from cognitive_engine.core.models import Opinion
+        from dynafx.core.models import Opinion
         s = NamedNode("http://ex.org/s")
         p = NamedNode("http://ex.org/p")
         o = NamedNode("http://ex.org/o")
@@ -297,7 +297,7 @@ class TestNTriples:
         assert "<http://ex.org/o>" in output
 
     def test_serialize_opinion(self):
-        from cognitive_engine.core.models import Opinion
+        from dynafx.core.models import Opinion
         t = Triple(
             NamedNode("http://ex.org/s"),
             NamedNode("http://ex.org/p"),

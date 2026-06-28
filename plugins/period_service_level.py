@@ -12,8 +12,8 @@ Usage:
 
 from typing import Any
 
-from cognitive_engine.registry import register_queue_hook
-from cognitive_engine.system.des import Queue
+from dynafx.registry import register_queue_hook
+from dynafx.system.des import Queue
 
 
 class ServiceLevelTracker:

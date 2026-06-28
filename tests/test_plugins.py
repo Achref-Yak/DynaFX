@@ -1,6 +1,6 @@
-"""Tests for cognitive_engine plugins (D1, D3, E1, E3)."""
+"""Tests for dynafx plugins (D1, D3, E1, E3)."""
 import pytest
-from cognitive_engine.registry import clear_all
+from dynafx.registry import clear_all
 
 
 class TestE1AvailabilityCalendar:
@@ -31,7 +31,7 @@ class TestE1AvailabilityCalendar:
         assert cal.is_available(0.0) is True
 
     def test_register_denies_request_outside_window(self):
-        from cognitive_engine.system.des import Resource
+        from dynafx.system.des import Resource
         from plugins.availability_calendar import ResourceCalendar, register
 
         cal = ResourceCalendar()
@@ -41,7 +41,7 @@ class TestE1AvailabilityCalendar:
         assert r.request(0.0) is False
 
     def test_register_allows_request_inside_window(self):
-        from cognitive_engine.system.des import Resource
+        from dynafx.system.des import Resource
         from plugins.availability_calendar import ResourceCalendar, register
 
         cal = ResourceCalendar()
@@ -52,10 +52,10 @@ class TestE1AvailabilityCalendar:
 
     def test_schedule_check_builtin_registered(self):
         import plugins.availability_calendar
-        from cognitive_engine.registry import get_registered_builtins
+        from dynafx.registry import get_registered_builtins
 
         # Force re-registration since clear_all() ran in teardown
-        from cognitive_engine.registry import register_builtin
+        from dynafx.registry import register_builtin
         register_builtin("SCHEDULE_CHECK", plugins.availability_calendar._schedule_check)
 
         builtins = get_registered_builtins()
@@ -116,7 +116,7 @@ class TestD3PeriodServiceLevel:
         assert sl1["fill_rate"] == 0.0
 
     def test_register_hooks_fire(self):
-        from cognitive_engine.system.des import Queue
+        from dynafx.system.des import Queue
         from plugins.period_service_level import ServiceLevelTracker, register
 
         tracker = ServiceLevelTracker(period_days=1)
@@ -134,7 +134,7 @@ class TestE3BalkingReneging:
         clear_all()
 
     def test_add_balking_tracks_balked(self):
-        from cognitive_engine.system.des import Queue
+        from dynafx.system.des import Queue
         from plugins.balking_reneging import add_balking
 
         q = Queue("test_q")
@@ -144,7 +144,7 @@ class TestE3BalkingReneging:
         assert q.stats.total_balked >= 0
 
     def test_add_reneging_tracks_reneged(self):
-        from cognitive_engine.system.des import DESEngine, Queue
+        from dynafx.system.des import DESEngine, Queue
         from plugins.balking_reneging import add_reneging
 
         q = Queue("test_q")
@@ -156,7 +156,7 @@ class TestE3BalkingReneging:
         assert len(engine.event_queue) > 0
 
     def test_renege_event_removes_entity(self):
-        from cognitive_engine.system.des import DESEngine, Queue
+        from dynafx.system.des import DESEngine, Queue
         from plugins.balking_reneging import add_reneging
 
         q = Queue("test_q")

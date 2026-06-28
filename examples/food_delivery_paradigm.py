@@ -22,12 +22,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 from fpdf import FPDF
 
-from cognitive_engine.system.dsl import parse_sysd, parse_sysd_file, SysdModel
-from cognitive_engine.system.causal import causal_trace
-from cognitive_engine.system.feedback import detect_feedback_loops
-from cognitive_engine.system.units import UnitChecker, Unit
-from cognitive_engine.system.scenario import ScenarioDef, ScenarioResult, ScenarioComparison
-from cognitive_engine.system.optimization import lp_minimize
+from dynafx.system.dsl import parse_sysd, parse_sysd_file, SysdModel
+from dynafx.system.causal import causal_trace
+from dynafx.system.feedback import detect_feedback_loops
+from dynafx.system.units import UnitChecker, Unit
+from dynafx.system.scenario import ScenarioDef, ScenarioResult, ScenarioComparison
+from dynafx.system.optimization import lp_minimize
 
 C = plt.cm.tab10.colors
 

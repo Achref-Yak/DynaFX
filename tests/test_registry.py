@@ -1,6 +1,6 @@
-"""Tests for the cognitive_engine plugin registry."""
+"""Tests for the dynafx plugin registry."""
 import pytest
-from cognitive_engine.registry import (
+from dynafx.registry import (
     clear_all,
     get_queue_hooks,
     get_registered_builtins,
@@ -88,28 +88,28 @@ class TestResourceQuantity:
         clear_all()
 
     def test_request_quantity_one_default(self):
-        from cognitive_engine.system.des import Resource
+        from dynafx.system.des import Resource
 
         r = Resource("r", capacity=5)
         assert r.request(0.0) is True
         assert r.busy == 1
 
     def test_request_quantity_multiple(self):
-        from cognitive_engine.system.des import Resource
+        from dynafx.system.des import Resource
 
         r = Resource("r", capacity=10)
         assert r.request(0.0, quantity=3) is True
         assert r.busy == 3
 
     def test_request_quantity_exceeds_capacity(self):
-        from cognitive_engine.system.des import Resource
+        from dynafx.system.des import Resource
 
         r = Resource("r", capacity=5)
         assert r.request(0.0, quantity=10) is False
         assert r.busy == 0
 
     def test_request_quantity_uses_partial_capacity(self):
-        from cognitive_engine.system.des import Resource
+        from dynafx.system.des import Resource
 
         r = Resource("r", capacity=5)
         assert r.request(0.0, quantity=3) is True
@@ -119,7 +119,7 @@ class TestResourceQuantity:
         assert r.busy == 5
 
     def test_release_auto_grants_quantity_waiter(self):
-        from cognitive_engine.system.des import Resource
+        from dynafx.system.des import Resource
 
         r = Resource("r", capacity=5)
         r.request(0.0, quantity=5)
@@ -138,14 +138,14 @@ class TestResourceQuantity:
         assert r.waiting == 0
 
     def test_request_quantity_negative_defaults_to_one(self):
-        from cognitive_engine.system.des import Resource
+        from dynafx.system.des import Resource
 
         r = Resource("r", capacity=5)
         assert r.request(0.0, quantity=-1) is True
         assert r.busy == 1
 
     def test_stats_count_requests(self):
-        from cognitive_engine.system.des import Resource
+        from dynafx.system.des import Resource
 
         r = Resource("r", capacity=2)
         r.request(0.0)
@@ -156,7 +156,7 @@ class TestResourceQuantity:
         assert r.stats.total_denied == 1
 
     def test_release_no_auto_grant_when_quantity_too_large(self):
-        from cognitive_engine.system.des import Resource
+        from dynafx.system.des import Resource
 
         r = Resource("r", capacity=10)
         r.request(0.0, quantity=10)
@@ -172,8 +172,8 @@ class TestResourceQuantity:
         assert r.busy == 10
 
     def test_request_catches_hook_exception(self):
-        from cognitive_engine.registry import register_resource_hook
-        from cognitive_engine.system.des import Resource
+        from dynafx.registry import register_resource_hook
+        from dynafx.system.des import Resource
 
         def bad_hook(**kw):
             raise RuntimeError("not available")

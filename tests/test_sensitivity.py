@@ -1,7 +1,7 @@
 """Tests for ensemble sensitivity simulation."""
 
 import math
-from cognitive_engine.system.dsl import parse_sysd
+from dynafx.system.dsl import parse_sysd
 
 
 def test_simulate_ensemble_basic():

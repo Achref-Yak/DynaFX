@@ -5,15 +5,15 @@ from __future__ import annotations
 
 import pytest
 
-from cognitive_engine.kb.model import (
+from dynafx.kb.model import (
     BlankNode,
     Literal,
     NamedNode,
     Triple,
     TriplePattern,
 )
-from cognitive_engine.kb.store import TripleStore
-from cognitive_engine.kb.sparql import (
+from dynafx.kb.store import TripleStore
+from dynafx.kb.sparql import (
     parse_sparql,
     evaluate,
     QueryResult,
@@ -37,7 +37,7 @@ from cognitive_engine.kb.sparql import (
     RegexFunc,
     BoundFunc,
 )
-from cognitive_engine.core.models import Opinion
+from dynafx.core.models import Opinion
 
 
 # ── Fixtures ─────────────────────────────────────────────────────

@@ -14,28 +14,28 @@ automatically identifies contradictions, scores source trustworthiness,
 and produces a clean fused knowledge base.
 """
 
-from cognitive_engine.core.models import Opinion
-from cognitive_engine.kb.model import (
+from dynafx.core.models import Opinion
+from dynafx.kb.model import (
     Literal,
     NamedNode,
     Triple,
     TriplePattern,
 )
-from cognitive_engine.kb.store import TripleStore
-from cognitive_engine.kb.turtle import parse_turtle, serialize_turtle
-from cognitive_engine.kb.sparql import evaluate, parse_sparql
-from cognitive_engine.kb.inference import RuleEngine, rdfs_rules
-from cognitive_engine.kb.confidence import (
+from dynafx.kb.store import TripleStore
+from dynafx.kb.turtle import parse_turtle, serialize_turtle
+from dynafx.kb.sparql import evaluate, parse_sparql
+from dynafx.kb.inference import RuleEngine, rdfs_rules
+from dynafx.kb.confidence import (
     fuse_graphs,
     grade_query,
 )
-from cognitive_engine.reason.argumentation import (
+from dynafx.reason.argumentation import (
     AttackType,
     build_framework,
 )
-from cognitive_engine.reason.evidence import ConsensusLevel, EvidenceMatrix
-from cognitive_engine.reason.fusion import cumulative_fusion
-from cognitive_engine.reason.kbt import compute_kbt
+from dynafx.reason.evidence import ConsensusLevel, EvidenceMatrix
+from dynafx.reason.fusion import cumulative_fusion
+from dynafx.reason.kbt import compute_kbt
 
 EX = "http://example.org/"
 atlas = NamedNode(f"{EX}AtlasCorp")

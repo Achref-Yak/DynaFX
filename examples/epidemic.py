@@ -1,6 +1,6 @@
 """SEIR Epidemic — .sysd DSL with seasonal forcing, capacity, and policy."""
 
-from cognitive_engine.system.dsl import parse_sysd
+from dynafx.system.dsl import parse_sysd
 
 DSL = """
 model 'SEIR Epidemic'

@@ -1,16 +1,16 @@
 """Tests for EvidenceMatrix — transparent reasoning across sources."""
 
 import pytest
-from cognitive_engine.core.models import Opinion
-from cognitive_engine.reason.evidence import (
+from dynafx.core.models import Opinion
+from dynafx.reason.evidence import (
     ClaimAssessment,
     ConsensusLevel,
     EvidenceMatrix,
     EvidenceMatrixResult,
     PairwiseAgreement,
 )
-from cognitive_engine.reason.fusion import consensus_to_fusion_situation
-from cognitive_engine.core.models import FusionSituation
+from dynafx.reason.fusion import consensus_to_fusion_situation
+from dynafx.core.models import FusionSituation
 
 
 # ── Helpers ──────────────────────────────────────────────────────
@@ -299,7 +299,7 @@ class TestFusionSituationIntegration:
         assert situations["fight"] == FusionSituation.CONFLICTING_VIEWS
 
     def test_evidence_matrix_importable(self):
-        from cognitive_engine.reason import EvidenceMatrix, EvidenceMatrixResult, ConsensusLevel
+        from dynafx.reason import EvidenceMatrix, EvidenceMatrixResult, ConsensusLevel
         m = EvidenceMatrix()
         m.add_source("A", {"x": op(0.8, 0.1)})
         result = m.compute()

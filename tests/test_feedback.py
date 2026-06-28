@@ -1,8 +1,8 @@
 """Tests for feedback loop detection."""
 
 import pytest
-from cognitive_engine.system.dsl import parse_sysd
-from cognitive_engine.system.feedback import (
+from dynafx.system.dsl import parse_sysd
+from dynafx.system.feedback import (
     detect_feedback_loops,
     loops_for_variable,
     FeedbackLoop,

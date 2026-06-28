@@ -2,8 +2,8 @@
 
 import pytest
 from uuid import uuid4
-from cognitive_engine.core.models import Graph, Node, NodeType, EdgeType, Edge, Opinion
-from cognitive_engine.core.math import (
+from dynafx.core.models import Graph, Node, NodeType, EdgeType, Edge, Opinion
+from dynafx.core.math import (
     cross_domain_edge_density,
     domain_entanglement,
     causal_chain_depth,

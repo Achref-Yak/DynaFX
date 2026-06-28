@@ -1,6 +1,6 @@
 """Tests for the .sysd DSL parser and simulation."""
 
-from cognitive_engine.system.dsl import parse_sysd, ExprParser
+from dynafx.system.dsl import parse_sysd, ExprParser
 
 
 # ── Expression parser ─────────────────────────────────────────

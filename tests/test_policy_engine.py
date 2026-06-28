@@ -4,13 +4,13 @@ from uuid import uuid4
 
 import pytest
 
-from cognitive_engine.core.models import Graph, Node, NodeType, Opinion, Edge, EdgeType
-from cognitive_engine.core.state import State
-from cognitive_engine.policy.engine import PolicyEngine, PolicySelection
-from cognitive_engine.policy.schema import (
+from dynafx.core.models import Graph, Node, NodeType, Opinion, Edge, EdgeType
+from dynafx.core.state import State
+from dynafx.policy.engine import PolicyEngine, PolicySelection
+from dynafx.policy.schema import (
     OperatorPolicy, PolicyRule, WhenCondition, ThenAction,
 )
-from cognitive_engine.policy.builtin import (
+from dynafx.policy.builtin import (
     DEFAULT_POLICY, SCIENTIFIC_POLICY, BUILTIN_POLICIES,
 )
 

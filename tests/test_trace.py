@@ -4,7 +4,7 @@ import time
 import pytest
 from uuid import uuid4
 
-from cognitive_engine.core.trace import StateDelta, TraceBuffer
+from dynafx.core.trace import StateDelta, TraceBuffer
 
 
 class TestStateDelta:

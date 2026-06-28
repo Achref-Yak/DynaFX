@@ -1,5 +1,5 @@
-from cognitive_engine.core.models import Graph, Node, Edge, NodeType, EdgeType, ReasoningMode
-from cognitive_engine.reason.modes import apply_mode, compute_mode_views, MODE_ACTIVE_EDGES
+from dynafx.core.models import Graph, Node, Edge, NodeType, EdgeType, ReasoningMode
+from dynafx.reason.modes import apply_mode, compute_mode_views, MODE_ACTIVE_EDGES
 
 
 def _make_graph() -> Graph:

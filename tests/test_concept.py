@@ -2,7 +2,7 @@
 import pytest
 from copy import deepcopy
 
-from cognitive_engine.core.concept import (
+from dynafx.core.concept import (
     ConceptDef,
     ConceptRegistry,
     TemporalSemantics,
@@ -10,8 +10,8 @@ from cognitive_engine.core.concept import (
     DEFAULT_CONCEPTS,
     default_registry,
 )
-from cognitive_engine.core.models import Graph
-from cognitive_engine.core.state import State
+from dynafx.core.models import Graph
+from dynafx.core.state import State
 
 
 class TestConceptDef:

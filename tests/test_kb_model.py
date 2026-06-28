@@ -2,8 +2,8 @@
 
 import pytest
 
-from cognitive_engine.core.models import Opinion
-from cognitive_engine.kb.model import (
+from dynafx.core.models import Opinion
+from dynafx.kb.model import (
     BlankNode,
     Literal,
     NamedNode,
@@ -244,6 +244,6 @@ class TestXsd:
         assert isinstance(xsd("integer"), NamedNode)
 
     def test_common_constants(self):
-        from cognitive_engine.kb.model import XSD_INTEGER, XSD_STRING
+        from dynafx.kb.model import XSD_INTEGER, XSD_STRING
         assert XSD_INTEGER == xsd("integer")
         assert XSD_STRING == xsd("string")

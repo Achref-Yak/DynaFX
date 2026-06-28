@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 
-from cognitive_engine.core.math import (
+from dynafx.core.math import (
     sigmoid, sigmoid_array, softmax, clamp, normalize_sum, l2_norm,
     cosine_similarity, cosine_distance, jaccard_similarity, jaccard_distance,
     count_proximity, projected_probability, dirichlet_strength,
@@ -320,7 +320,7 @@ class TestGraphPropagation:
 
     def test_build_adjacency(self):
         nid1, nid2 = uuid4(), uuid4()
-        from cognitive_engine.core.models import Edge, EdgeType
+        from dynafx.core.models import Edge, EdgeType
         edge = Edge(source_id=nid1, target_id=nid2, type=EdgeType.SUPPORTS)
         adj = build_adjacency({nid1, nid2}, [edge])
         assert nid2 in adj
@@ -397,7 +397,7 @@ class TestNeuroSymbolic:
         assert result[nid] == pytest.approx(0.6 * 0.8 + 0.4 * 0.4)
 
     def test_compute_logic_penalty(self):
-        from cognitive_engine.core.models import Edge, EdgeType
+        from dynafx.core.models import Edge, EdgeType
         nid1, nid2 = uuid4(), uuid4()
         edge = Edge(source_id=nid1, target_id=nid2, type=EdgeType.SUPPORTS)
         def belief_fn(n):
@@ -500,7 +500,7 @@ class TestMemoryRetrieval:
 
 class TestSystemsFeedback:
     def test_betweenness_centrality(self):
-        from cognitive_engine.core.models import Edge, EdgeType
+        from dynafx.core.models import Edge, EdgeType
         nid1, nid2, nid3 = uuid4(), uuid4(), uuid4()
         edges = [
             Edge(source_id=nid1, target_id=nid2, type=EdgeType.SUPPORTS),
@@ -543,13 +543,13 @@ class TestInvariantChecks:
         assert check_opinion_invariant(1.0, 0.5, 0.5) is False
 
     def test_check_cycle_free_acyclic(self):
-        from cognitive_engine.core.models import Edge, EdgeType
+        from dynafx.core.models import Edge, EdgeType
         nid1, nid2 = uuid4(), uuid4()
         edges = [Edge(source_id=nid1, target_id=nid2, type=EdgeType.SUPPORTS)]
         assert check_cycle_free({nid1, nid2}, edges) is True
 
     def test_check_cycle_free_cyclic(self):
-        from cognitive_engine.core.models import Edge, EdgeType
+        from dynafx.core.models import Edge, EdgeType
         nid1, nid2 = uuid4(), uuid4()
         edges = [
             Edge(source_id=nid1, target_id=nid2, type=EdgeType.SUPPORTS),
@@ -558,7 +558,7 @@ class TestInvariantChecks:
         assert check_cycle_free({nid1, nid2}, edges) is False
 
     def test_check_category_monotonicity(self):
-        from cognitive_engine.core.models import Edge, EdgeType
+        from dynafx.core.models import Edge, EdgeType
         nid1, nid2 = uuid4(), uuid4()
         edge = Edge(source_id=nid1, target_id=nid2, type=EdgeType.SUPPORTS)
         def get_src(n):
@@ -571,7 +571,7 @@ class TestInvariantChecks:
 
 class TestExtractMaxDag:
     def test_acyclic_graph_no_dropped(self):
-        from cognitive_engine.core.models import Edge, EdgeType
+        from dynafx.core.models import Edge, EdgeType
         nid1, nid2, nid3 = uuid4(), uuid4(), uuid4()
         edges = [
             Edge(source_id=nid1, target_id=nid2, type=EdgeType.SUPPORTS),
@@ -583,7 +583,7 @@ class TestExtractMaxDag:
         assert len(order) == 3
 
     def test_cyclic_graph_drops_back_edge(self):
-        from cognitive_engine.core.models import Edge, EdgeType
+        from dynafx.core.models import Edge, EdgeType
         nid1, nid2 = uuid4(), uuid4()
         edges = [
             Edge(source_id=nid1, target_id=nid2, type=EdgeType.SUPPORTS),
@@ -594,7 +594,7 @@ class TestExtractMaxDag:
         assert len(dag) == 1
 
     def test_triangle_cycle_drops_one(self):
-        from cognitive_engine.core.models import Edge, EdgeType
+        from dynafx.core.models import Edge, EdgeType
         nid1, nid2, nid3 = uuid4(), uuid4(), uuid4()
         edges = [
             Edge(source_id=nid1, target_id=nid2, type=EdgeType.SUPPORTS),
@@ -610,7 +610,7 @@ class TestExtractMaxDag:
 
 class TestTopologicalSort:
     def test_linear_order(self):
-        from cognitive_engine.core.models import Edge, EdgeType
+        from dynafx.core.models import Edge, EdgeType
         nid1, nid2, nid3 = uuid4(), uuid4(), uuid4()
         edges = [
             Edge(source_id=nid1, target_id=nid2, type=EdgeType.SUPPORTS),
@@ -620,7 +620,7 @@ class TestTopologicalSort:
         assert order.index(nid1) < order.index(nid2) < order.index(nid3)
 
     def test_cyclic_graph_all_nodes_present(self):
-        from cognitive_engine.core.models import Edge, EdgeType
+        from dynafx.core.models import Edge, EdgeType
         nid1, nid2 = uuid4(), uuid4()
         edges = [
             Edge(source_id=nid1, target_id=nid2, type=EdgeType.SUPPORTS),
@@ -642,7 +642,7 @@ class TestTNAPropagate:
         assert result[nid] == (0.5, 0.3, 0.2, 0.5)
 
     def test_support_chain(self):
-        from cognitive_engine.core.models import Edge, EdgeType
+        from dynafx.core.models import Edge, EdgeType
         nid1, nid2 = uuid4(), uuid4()
         edges = [Edge(source_id=nid1, target_id=nid2, type=EdgeType.SUPPORTS)]
         def get_op(n):
@@ -656,7 +656,7 @@ class TestTNAPropagate:
         assert u >= 0.0
 
     def test_attack_decreases_belief(self):
-        from cognitive_engine.core.models import Edge, EdgeType
+        from dynafx.core.models import Edge, EdgeType
         nid1, nid2 = uuid4(), uuid4()
         edges = [Edge(source_id=nid1, target_id=nid2, type=EdgeType.ATTACKS)]
         def get_op(n):
@@ -670,7 +670,7 @@ class TestTNAPropagate:
         assert u >= 0.0
 
     def test_support_beats_attack(self):
-        from cognitive_engine.core.models import Edge, EdgeType
+        from dynafx.core.models import Edge, EdgeType
         nid1, nid2, nid3 = uuid4(), uuid4(), uuid4()
         edges = [
             Edge(source_id=nid1, target_id=nid3, type=EdgeType.SUPPORTS),

@@ -14,10 +14,10 @@ Run:  python examples/advanced_reasoning_demo.py | python -m json.tool
 
 import json
 import sys
-from cognitive_engine import loom
-from cognitive_engine.core.models import Graph, Node, NodeType, EdgeType, Opinion
-from cognitive_engine.core.math import bayes_rule
-from cognitive_engine.analysis import (
+from dynafx import loom
+from dynafx.core.models import Graph, Node, NodeType, EdgeType, Opinion
+from dynafx.core.math import bayes_rule
+from dynafx.analysis import (
     find_evidence_chains,
     classify_evidence,
     generate_label,

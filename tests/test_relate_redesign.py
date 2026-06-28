@@ -1,9 +1,9 @@
 """Test the Relate operator redesign: conflict resolution via provenance-weighted Dung."""
 
-from cognitive_engine.core.concept import ConceptDef, TemporalSemantics, ConflictType, ConceptRegistry
-from cognitive_engine.core.models import EdgeType, Graph, Node, NodeType, Opinion, Edge
-from cognitive_engine.core.state import State
-from cognitive_engine.operators.relate import RelateOperator
+from dynafx.core.concept import ConceptDef, TemporalSemantics, ConflictType, ConceptRegistry
+from dynafx.core.models import EdgeType, Graph, Node, NodeType, Opinion, Edge
+from dynafx.core.state import State
+from dynafx.operators.relate import RelateOperator
 
 
 def _make_state_with_nodes(nodes: list[tuple[str, str, dict]]) -> tuple[State, dict]:
@@ -516,36 +516,3 @@ class TestThreeWayConflictDung:
         assert len(contradict_edges) == 4, f"Expected 4 CONTRADICTS (2 pairs × 2 dirs), got {len(contradict_edges)}"
 
 
-if __name__ == "__main__":
-    import sys
-    test_classes = [
-        TestNumericConflictResolution,
-        TestSameConceptConflict,
-        TestThreeWayConflict,
-        TestExtractionLayerEdgesPreserved,
-        TestDungPostProcessing,
-        TestAppendOnlyConceptNoConflict,
-        TestParentConceptConflict,
-        TestEdgePriority,
-        TestSLInvariant,
-        TestCrossAxiomSuppression,
-        TestDirectionality,
-        TestThreeWayConflictDung,
-    ]
-    passed = 0
-    failed = 0
-    for cls in test_classes:
-        t = cls()
-        for name in dir(t):
-            if name.startswith("test_"):
-                try:
-                    t.setup_method()
-                    getattr(t, name)()
-                    print(f"  ✓ {cls.__name__}.{name}", file=sys.stderr)
-                    passed += 1
-                except Exception as e:
-                    print(f"  ✗ {cls.__name__}.{name}: {e}", file=sys.stderr)
-                    failed += 1
-    print(f"\n{'='*60}", file=sys.stderr)
-    print(f"Total: {passed + failed}, Passed: {passed}, Failed: {failed}", file=sys.stderr)
-    sys.exit(0 if failed == 0 else 1)

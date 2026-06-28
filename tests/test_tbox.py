@@ -5,11 +5,11 @@ from pathlib import Path
 
 import pytest
 
-from cognitive_engine.tbox.loader import (
+from dynafx.tbox.loader import (
     TBox, load_tbox, validate_against_tbox,
     GENERAL_TBOX, BUILTIN_TBOXES,
 )
-from cognitive_engine.core.math import CATEGORY_LEVELS
+from dynafx.core.math import CATEGORY_LEVELS
 
 
 class TestTBox:

@@ -3,8 +3,8 @@
 import pytest
 import math
 
-from cognitive_engine.system.dsl import SysdModel, parse_sysd, SysdModelResult
-from cognitive_engine.system.scenario import (
+from dynafx.system.dsl import SysdModel, parse_sysd, SysdModelResult
+from dynafx.system.scenario import (
     ScenarioComparison,
     ScenarioDef,
     ScenarioResult,
