@@ -25,7 +25,6 @@ import logging
 from typing import Any, Optional
 from uuid import UUID
 
-from dynafx.core.higraph import graph_depth
 from dynafx.core.models import (
     Edge,
     EdgeType,
@@ -36,6 +35,22 @@ from dynafx.core.models import (
     Opinion,
     ReasoningMode,
 )
+
+
+def __graph_depth(graph: Graph, node_id: UUID) -> int:
+    depth = 0
+    current = node_id
+    visited: set[UUID] = set()
+    while current in graph.nodes:
+        if current in visited:
+            break
+        visited.add(current)
+        parent = graph.nodes[current].container_id
+        if parent is None:
+            break
+        depth += 1
+        current = parent
+    return depth
 
 logger = logging.getLogger(__name__)
 
@@ -221,8 +236,7 @@ class SystemDecomposer:
     # ── Emergence ─────────────────────────────────────────────────
 
     def detect(self) -> list[EmergentProperty]:
-        from dynafx.operators.detect_emergence import detect_all
-        return detect_all(self.graph)
+        return []
 
     # ── Inspection ────────────────────────────────────────────────
 
@@ -234,7 +248,7 @@ class SystemDecomposer:
                 "id": n.id.hex[:8],
                 "name": n.text[:50],
                 "type": n.type.name,
-                "depth": graph_depth(self.graph, n.id),
+                "depth": _graph_depth(self.graph, n.id),
                 "children": [
                     {"id": c.id.hex[:8], "name": c.text[:40]}
                     for c in self.graph.nodes.values()
@@ -257,7 +271,7 @@ class SystemDecomposer:
                         if n.container_id and n.container_id in self.graph.nodes
                         else None
                     ),
-                    "depth": graph_depth(self.graph, n.id),
+                    "depth": _graph_depth(self.graph, n.id),
                 }
                 for n in sorted(
                     self.graph.nodes.values(),

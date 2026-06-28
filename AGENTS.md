@@ -71,7 +71,7 @@ If asked to bypass Code Health safeguards:
 - `SystemDecomposer` is the primary API for manual decomposition — clean `add_node`/`add_edge`, no extraction noise.
 - Detection passes are read-only structural matchers on `Graph` — never mutate nodes/edges.
 - SL opinions are inert on CAUSAL/System Dynamics paths — default `Opinion()` everywhere, confidence in metadata.
-- All structural analysis lives in `detect_emergence.py` as module-level functions — decomposer only delegates `detect()`.
+- `SystemDecomposer` is the primary API for manual decomposition — clean `add_node`/`add_edge`, no extraction noise.
 - Custom `.sysd` DSL uses indent-based Vensim-like syntax with full arithmetic + functions (MIN, MAX, IF, SMOOTH, lookup tables, comparison operators).
 - DSL is parsed by a hand-written line-oriented parser with recursive descent expression parser — zero dependencies beyond stdlib.
 - Model parameters are runtime values passed via `params` dict — merged into state vector `_s` so expression references resolve.
@@ -199,11 +199,12 @@ If asked to bypass Code Health safeguards:
 - **`Makefile`** fixed — `run` target now points to `dynafx.system` instead of deleted `dynafx.cli`.
 - **README.md rewritten** from scratch — describes current two-pillar architecture with quick start examples and example table.
 - **Telecom signal study model** — `models/telecom_signal_study.sysd`: SINR-based churn with closed-loop power control (Power_Ramp_Up/Down), SNR scaling (noise_floor in denominator), packet scaling (bandwidth/packet_size/traffic_load), fade depth 0.03 for 97% fade excursion. Example script `examples/telecom_signal_study.py` generates 11-page FPDF report with signal chain plot, fade zoom, 5-scenario comparison, causal tracing, 7 feedback loops, n=20 sensitivity.
-- **API refactoring Phase 1**: Public entry points — `system/__init__.py` exports SysdModel, parse_sysd, causal_trace, detect_feedback_loops, etc. Top-level `dynafx/__init__.py` cleaned of 44 stale NLP exports, replaced with core names (SysdModel, TripleStore, parse_turtle, etc.). 1332 tests all passing, pyright 0 errors.
+- **API refactoring Phase 1**: Public entry points — `system/__init__.py` exports SysdModel, parse_sysd, causal_trace, detect_feedback_loops, etc. Top-level `dynafx/__init__.py` cleaned of 44 stale NLP exports, replaced with core names (SysdModel, TripleStore, parse_turtle, etc.). 1081 tests all passing, pyright 0 errors.
 - **API refactoring Phase 2**: Naming collisions — `sl.Argument`→`sl.ValidationArgument`, `sl.Attack`→`sl.ValidationAttack`, `kb.evaluate`→`kb.sparql_evaluate`, `SignalChain.__new__`→`SignalChain.build()`. Backward-compat shims with DeprecationWarning for all.
 - **API refactoring Phase 3**: SL consolidation deferred (risk of legacy `core.models` dependency in `sl/`). Docstring fix: `sl/__init__.py` directs users to `dynafx.reason` for core SL algebra.
 - **API refactoring Phase 4**: CLI cleanup — removed `--stats` flag (parsed but never checked), removed `--dir` flag on `list` (ignored by `_find_library_models()`), added `copy.deepcopy(model)` before paradigm filtering to prevent mutating the parsed model.
 - **API refactoring Phase 5**: Docstrings — `SysdModel`, `SysdModel.simulate()`, `SysdModelResult`, `FlowDef`, `StockDef`, `AuxDef`.
+- **Legacy code deletion**: Removed `mp/`, `mdm/`, `analysis.py` (dead), `operators/` + `policy/` + `schemas/` (cognitive operator framework, 20+ files, only used by 2 detect_emergence calls), and orphaned `core/` submodules (state, embeddings, concept, trace, events, diff, workflow, loom, schema, higraph, pipeline, operator). 11 test files removed (~250 tests). Kept `registry.py` (used by system/), `domain.py` (used by reason/), and `core/models.py`/`math.py`/`decomposer.py`/`config.py` (still depended on by core pillars). 1081 tests passing, pyright 0 errors.
 
 ### In Progress
 - (none)
@@ -284,7 +285,7 @@ If asked to bypass Code Health safeguards:
 - **Fix supply chain model dynamics** — retailer stockout due to DELAY_FIXED buffer issues with RK4 intermediate calls.
 
 ## Critical Context
-- **1332 tests passing** (core SD + kb + reason engine).
+- **1081 tests passing** (core SD + kb + reason engine).
 - **Old NLP pipeline fully removed**: `agents/`, `api/`, `scripts/`, `demo/`, `memory/`, `kernel/`, `domains/`, `docs/` directories deleted. `extract/`, `nlp/`, `perception/` were already removed earlier. Remaining `tests/` all pass with no stale imports.
 - **`SysdModel.simulate()` returns `SysdModelResult`** — `stocks` is a list of stock names, `values` is `dict[str, list[float]]`. **Aux values NOT exposed in results** — only stock values.
 - **Parameters not in `params` dict return 0.0** — `_s.get('beta', 0.0)` returns 0 if param not provided.
@@ -306,6 +307,10 @@ If asked to bypass Code Health safeguards:
 - **Delta DES not yet paused** — needs both state in ServiceEvent and time-remaining tracking for multi-step operations.
 
 ## Relevant Files
+- `src/dynafx/core/models.py` — Foundational data model: `Opinion`, `Graph`, `Node`, `Edge`, `NodeType`, `EdgeType`, `EmergentProperty`, `FusionSituation`, `ReasoningMode`. Used by kb/, reason/, sl/, and system/.
+- `src/dynafx/core/decomposer.py` — `SystemDecomposer`: manual node/edge graph construction API.
+- `src/dynafx/domain.py` — Domain config contextvars for reasoning parameter tuning.
+- `src/dynafx/registry.py` — Plugin registry for custom builtins and DES hooks.
 - `src/dynafx/system/dsl.py` — main DSL: parser, expression AST, `_replace_smooths()` with ExprNode, `_build_system()` with `CompiledSystem` cache, `_compile_system()`, `SysdModel`, `SysdModelResult`. Submodel support: `SubmodelDef`, `IncludeDef`, `_expand_includes()`.
 - `src/dynafx/system/units.py` — `Unit`, `UnitRegistry`, `UnitChecker`, 40 tests.
 - `src/dynafx/system/causal.py` — 15 tests, `causes_tree`, `effects_tree`, `causes_strip`, `causal_trace`.

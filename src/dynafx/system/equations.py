@@ -263,10 +263,6 @@ def compile_equations(graph: Graph) -> List[Equation]:
                 stock_node.id,
             )
 
-    # Post-pass: detect emergent properties
-    from dynafx.operators.detect_emergence import detect_all as detect_emergence
-    detect_emergence(graph)
-
     return equations
 
 
