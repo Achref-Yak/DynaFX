@@ -2,7 +2,7 @@
 
 from uuid import uuid4
 
-from dynafx.system.equations import (
+from dynafx.dynamics.equations import (
     Equation,
     _parse_expression,
     euler_step,

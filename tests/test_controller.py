@@ -1,8 +1,8 @@
 """Tests for SimulationController and BatchRunner."""
 import pytest
 import os
-from dynafx.system.dsl import parse_sysd
-from dynafx.system.controller import (
+from dynafx.dynamics.dsl import parse_sysd
+from dynafx.dynamics.controller import (
     SimulationController,
     batch_run,
 )

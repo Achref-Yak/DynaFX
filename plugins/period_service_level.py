@@ -13,7 +13,7 @@ Usage:
 from typing import Any
 
 from dynafx.registry import register_queue_hook
-from dynafx.system.des import Queue
+from dynafx.dynamics.des import Queue
 
 
 class ServiceLevelTracker:

@@ -1,6 +1,6 @@
 """Example: Pandemic Response Model — SD + ABM + DES
 
-Demonstrates how to use the dynafx.system DSL to simulate
+Demonstrates how to use the dynafx.dynamics DSL to simulate
 a multi-paradigm model with system dynamics, agent-based modeling,
 and discrete event simulation.
 
@@ -8,7 +8,7 @@ Usage:
     python examples/pandemic_response.py
 """
 
-from dynafx.system.dsl import parse_sysd_file
+from dynafx.dynamics.dsl import parse_sysd_file
 
 
 def main() -> None:

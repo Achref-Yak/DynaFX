@@ -1,7 +1,7 @@
 """Tests for Vensim .mdl import."""
 
-from dynafx.system.vensim import parse_mdl
-from dynafx.system.dsl import parse_sysd
+from dynafx.dynamics.vensim import parse_mdl
+from dynafx.dynamics.dsl import parse_sysd
 
 
 SIMPLE_MDL = """Simple SIR|Simple SIR model

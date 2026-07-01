@@ -14,8 +14,8 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from dynafx.system.dsl import parse_sysd_file, parse_sysd
-from dynafx.system.des import DESEngine, Queue as DesQueue, Resource
+from dynafx.dynamics.dsl import parse_sysd_file, parse_sysd
+from dynafx.dynamics.des import DESEngine, Queue as DesQueue, Resource
 from dynafx.registry import clear_all
 
 # ── Activate plugins ─────────────────────────────────────────────

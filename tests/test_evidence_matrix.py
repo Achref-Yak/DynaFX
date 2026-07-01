@@ -2,14 +2,14 @@
 
 import pytest
 from dynafx.core.models import Opinion
-from dynafx.reason.evidence import (
+from dynafx.epistemics.evidence import (
     ClaimAssessment,
     ConsensusLevel,
     EvidenceMatrix,
     EvidenceMatrixResult,
     PairwiseAgreement,
 )
-from dynafx.reason.fusion import consensus_to_fusion_situation
+from dynafx.epistemics.fusion import consensus_to_fusion_situation
 from dynafx.core.models import FusionSituation
 
 
@@ -299,7 +299,7 @@ class TestFusionSituationIntegration:
         assert situations["fight"] == FusionSituation.CONFLICTING_VIEWS
 
     def test_evidence_matrix_importable(self):
-        from dynafx.reason import EvidenceMatrix, EvidenceMatrixResult, ConsensusLevel
+        from dynafx.epistemics import EvidenceMatrix, EvidenceMatrixResult, ConsensusLevel
         m = EvidenceMatrix()
         m.add_source("A", {"x": op(0.8, 0.1)})
         result = m.compute()

@@ -22,12 +22,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 from fpdf import FPDF
 
-from dynafx.system.dsl import parse_sysd, parse_sysd_file, SysdModel
-from dynafx.system.causal import causal_trace
-from dynafx.system.feedback import detect_feedback_loops
-from dynafx.system.units import UnitChecker, Unit
-from dynafx.system.scenario import ScenarioDef, ScenarioResult, ScenarioComparison
-from dynafx.system.optimization import lp_minimize
+from dynafx.dynamics.dsl import parse_sysd, parse_sysd_file, SysdModel
+from dynafx.dynamics.causal import causal_trace
+from dynafx.dynamics.feedback import detect_feedback_loops
+from dynafx.dynamics.units import UnitChecker, Unit
+from dynafx.dynamics.scenario import ScenarioDef, ScenarioResult, ScenarioComparison
+from dynafx.dynamics.optimization import lp_minimize
 
 C = plt.cm.tab10.colors
 

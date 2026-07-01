@@ -25,11 +25,11 @@ from fpdf import FPDF
 def _sanitize(text: str) -> str:
     return text.replace("\u2014", "-").replace("\u2013", "-").replace("\u2018", "'").replace("\u2019", "'").replace("\u201c", '"').replace("\u201d", '"').replace("\u2026", "...")
 
-from dynafx.system.dsl import parse_sysd_file
-from dynafx.system.causal import causal_trace
-from dynafx.system.feedback import detect_feedback_loops
-from dynafx.system.emergent import run_consistency_checks
-from dynafx.system.units import UnitChecker
+from dynafx.dynamics.dsl import parse_sysd_file
+from dynafx.dynamics.causal import causal_trace
+from dynafx.dynamics.feedback import detect_feedback_loops
+from dynafx.dynamics.emergent import run_consistency_checks
+from dynafx.dynamics.units import UnitChecker
 
 # ── Configuration ───────────────────────────────────────────────
 

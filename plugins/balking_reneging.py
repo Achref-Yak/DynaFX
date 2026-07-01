@@ -10,7 +10,7 @@ Usage:
 from typing import Any, Optional
 
 from dynafx.registry import register_queue_hook
-from dynafx.system.des import DESEngine, Queue
+from dynafx.dynamics.des import DESEngine, Queue
 
 
 def add_balking(queue: Queue, max_wait: float) -> None:

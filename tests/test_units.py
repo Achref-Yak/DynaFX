@@ -6,14 +6,14 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 os.environ.setdefault("TMPDIR", "/tmp")
 
-from dynafx.system.units import (
+from dynafx.dynamics.units import (
     Unit,
     UnitRegistry,
     UnitChecker,
     UnitCheckResult,
     UnitViolation,
 )
-from dynafx.system.dsl import parse_sysd, SysdModel
+from dynafx.dynamics.dsl import parse_sysd, SysdModel
 
 
 # ═══════════════════════════════════════════════════════════════

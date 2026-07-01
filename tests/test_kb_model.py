@@ -3,7 +3,7 @@
 import pytest
 
 from dynafx.core.models import Opinion
-from dynafx.kb.model import (
+from dynafx.knowledge.model import (
     BlankNode,
     Literal,
     NamedNode,
@@ -244,6 +244,6 @@ class TestXsd:
         assert isinstance(xsd("integer"), NamedNode)
 
     def test_common_constants(self):
-        from dynafx.kb.model import XSD_INTEGER, XSD_STRING
+        from dynafx.knowledge.model import XSD_INTEGER, XSD_STRING
         assert XSD_INTEGER == xsd("integer")
         assert XSD_STRING == xsd("string")

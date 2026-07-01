@@ -3,14 +3,14 @@
 import pytest
 
 from dynafx.core.models import Opinion
-from dynafx.kb.model import (
+from dynafx.knowledge.model import (
     BlankNode,
     Literal,
     NamedNode,
     Triple,
     TriplePattern,
 )
-from dynafx.kb.store import TripleStore
+from dynafx.knowledge.store import TripleStore
 
 
 # ── Fixtures ─────────────────────────────────────────────────────

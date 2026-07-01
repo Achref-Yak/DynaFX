@@ -16,8 +16,8 @@ import numpy as np
 from fpdf import FPDF
 
 sys.path.insert(0, "src")
-from dynafx.system.dsl import parse_sysd
-from dynafx.system.scenario import ScenarioComparison, ScenarioResult
+from dynafx.dynamics.dsl import parse_sysd
+from dynafx.dynamics.scenario import ScenarioComparison, ScenarioResult
 
 # ══════════════════════════════════════════════════════════════
 # Model

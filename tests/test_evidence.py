@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from dynafx.core.models import EvidenceCounts, Graph, Node, Edge, NodeType, EdgeType
-from dynafx.reason.evidence import (
+from dynafx.epistemics.evidence import (
     CorpusResult,
     mean_opinion,
     mean_opinion_pair,

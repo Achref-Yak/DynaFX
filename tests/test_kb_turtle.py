@@ -2,7 +2,7 @@
 
 import pytest
 
-from dynafx.kb.model import (
+from dynafx.knowledge.model import (
     BlankNode,
     Literal,
     NamedNode,
@@ -10,7 +10,7 @@ from dynafx.kb.model import (
     TriplePattern,
     xsd,
 )
-from dynafx.kb.turtle import (
+from dynafx.knowledge.turtle import (
     parse_ntriples,
     parse_turtle,
     serialize_ntriples,

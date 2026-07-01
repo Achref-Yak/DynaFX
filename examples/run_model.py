@@ -3,7 +3,7 @@
 import sys
 from pathlib import Path
 
-from dynafx.system.dsl import parse_sysd
+from dynafx.dynamics.dsl import parse_sysd
 
 
 def main():

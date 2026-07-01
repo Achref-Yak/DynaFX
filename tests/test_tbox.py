@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from dynafx.tbox.loader import (
+from dynafx.knowledge.loader import (
     TBox, load_tbox, validate_against_tbox,
     GENERAL_TBOX, BUILTIN_TBOXES,
 )

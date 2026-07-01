@@ -18,9 +18,9 @@ import random
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 os.environ.setdefault("TMPDIR", "/tmp")
 
-from dynafx.system.dsl import parse_sysd_file, parse_sysd
-from dynafx.system.causal import causes_tree, effects_tree, causal_trace
-from dynafx.system.feedback import detect_feedback_loops, loops_for_variable
+from dynafx.dynamics.dsl import parse_sysd_file, parse_sysd
+from dynafx.dynamics.causal import causes_tree, effects_tree, causal_trace
+from dynafx.dynamics.feedback import detect_feedback_loops, loops_for_variable
 
 
 # ═══════════════════════════════════════════════════════════════

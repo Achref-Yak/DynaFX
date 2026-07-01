@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from dynafx.registry import register_builtin, register_resource_hook
-from dynafx.system.des import Resource
+from dynafx.dynamics.des import Resource
 
 
 class ResourceCalendar:

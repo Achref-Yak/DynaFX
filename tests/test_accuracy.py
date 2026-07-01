@@ -4,7 +4,7 @@ Verifies that our RK4 solver + DSL parser produce correct results for
 models with known closed-form solutions.
 """
 
-from dynafx.system.dsl import parse_sysd
+from dynafx.dynamics.dsl import parse_sysd
 import math
 
 

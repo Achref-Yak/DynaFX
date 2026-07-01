@@ -1,6 +1,6 @@
 """SEIR Epidemic — .sysd DSL with seasonal forcing, capacity, and policy."""
 
-from dynafx.system.dsl import parse_sysd
+from dynafx.dynamics.dsl import parse_sysd
 
 DSL = """
 model 'SEIR Epidemic'

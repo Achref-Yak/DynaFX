@@ -1,8 +1,8 @@
 """Tests for emergent properties and stock-flow consistency checker."""
 
 import pytest
-from dynafx.system.dsl import parse_sysd, SysdModel, StockDef, FlowDef, AuxDef
-from dynafx.system.emergent import (
+from dynafx.dynamics.dsl import parse_sysd, SysdModel, StockDef, FlowDef, AuxDef
+from dynafx.dynamics.emergent import (
     EmergentProperty,
     Condition,
     Effect,

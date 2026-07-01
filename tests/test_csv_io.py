@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 os.environ.setdefault("TMPDIR", "/tmp")
 
 import pytest
-from dynafx.system.dsl import parse_sysd
+from dynafx.dynamics.dsl import parse_sysd
 
 
 SIMPLE_MODEL_SRC = """

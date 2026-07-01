@@ -11,7 +11,7 @@ def model_path():
 
 
 def test_vmi_parses_and_simulates(model_path):
-    from dynafx.system.dsl import parse_sysd_file
+    from dynafx.dynamics.dsl import parse_sysd_file
 
     path = os.path.join(model_path, "vmi.sysd")
     assert os.path.exists(path)
@@ -23,7 +23,7 @@ def test_vmi_parses_and_simulates(model_path):
 
 
 def test_vmi_retailer_does_not_deplete(model_path):
-    from dynafx.system.dsl import parse_sysd_file
+    from dynafx.dynamics.dsl import parse_sysd_file
 
     m = parse_sysd_file(os.path.join(model_path, "vmi.sysd"))
     r = m.simulate(method="euler", params={"base_demand": 500})
@@ -32,7 +32,7 @@ def test_vmi_retailer_does_not_deplete(model_path):
 
 
 def test_reverse_logistics_parses_and_simulates(model_path):
-    from dynafx.system.dsl import parse_sysd_file
+    from dynafx.dynamics.dsl import parse_sysd_file
 
     path = os.path.join(model_path, "reverse_logistics.sysd")
     assert os.path.exists(path)
@@ -45,7 +45,7 @@ def test_reverse_logistics_parses_and_simulates(model_path):
 
 
 def test_reverse_logistics_mass_balance(model_path):
-    from dynafx.system.dsl import parse_sysd_file
+    from dynafx.dynamics.dsl import parse_sysd_file
 
     m = parse_sysd_file(os.path.join(model_path, "reverse_logistics.sysd"))
     r = m.simulate(method="euler")
@@ -60,7 +60,7 @@ def test_reverse_logistics_mass_balance(model_path):
 
 
 def test_cold_chain_parses_and_simulates(model_path):
-    from dynafx.system.dsl import parse_sysd_file
+    from dynafx.dynamics.dsl import parse_sysd_file
 
     path = os.path.join(model_path, "cold_chain.sysd")
     assert os.path.exists(path)
@@ -72,7 +72,7 @@ def test_cold_chain_parses_and_simulates(model_path):
 
 
 def test_cold_chain_spoilage_accumulates(model_path):
-    from dynafx.system.dsl import parse_sysd_file
+    from dynafx.dynamics.dsl import parse_sysd_file
 
     m = parse_sysd_file(os.path.join(model_path, "cold_chain.sysd"))
     r = m.simulate(method="euler")
@@ -80,7 +80,7 @@ def test_cold_chain_spoilage_accumulates(model_path):
 
 
 def test_cold_chain_inventory_declines_with_spoilage(model_path):
-    from dynafx.system.dsl import parse_sysd_file
+    from dynafx.dynamics.dsl import parse_sysd_file
 
     m = parse_sysd_file(os.path.join(model_path, "cold_chain.sysd"))
     r = m.simulate(method="euler", params={"temp_deviation": 2})
@@ -89,7 +89,7 @@ def test_cold_chain_inventory_declines_with_spoilage(model_path):
 
 
 def test_all_models_parse_and_simulate(model_path):
-    from dynafx.system.dsl import parse_sysd_file
+    from dynafx.dynamics.dsl import parse_sysd_file
 
     models = ["vmi.sysd", "reverse_logistics.sysd", "cold_chain.sysd"]
     for fn in models:

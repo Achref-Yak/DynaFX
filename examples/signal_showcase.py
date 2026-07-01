@@ -13,7 +13,7 @@ import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 os.environ.setdefault('TMPDIR', '/tmp')
 
-from dynafx.templates import SignalChain
+from dynafx.dynamics import SignalChain
 
 
 def build_food_delivery():

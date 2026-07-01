@@ -15,7 +15,7 @@ Usage:
 
 from typing import Any
 
-from dynafx.system.dsl import AuxDef, FlowDef, StockDef, SysdModel
+from dynafx.dynamics.dsl import AuxDef, FlowDef, StockDef, SysdModel
 
 
 def create_n_echelon_model(

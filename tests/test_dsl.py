@@ -1,6 +1,6 @@
 """Tests for the .sysd DSL parser and simulation."""
 
-from dynafx.system.dsl import parse_sysd, ExprParser
+from dynafx.dynamics.dsl import SysdModel, parse_sysd, ExprParser, _compile_system
 
 
 # ── Expression parser ─────────────────────────────────────────
@@ -364,3 +364,366 @@ model 'AuxTbl'
     result = m.simulate()
     # ramp(t) = 10*t, ∫₀⁵ 10t dt = 125
     assert abs(result["final_state"][0] - 125.0) < 1e-9
+
+
+# ── Python-native DSL API ──────────────────────────────────────
+
+def test_python_api_stock():
+    model = SysdModel()
+    with model.stock("x", 10.0) as s:
+        s.inflow("dx", "2.0")
+        s.outflow("leak", "0.1 * x")
+    assert len(model.stocks) == 1
+    assert model.stocks[0].name == "x"
+    assert model.stocks[0].initial == 10.0
+    assert len(model.stocks[0].flows) == 2
+    assert model.stocks[0].flows[0].name == "dx"
+    assert model.stocks[0].flows[0].direction == "+"
+    assert model.stocks[0].flows[0].expr == "2.0"
+    assert model.stocks[0].flows[1].name == "leak"
+    assert model.stocks[0].flows[1].direction == "-"
+    assert model.stocks[0].flows[1].expr == "0.1 * x"
+
+
+def test_python_api_stock_unit():
+    model = SysdModel()
+    with model.stock("displacement", 0.0, unit="m") as s:
+        s.inflow("velocity", unit="m/s")
+    assert model.stocks[0].units == "m"
+    assert model.stocks[0].flows[0].units == "m/s"
+
+
+def test_python_api_aux():
+    model = SysdModel()
+    model.aux("damping", "-c * velocity")
+    model.aux("energy", "0.5 * m * v**2", unit="J")
+    assert len(model.aux_vars) == 2
+    assert model.aux_vars[0].name == "damping"
+    assert model.aux_vars[0].expr == "-c * velocity"
+    assert model.aux_vars[1].name == "energy"
+    assert model.aux_vars[1].units == "J"
+
+
+def test_python_api_table():
+    model = SysdModel()
+    model.table("gain", [0, 1, 2], [0.0, 0.5, 1.0])
+    assert len(model.tables) == 1
+    assert model.tables[0].name == "gain"
+    assert model.tables[0].x == [0, 1, 2]
+    assert model.tables[0].y == [0.0, 0.5, 1.0]
+
+
+def test_python_api_param():
+    model = SysdModel()
+    model.param("k", 2.0)
+    model.param("c", 0.5)
+    assert model.params == {"k": 2.0, "c": 0.5}
+
+
+def test_python_api_params_merged_at_simulate():
+    model = SysdModel()
+    model.param("k", 2.0)
+    with model.stock("x", 0.0) as s:
+        s.inflow("dx", "k")
+    result = model.simulate(dt=0.5)
+    # k=2, dt=0.5, t_span=(0,100) → 200 steps, x += k*dt = 1 per step → 200
+    assert abs(result["final_state"][0] - 200.0) < 1e-9
+
+
+def test_python_api_param_override_at_simulate():
+    model = SysdModel()
+    model.param("k", 2.0)
+    with model.stock("x", 0.0) as s:
+        s.inflow("dx", "k")
+    result = model.simulate(params={"k": 5.0}, dt=0.5)
+    assert abs(result["final_state"][0] - 500.0) < 1e-9
+
+
+def test_python_api_agent():
+    model = SysdModel()
+    with model.agent("customer", 50) as a:
+        a.prop("satisfaction", 1.0, min_val=0, max_val=1)
+        a.prop("risk", 0.0)
+        a.rule("churn", "satisfaction < 0.3", effects=["risk += 0.1"], priority=1)
+    assert len(model.agents) == 1
+    assert model.agents[0].name == "customer"
+    assert model.agents[0].count == 50
+    assert len(model.agents[0].properties) == 2
+    assert model.agents[0].properties[0].name == "satisfaction"
+    assert model.agents[0].properties[0].min == 0
+    assert model.agents[0].properties[0].max == 1
+    assert len(model.agents[0].rules) == 1
+    assert model.agents[0].rules[0].name == "churn"
+    assert model.agents[0].rules[0].priority == 1
+
+
+def test_python_api_des():
+    model = SysdModel()
+    model.queue("orders", capacity=50, service_time="5.0", arrival_rate="10", initial=5)
+    model.resource("staff", capacity=3, cost_per_unit=25.0)
+    model.event("rush", rate="STEP(10,8)", target_queue="orders")
+    assert len(model.queues) == 1
+    assert model.queues[0].name == "orders"
+    assert model.queues[0].capacity == 50
+    assert model.queues[0].service_time == "5.0"
+    assert model.queues[0].arrival_rate == "10"
+    assert model.queues[0].initial == 5
+    assert len(model.resources) == 1
+    assert model.resources[0].name == "staff"
+    assert model.resources[0].capacity == 3
+    assert model.resources[0].cost_per_unit == 25.0
+    assert len(model.events) == 1
+    assert model.events[0].name == "rush"
+
+
+def test_python_api_submodel():
+    model = SysdModel()
+    with model.submodel("sector") as sm:
+        with sm.stock("population", 1000) as s:
+            s.inflow("births", "population * birth_rate")
+        sm.aux("birth_rate", "0.02")
+    assert len(model.submodels) == 1
+    assert model.submodels[0].name == "sector"
+    assert len(model.submodels[0].stocks) == 1
+    assert model.submodels[0].stocks[0].name == "population"
+    assert model.submodels[0].stocks[0].initial == 1000
+    assert model.submodels[0].stocks[0].flows[0].name == "births"
+    assert model.submodels[0].stocks[0].flows[0].expr == "population * birth_rate"
+    assert len(model.submodels[0].aux_vars) == 1
+    assert model.submodels[0].aux_vars[0].name == "birth_rate"
+
+
+def test_python_api_include():
+    model = SysdModel()
+    model.include("sector", alias="urban", params={"birth_rate": 0.03})
+    model.include("sector", params={"birth_rate": 0.02})
+    assert len(model.includes) == 2
+    assert model.includes[0].submodel_name == "sector"
+    assert model.includes[0].instance_name == "urban"
+    assert model.includes[0].params == {"birth_rate": 0.03}
+    assert model.includes[1].submodel_name == "sector"
+    assert model.includes[1].instance_name == "sector_inst"
+
+
+def test_python_api_construct_entire_model():
+    """Build a model entirely via Python API and verify simulation works."""
+    model = SysdModel("test_model")
+    model.dt = 0.25
+    model.t_span = (0.0, 10.0)
+
+    with model.stock("x", 0.0) as s:
+        s.inflow("dx", "y")
+    with model.stock("y", 1.0) as s:
+        s.inflow("dy", "-k * x - c * y")
+
+    model.aux("k", "2.0")
+    model.aux("c", "0.5")
+    model.table("forcing", [0, 10], [0, 0])
+
+    model.param("extra", 0.0)
+
+    result = model.simulate()
+    assert len(result.times) == 41
+    assert result.values["x"][0] == 0.0
+    assert result.values["y"][0] == 1.0
+
+
+def test_python_api_matches_parse():
+    """Python API model produces same results as .sysd equivalent."""
+    sysd = """
+    model "test"
+    dt 0.25
+    from 0 to 10
+    stock x: 0
+        + dx: y
+    stock y: 1
+        + dy: -k * x - c * y
+    aux k: 2.0
+    aux c: 0.5
+    table forcing: (0,0),(10,0)
+    """
+    parsed = parse_sysd(sysd)
+
+    built = SysdModel("test")
+    built.dt = 0.25
+    built.t_span = (0.0, 10.0)
+    with built.stock("x", 0.0) as s:
+        s.inflow("dx", "y")
+    with built.stock("y", 1.0) as s:
+        s.inflow("dy", "-k * x - c * y")
+    built.aux("k", "2.0")
+    built.aux("c", "0.5")
+    built.table("forcing", [0, 10], [0, 0])
+
+    r1 = parsed.simulate()
+    r2 = built.simulate()
+    assert r1.values["x"] == r2.values["x"]
+    assert r1.values["y"] == r2.values["y"]
+
+
+def test_python_api_method_chaining():
+    model = SysdModel()
+    model.aux("a", "1.0").aux("b", "2.0").table("t", [0], [0])
+    assert len(model.aux_vars) == 2
+    assert len(model.tables) == 1
+
+
+def test_python_api_empty_model():
+    model = SysdModel()
+    result = model.simulate()
+    assert len(result.times) == 101
+
+
+# ── Multi-outflow auto-allocation ──────────────────────────────────
+
+def test_auto_allocation_two_outflows():
+    sysd = """
+    T
+    dt 0.25
+    from 0 to 10
+    stock S: 100
+      - O1: MIN(MAX(0, S) / dt, 10)
+      - O2: MIN(MAX(0, S) / dt, 20)
+    """
+    model = parse_sysd(sysd)
+    cache = model._compiled_cache or _compile_system(model)
+    s_idx = cache.stock_names.index("S")
+    assert "ALLOCATE_FRACTION" in cache.outflow_strs[s_idx], \
+        "2-outflow MIN(…/dt) should auto-allocate"
+    r = model.simulate(t_span=(0, 10))
+    assert min(r.values["S"]) >= -0.01, "Stock went negative"
+
+
+def test_auto_allocation_three_outflows():
+    sysd = """
+    T
+    dt 0.25
+    from 0 to 10
+    stock S: 100
+      - O1: MIN(MAX(0, S) / dt, 5)
+      - O2: MIN(MAX(0, S) / dt, 10)
+      - O3: MIN(MAX(0, S) / dt, 15)
+    """
+    model = parse_sysd(sysd)
+    r = model.simulate(t_span=(0, 10))
+    assert min(r.values["S"]) >= -0.01
+
+
+def test_auto_allocation_single_outflow_unchanged():
+    """Single-outflow stock should not get ALLOCATE_FRACTION."""
+    sysd = """
+    T
+    dt 0.25
+    from 0 to 10
+    stock S: 100
+      - O1: MIN(MAX(0, S) / dt, 10)
+    """
+    model = parse_sysd(sysd)
+    cache = _compile_system(model)
+    s_idx = cache.stock_names.index("S")
+    assert "ALLOCATE_FRACTION" not in cache.outflow_strs[s_idx], \
+        "Single outflow should not get ALLOCATE_FRACTION"
+
+
+def test_auto_allocation_mixed_pattern_skipped():
+    """Mixed MIN and non-MIN outflows should NOT auto-allocate."""
+    sysd = """
+    T
+    dt 0.25
+    from 0 to 10
+    stock S: 100
+      - O1: MIN(MAX(0, S) / dt, 10)
+      - O2: S * 0.1
+    """
+    model = parse_sysd(sysd)
+    cache = _compile_system(model)
+    s_idx = cache.stock_names.index("S")
+    assert "ALLOCATE_FRACTION" not in cache.outflow_strs[s_idx]
+
+
+def test_auto_allocation_validation_info_for_min_pattern():
+    """Stock with all MIN(…/dt) outflows gets an info message at validation."""
+    sysd = """
+    T
+    dt 0.25
+    from 0 to 10
+    stock S: 100
+      - O1: MIN(MAX(0, S) / dt, 10)
+      - O2: MIN(MAX(0, S) / dt, 20)
+    """
+    model = parse_sysd(sysd)
+    v = model.validate()
+    info_msgs = [i for i in v.infos if "auto-apply" in i.message]
+    assert len(info_msgs) == 1, f"Expected 1 info, got {len(info_msgs)}: {v.infos}"
+
+
+def test_auto_allocation_validation_warn_for_non_min():
+    """Stock with non-MIN outflows gets a warning at validation."""
+    sysd = """
+    T
+    dt 0.25
+    from 0 to 10
+    stock S: 100
+      - O1: MIN(MAX(0, S) / dt, 10)
+      - O2: S * 0.1
+    """
+    model = parse_sysd(sysd)
+    v = model.validate()
+    warn_msgs = [w for w in v.warnings if "cannot auto-allocate" in w.message]
+    assert len(warn_msgs) == 1
+
+
+def test_auto_allocation_already_allocated_no_warning():
+    """Stock already using ALLOCATE_FRACTION gets no auto-allocation warning."""
+    sysd = """
+    T
+    dt 0.25
+    from 0 to 10
+    aux avail: MAX(0, S) / dt
+    aux total_d: 10 + 20
+    stock S: 100
+      - O1: ALLOCATE_FRACTION(avail, 10, total_d)
+      - O2: ALLOCATE_FRACTION(avail, 20, total_d)
+    """
+    model = parse_sysd(sysd)
+    v = model.validate()
+    multi_warn = [w for w in v.warnings if "outflows" in w.message and "cannot auto-allocate" in w.message]
+    assert len(multi_warn) == 0
+
+
+def test_auto_allocation_outflow_capped_by_demand():
+    """With available >> demand, each outflow gets its full demand."""
+    sysd = """
+    T
+    dt 0.25
+    from 0 to 10
+    stock S: 1000
+      - O1: MIN(MAX(0, S) / dt, 10)
+      - O2: MIN(MAX(0, S) / dt, 20)
+    """
+    model = parse_sysd(sysd)
+    r = model.simulate(t_span=(0, 10))
+    s_vals = r.values["S"]
+    # O1+O2 = 30/day drain rate, over 10 days: 1000 - 30*10 = 700
+    expected = 1000 - 30 * 10
+    assert abs(s_vals[-1] - expected) < 1.0, \
+        f"Expected ~{expected}, got {s_vals[-1]}"
+
+
+def test_auto_allocation_outflow_capped_by_available():
+    """When total demand > available, outflows split proportionally."""
+    sysd = """
+    T
+    dt 1.0
+    from 0 to 5
+    stock S: 10
+      - O1: MIN(MAX(0, S) / dt, 100)
+      - O2: MIN(MAX(0, S) / dt, 200)
+    """
+    model = parse_sysd(sysd)
+    r = model.simulate(t_span=(0, 5))
+    s_vals = r.values["S"]
+    # At dt=1, S drains from 10. O1 gets 100 * 10/300 = 3.33, O2 gets 200 * 10/300 = 6.67
+    # Per step: total = 10 (all of available). S → 0 after ~1 step.
+    assert s_vals[-1] < 0.5, f"S should be near 0, got {s_vals[-1]}"
+    assert min(s_vals) >= -0.01, "S should not go negative"

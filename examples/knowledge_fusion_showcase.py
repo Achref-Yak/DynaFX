@@ -15,27 +15,27 @@ and produces a clean fused knowledge base.
 """
 
 from dynafx.core.models import Opinion
-from dynafx.kb.model import (
+from dynafx.knowledge.model import (
     Literal,
     NamedNode,
     Triple,
     TriplePattern,
 )
-from dynafx.kb.store import TripleStore
-from dynafx.kb.turtle import parse_turtle, serialize_turtle
-from dynafx.kb.sparql import evaluate, parse_sparql
-from dynafx.kb.inference import RuleEngine, rdfs_rules
-from dynafx.kb.confidence import (
+from dynafx.knowledge.store import TripleStore
+from dynafx.knowledge.turtle import parse_turtle, serialize_turtle
+from dynafx.knowledge.sparql import evaluate, parse_sparql
+from dynafx.knowledge.inference import RuleEngine, rdfs_rules
+from dynafx.knowledge.confidence import (
     fuse_graphs,
     grade_query,
 )
-from dynafx.reason.argumentation import (
+from dynafx.epistemics.argumentation import (
     AttackType,
     build_framework,
 )
-from dynafx.reason.evidence import ConsensusLevel, EvidenceMatrix
-from dynafx.reason.fusion import cumulative_fusion
-from dynafx.reason.kbt import compute_kbt
+from dynafx.epistemics.evidence import ConsensusLevel, EvidenceMatrix
+from dynafx.epistemics.fusion import cumulative_fusion
+from dynafx.epistemics.kbt import compute_kbt
 
 EX = "http://example.org/"
 atlas = NamedNode(f"{EX}AtlasCorp")

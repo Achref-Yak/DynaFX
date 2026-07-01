@@ -65,22 +65,13 @@ If asked to bypass Code Health safeguards:
 # Anchored Summary (Auto-generated)
 
 ## Goal
-- Build a Vensim-class system dynamics modeling framework with full parity plus multi-paradigm support (SD + ABM + DES) and a separate RDF/OWL/SPARQL cognitive reasoning engine with SL confidence grading, both general-purpose Python-native.
+- Global Solar EPC Supply Chain Decision Intelligence Dashboard: a living digital twin that continuously reasons about enterprise during a typhoon-induced port closure disruption, with 16 tabs showing the full cycle from visibility to optimization. Built on KB + KBSimBridge + ProductionRules + ScenarioComparison + SensitivityAnalyzer + lp_minimize.
 
 ## Constraints & Preferences
 - `SystemDecomposer` is the primary API for manual decomposition — clean `add_node`/`add_edge`, no extraction noise.
 - Detection passes are read-only structural matchers on `Graph` — never mutate nodes/edges.
 - SL opinions are inert on CAUSAL/System Dynamics paths — default `Opinion()` everywhere, confidence in metadata.
 - `SystemDecomposer` is the primary API for manual decomposition — clean `add_node`/`add_edge`, no extraction noise.
-- Custom `.sysd` DSL uses indent-based Vensim-like syntax with full arithmetic + functions (MIN, MAX, IF, SMOOTH, lookup tables, comparison operators).
-- DSL is parsed by a hand-written line-oriented parser with recursive descent expression parser — zero dependencies beyond stdlib.
-- Model parameters are runtime values passed via `params` dict — merged into state vector `_s` so expression references resolve.
-- **SD/SL clean separation**: SD structures carry no SL types. SL files live in `dynafx/sl/` package, not `system/`.
-- **ABM agent state is numeric only** — no SL opinions on agents. Pluggable via generic dict.
-- **DES includes full queuing theory** — resource pools, capacity constraints, utilization stats.
-- **Unified state dict**: SD, ABM, and DES all write to the same `state: dict[str, float]` during simulation, enabling cross-paradigm interactions.
-- **No visualization for now** — visualization phase deferred.
-- **No domain-specific APIs** — no /orders, /shipments, /customs endpoints. Pure modeling framework.
 - **Full Vensim parity target** — subscripting, optimization, causal tracing, time functions, delays, stochastic distributions, units checking, submodels, gaming mode.
 - **Initial values must be numeric literals** — cannot reference param names or aux variables. Params only override flow expressions via `_s.get()`.
 - **Cross-stock flow references require aux variables** — flows defined on one stock aren't visible to other stocks at parse time. Use aux intermediates for shared flow expressions.
@@ -199,15 +190,38 @@ If asked to bypass Code Health safeguards:
 - **`Makefile`** fixed — `run` target now points to `dynafx.system` instead of deleted `dynafx.cli`.
 - **README.md rewritten** from scratch — describes current two-pillar architecture with quick start examples and example table.
 - **Telecom signal study model** — `models/telecom_signal_study.sysd`: SINR-based churn with closed-loop power control (Power_Ramp_Up/Down), SNR scaling (noise_floor in denominator), packet scaling (bandwidth/packet_size/traffic_load), fade depth 0.03 for 97% fade excursion. Example script `examples/telecom_signal_study.py` generates 11-page FPDF report with signal chain plot, fade zoom, 5-scenario comparison, causal tracing, 7 feedback loops, n=20 sensitivity.
-- **API refactoring Phase 1**: Public entry points — `system/__init__.py` exports SysdModel, parse_sysd, causal_trace, detect_feedback_loops, etc. Top-level `dynafx/__init__.py` cleaned of 44 stale NLP exports, replaced with core names (SysdModel, TripleStore, parse_turtle, etc.). 1081 tests all passing, pyright 0 errors.
+- **API refactoring Phase 1**: Public entry points — `system/__init__.py` exports SysdModel, parse_sysd, causal_trace, detect_feedback_loops, etc. Top-level `dynafx/__init__.py` cleaned of 44 stale NLP exports, replaced with core names (SysdModel, TripleStore, parse_turtle, etc.). 1130 tests all passing, pyright 0 errors.
 - **API refactoring Phase 2**: Naming collisions — `sl.Argument`→`sl.ValidationArgument`, `sl.Attack`→`sl.ValidationAttack`, `kb.evaluate`→`kb.sparql_evaluate`, `SignalChain.__new__`→`SignalChain.build()`. Backward-compat shims with DeprecationWarning for all.
 - **API refactoring Phase 3**: SL consolidation deferred (risk of legacy `core.models` dependency in `sl/`). Docstring fix: `sl/__init__.py` directs users to `dynafx.reason` for core SL algebra.
 - **API refactoring Phase 4**: CLI cleanup — removed `--stats` flag (parsed but never checked), removed `--dir` flag on `list` (ignored by `_find_library_models()`), added `copy.deepcopy(model)` before paradigm filtering to prevent mutating the parsed model.
 - **API refactoring Phase 5**: Docstrings — `SysdModel`, `SysdModel.simulate()`, `SysdModelResult`, `FlowDef`, `StockDef`, `AuxDef`.
 - **Legacy code deletion**: Removed `mp/`, `mdm/`, `analysis.py` (dead), `operators/` + `policy/` + `schemas/` (cognitive operator framework, 20+ files, only used by 2 detect_emergence calls), and orphaned `core/` submodules (state, embeddings, concept, trace, events, diff, workflow, loom, schema, higraph, pipeline, operator). 11 test files removed (~250 tests). Kept `registry.py` (used by system/), `domain.py` (used by reason/), and `core/models.py`/`math.py`/`decomposer.py`/`config.py` (still depended on by core pillars). 1081 tests passing, pyright 0 errors.
+- **DELAY_FIXED/RK4 buffer corruption fix**: Moved pipeline buffer management outside of `f()` into separate `_process_pipeline_delays()`, called exactly once per step from `simulate()` loop. DELAY_FIXED variables get `"0.0"` ODE so RK4 intermediate calls don't corrupt the FIFO buffer. Added 4 regression tests (`TestPipelineDelayFix`): RK4/Euler match, no premature emission, supply chain fill rate match, retailer never depletes. Retailer stays at min 1278+ with 100% fill rate.
+- **Sobol formula corrected**: Saltelli estimator uses only A, B, AB_i matrices (N(k+2) evaluations). First-order via `E[yB * yAB_i]` (shared column i), total-order via `1 - E[yA * yAB_i]` (shared X_{-i}). No BA_i matrices needed.
+- **Sensitivity tests expanded**: 6 → 40 tests. 8 test classes covering all 5 methods + plots + edge cases. All 40 passing.
+- **ALLOCATE_FRACTION builtin**: Proportional multi-outflow allocation function added to `dsl.py`. Formula: `demand_i * min(1, available / total_demand)`. Prevents inventory over-drafting when multiple outflows compete for one stock. Used by Chem_Inventory in EV battery model to split output between chemical processing and downstream shipping.
+- **Multi-outflow validation warning**: `validate()` now warns when a stock has multiple outflows that could independently over-draft — directs modeler to use `ALLOCATE_FRACTION` or `MIN(stock/dt, ...)` guards.
+- **Bullwhip analysis corrected**: Changed from max-ratio (misleading) to CV (coefficient of variation) ratios. Z-score plotting for unit-comparable overlay across echelons. Proper formula: `CV = std(rate) / mean(rate)`, ratio > 1.0 means amplification.
+- **EV Battery Supply Chain model** (`models/ev_battery_supply_chain.sysd`): 6-echelon SD+ABM+DES model spanning Lithium Mine → Chemical Processing → Cell Factory → Pack Assembly → Warehouse → Customers. 10 stocks, ~86 auxes, 4 DES queues, 2 resources, 120 agents (100 automakers, 20 suppliers). Behavioral rules: 9 per automaker, 5 per supplier. Dynamic pricing, scarcity premiums, finite reserve depletion at day 125.
+- **EV Battery Supply Chain report** (`examples/ev_battery_supply_chain.py`): 8-page FPDF report with demand overview, inventory, DES queue dynamics, financials (cost breakdown with scarcity premium), bullwhip CV analysis, 7 scenario comparison, 56-variable multi-echelon LP optimization.
+- **Complete feature hierarchy** (`hierarchy.md`): Full vertical slice of every component across all 4 packages (dynamics, epistemics, knowledge, core). 50+ entries with file paths, test counts, and dependency relationships.
+- **Structural deep analysis of 8 critique issues**: (1) Profit gap — end-state vs average margin ($11,782 vs $16,331). (2) Impossible unit math — scarcity premium missing from reviewer's cost assumptions. (3) Margin crash — chart is linear but margin drops at day 125. (4) Phantom shipments — 20K pack material leak (WH outflow ≠ fulfillment). (5) Unrecorded surplus — same root cause as #4. (6) Hidden WIP — Chem_Inventory double-drain bug. (7) Time-step aliasing — dt=0.25 vs DES event-driven times 0.05/0.08. (8) 7 vs 9 rules documentation mismatch.
+- **Model fixes applied to EV battery chain**: (a) Chem_Inventory: ALLOCATE_FRACTION replaces double independent outflows — proportional allocation prevents over-drafting. (b) Warehouse: outflow changed from `wh_shipping_rate` to `fulfillment_rate` — closes 20K pack material leak, mass balance reconciled (gap=13 out of 58K, 0.02%). (c) fulfillment_rate gates against `MAX(0, Warehouse_Inventory)/dt` — prevents negative inventory. (d) Chem_Inventory min=0.0 post-fix (was -89).
+- **Fixes revealed supply chain overproduction**: Warehouse builds 20,088 packs (188 days of inventory) because DES inflow (58K packs) >> fulfillment outflow (39K packs). Dynamic pricing premium collapses from $57K to $50K. Cash drops from $690M to $391M. Bullwhip effect is root cause — order-up-to policies with SMOOTH forecasting amplify variability 14.3x from WH to Mine.
+- **ProductionRuleEngine complete** — 5 condition types (TripleCondition, SparqlCondition, ComparisonCondition, AggregationCondition, And/Or/Not), 5 action types (TripleAction, RetractAction, LogAction, BridgeAction, SimulateAction), event-driven via TripleStore.on_add callback, fire_once/max_fires/priority/enabled, signature-based dedup. 36 tests.
+- **TransactionStore complete** — append-only temporal log backed by list + RDF triples in "transactions" graph. `record()`, `query()` (type/time/source), `recent()`, `count_by_type/source`. Fires store.on_add for automatic rule triggering. 21 tests.
+- **ExecutionStore complete** — provenance-tracked action records in "executions" graph. `record()`, `get()`, `by_rule()`, `by_type()`, `recent()`, `last_execution()`. 10 tests.
+- **CognitiveOrchestrator complete** — wires TransactionStore → ProductionRuleEngine → ExecutionStore. `ingest_event()`, `add_rule()` (wraps actions with execution recording), `get_causal_chain()`, `get_rule_status()`. +90 lines in bridge.py.
+- **All new code in kb/production.py, kb/transactions.py, kb/execution.py** — ~900 total lines. CognitiveOrchestrator in bridge.py (+90 lines). Exports in kb/__init__.py (+40 lines).
+- **Solar EPC demo complete** (`examples/solar_epc_demo.py`): End-to-end 5-layer intelligence report (6-page PDF, 330KB) with Situational Awareness (4 KPI gauges + event timeline), Diagnostics (causal network + 5 feedback loops), Predictive Analytics (4-panel forecasts + risk matrix), Scenario Analysis (4 scenarios + OAT sensitivity + tornado), Decision Intelligence (6 prioritized recommendations + $330K cost vs $1.49M+ benefit). 70 automated actions, 5 production rules, 4 simulation runs, 606 KB triples across 4 named graphs. Fixes: 3-digit hex color parsing, `$%` formatting in exec summary.
+- **Solar EPC interactive HTML dashboard** (`examples/solar_epc_dashboard.py`): Self-contained 224KB single-file HTML dashboard with 6 tabbed pages matching the 5-layer framework. Uses Plotly.js (CDN) for interactive gauges, event timelines, causal chain diagrams, forecast subplots (±95% CI bands), risk matrices, tornado charts, OAT sensitivity bars, recommendation accordions, and business impact charts. No server needed — opens in any browser. Tab switching triggers Plotly.Plots.resize() for correct rendering. 12 Plotly figures, 6 tabs, 1273 tests passing.
+- **Cross-paradigm dashboard fixes** (`examples/cross_paradigm_dashboard.py`): `crossing_day is None` format error fixed; CSS braces not escaped in `HTML_TEMPLATE.format()` fixed (2 instances). Runtime reduced 365→200 days (390s→210s). DES P50/P90/P99 wait percentiles added via M/M/1 queueing theory.
+- **Global Solar EPC model created** (`models/global_solar_epc.sysd`): 3-region multi-project model with shared Asian supply chain. 11 stocks, 59 auxes, 5 DES queues, 3 resources, 2 agent types. KB_QUERY for disruption/supplier/project risk. STEP-based disruption gating port outflow. Model verified with 3 disruption scenarios (baseline 86.7%→$961M profit, moderate disruption 81%→$898M, severe disruption 69%→$766M).
 
-### In Progress
-- (none)
+### Done
+- **Dashboard pipeline API mismatches fixed**: `ScenarioResult.result.times` access pattern (not direct `.times`), `CausalStrip.factors` iteration (not `dict.items()`), `FeedbackLoop.nodes`/`.polarity` attribute access (not dict subscript). All 16 tabs build successfully.
+- **Dashboard generates correctly**: 615KB, 16 tabs, ~120s runtime. Pipeline: KB load → RDFS inference → baseline → disruption → post-disruption → 6 scenarios → OAT → causes_strip → feedback loops → brute-force opt. Output at `/tmp/solar_epc_16tab_dashboard.html`.
+
 ### Blocked
 - (none)
 
@@ -273,19 +287,18 @@ If asked to bypass Code Health safeguards:
 - **Dung grounded semantics is default** — preferred semantics available for skeptical reasoning. Source reliability attacks require `prov:reliability` triples with threshold > `min_attack_strength`.
 - **Bridge reads unfiltered store for KG→SD params** — argumentation grounded semantics kills mutually-rebutting hasIssue claims (anxiety vs attention vs pacing all OUT). Bridge bypasses filter via max-belief across all original source graphs.
 - **ABM rules use absolute set (`=`) not incremental (`+=`)** — prevents accumulation drift over 336 steps. `=` sets property to exact value each step, clamping to [min, max].
+- **ALLOCATE_FRACTION uses proportional allocation** — `demand_i * min(1, available / total_demand)`. Splits available inventory proportionally among all outflows. More realistic than independent MIN/MAX guards for multi-outflow material stocks. Cascading priority (process first, ship remainder) considered but proportional chosen for fairness across downstream demand.
+- **`_COMMENT_RE` regex `(?:^|\s)//`** — changed from `//.*$` which matched `http://` URLs, corrupting all lines with URLs. New pattern only matches `//` preceded by whitespace or at line start.
+- **KB_ASSERT stores string objects as Literal** — `force_literal=True` in `_kb_assert()` for the object position ensures "disrupted" is stored as `Literal("disrupted")` not `NamedNode(iri="disrupted")`, matching SPARQL query literal handling.
+- **ABM shared_state includes `t`** — `shared_state["t"] = t0` added so ABM conditions can reference `t` for time-based rules (e.g., `t >= 60`). Previously `t` was only available in the aux eval namespace `_ns`, not in the ABM perceive state.
 
 ## Next Steps
-- **ReputationTracker (Beta-distribution)** — `reason/reputation.py` with Beta-based reputation tracking, trust decay, and initial reputation priors. ~12 tests.
-- **Source reliability UI / reporting** — expose KBT scores in a structured report format. ~5 tests.
-- **Batch argumentation** — run argumentation framework across multiple `EvidenceMatrix` scenarios. ~8 tests.
-- **Phase 9: Gaming mode** — interactive parameter adjustment, `GameSession` with pause/resume/set_param. ~10 tests.
-- **Phase 10: Step-based control** — `SimulationController`, single-step advance, state injection, event callbacks. ~10 tests.
-- **Phase 11: Batch simulation** — `BatchRunner`, multi-scenario parallel execution, summary tables. ~10 tests.
-- **Phase 12: CONVEY + transport delays** — pipeline delay as FIFO buffer with timestamp tracking. ~8 tests.
-- **Fix supply chain model dynamics** — retailer stockout due to DELAY_FIXED buffer issues with RK4 intermediate calls.
+1. Add code health safeguard checks before committing.
+2. Consider performance optimization (dashboard ~120s runtime → target 60s).
+3. Explore interactive controls (sliders/scenario toggles) within the HTML dashboard.
 
 ## Critical Context
-- **1081 tests passing** (core SD + kb + reason engine).
+- **1273 tests passing** (core SD + kb + reason engine + sensitivity + production/transactions/execution).
 - **Old NLP pipeline fully removed**: `agents/`, `api/`, `scripts/`, `demo/`, `memory/`, `kernel/`, `domains/`, `docs/` directories deleted. `extract/`, `nlp/`, `perception/` were already removed earlier. Remaining `tests/` all pass with no stale imports.
 - **`SysdModel.simulate()` returns `SysdModelResult`** — `stocks` is a list of stock names, `values` is `dict[str, list[float]]`. **Aux values NOT exposed in results** — only stock values.
 - **Parameters not in `params` dict return 0.0** — `_s.get('beta', 0.0)` returns 0 if param not provided.
@@ -300,11 +313,22 @@ If asked to bypass Code Health safeguards:
 - **Framework identified as "framework"** (not SaaS/PaaS/library), with capability to model OODA loops (Observe via state dict, Orient via causal tracing, Decide via ABM/IF logic, Act via state updates).
 - **Closest to AnyLogic (multi-paradigm)** and **Vensim (expression/causal logic)**, distinct by being code-first/Python-native.
 - **Cognitive reasoning engine (`kb/`) separate from SD engine (`system/`)** — two pillars sharing `reason/` as common SL substrate. `tbox/` provides OWL2-style type hierarchy consumed by `kb/`.
-- **`kb/` Phase 1-7 complete**: model.py (41 tests), store.py (40 tests), turtle.py (40 tests), sparql.py (35 tests), inference.py (53 tests), confidence.py (30 tests). Full plan in `upcoming2.plan`.
+- **`kb/` Phase 1-8 complete**: model.py (41 tests), store.py (40 tests), turtle.py (40 tests), sparql.py (35 tests), inference.py (53 tests), confidence.py (30 tests), production.py (36 tests), transactions.py (21 tests), execution.py (10 tests). Full plan in `upcoming2.plan`.
 - **RDF node types are frozen dataclasses** — NamedNode(iri), BlankNode(id), Literal(value, datatype, lang_tag). Triple equality/hashing ignores opinion.
 - **TripleStore uses SPO/POS/OSP nested-index prefix strategy** — O(1) pattern matching for all 8 pattern types. Named graphs as `dict[str, set[tuple]]` for O(1) membership.
 - **Turtle parser is recursive descent with tokenizer** — supports @prefix/@base, a (rdf:type), string/integer/decimal/boolean/typed/lang literals, blank nodes, ; and , grouping, comments, base IRI resolution, empty-prefix PNAME_LN (`:s`).
 - **Delta DES not yet paused** — needs both state in ServiceEvent and time-remaining tracking for multi-step operations.
+- **ALLOCATE_FRACTION validated on EV battery chain** — Chem_Inventory min=0.0 (was -89 before fix). WH mass balance gap=13 (0.02% error from RK4). Cash=$391M (down from $690M because fixing the warehouse leak also killed the scarcity pricing premium).
+- **Compiler-level auto-allocation for multi-outflow stocks**: `_compile_system()` in `dsl.py` now detects multi-outflow stocks where all outflows follow the `MIN(<ref>/dt, demand)` pattern and auto-applies `ALLOCATE_FRACTION` at the AST level. This is a framework-wide fix — every `.sysd` model with multi-outflow MIN-gated stocks gets proportional allocation automatically. 9 dedicated tests. Validate updated with `info` level for auto-allocatable and `warning` for non-auto-allocatable stocks.
+- **Fix revealed fundamental supply chain overproduction** — DES ships 58K packs but only 39K are consumed. Warehouse builds 20K end inventory (188 days). Bullwhip is root cause: 14.3x CV amplification from WH to Mine.
+- **Compiler auto-allocation confirmed**: Reverted Chem_Inventory from explicit `ALLOCATE_FRACTION` back to native `MIN(…/dt, demand)` pattern — compiler now auto-detects and transforms at the AST level. 1155 tests passing.
+- **Expression parser has NO string literals** — tokenizer only handles numbers, identifiers, operators. SPARQL strings for KB_QUERY must be defined as Python params and referenced by name. Inline URL strings (`http://...`) cause tokenizer to fail on `://`.
+- **KB_ASSERT fails in aux expressions with URL strings** — `KB_ASSERT("http://...")` in an aux line triggers tokenizer error on `://`. KB_ASSERT works correctly in ABM rule effect lines (different parser path).
+- **Flows between stocks require aux intermediaries** — same-named flow on different stocks has independent expression. `- flow_name: expr` on one stock and `+ flow_name` (no expr = default 0) on another stock means unrelated values. Must define `aux flow_name_rate: <expr>` and reference it from both stock flow expressions.
+- **Aux param override works for any float-valued aux** — `simulate(params={'aux_name': val})` overrides `aux aux_name: <KB_QUERY(..)>` computation. Enables KB-driven params to be passed without a live TripleStore.
+- **causes_strip** returns `CausalStrip` with `.variable`, `.factors` (list of dicts: name, value, contribution), `.total_value`. Iterate `.factors` not `.items()`.
+- **detect_feedback_loops** returns `LoopAnalysis` with `.loops` (list of `FeedbackLoop`). Each has `.name`, `.nodes`, `.polarity` ("reinforcing"/"balancing"). Use `.nodes` not `["variables"]`.
+- **ScenarioComparison** stores results in `.scenarios` (list of `ScenarioResult`), each with `.result` (SysdModelResult) for `.times`, `.values`, `.aux_values`.
 
 ## Relevant Files
 - `src/dynafx/core/models.py` — Foundational data model: `Opinion`, `Graph`, `Node`, `Edge`, `NodeType`, `EdgeType`, `EmergentProperty`, `FusionSituation`, `ReasoningMode`. Used by kb/, reason/, sl/, and system/.
@@ -342,9 +366,18 @@ If asked to bypass Code Health safeguards:
 - `src/dynafx/kb/turtle.py` — Turtle/N-Triples tokenizer, recursive descent parser, serializer. Supports @prefix/@base, a, all literal types, blank nodes, ; and , grouping, comments, base IRI resolution, empty-prefix PNAME_LN. 40 tests in `tests/test_kb_turtle.py`.
 - `src/dynafx/kb/inference.py` — `Rule`, `Var`, `InferencePattern`, `RuleEngine` (forward-chaining), `rdfs_rules()` (7 rules), `owl_rl_rules()` (4 rules), `propagate_opinion()` (min/product/average). 53 tests in `tests/test_kb_inference.py`.
 - `src/dynafx/kb/confidence.py` — `fuse_graphs()`, `grade_query()`, `argumentative_filter()`. 30 tests in `tests/test_kb_confidence.py`.
+- `src/dynafx/kb/production.py` — `ProductionRuleEngine`, `ProductionRule`, `Condition` hierarchy (5 types), `Action` hierarchy (5 types), fire_once/max_fires/priority. 36 tests in `tests/test_kb_production.py`.
+- `src/dynafx/kb/transactions.py` — `Transaction`, `TransactionStore`, `TransactionQuery`. Append-only temporal log with RDF backing. 21 tests in `tests/test_kb_transactions.py`.
+- `src/dynafx/kb/execution.py` — `ExecutionRecord`, `ExecutionStore`. Provenance-tracked action records. 10 tests in `tests/test_kb_transactions.py`.
 - `src/dynafx/reason/argumentation.py` — `Argument`, `Attack`, `AttackType`, `SupportType`, `ArgumentationFramework` (grounded/preferred semantics), `build_framework()` (rebut/undermine/undercut attacks from contradictory claims, low-belief triples, source reliability). 27 tests in `tests/test_argumentation.py`.
 - `src/dynafx/reason/kbt.py` — `KBTResult`, `compute_kbt()` EM algorithm for source reliability scoring. Writes `prov:reliability` to `meta` graph. 14 tests.
 - `tests/test_kbt.py` — 14 tests for KBT engine.
+- `ex/kb_transactions.py` — 21 tests for TransactionStore + 10 tests for ExecutionStore.
 - `examples/argumentation_showcase.py` — Full pipeline: Turtle → named graphs → RDFS inference → argumentation filter → SL fusion → query grading. Source reliability scored by KBT.
 - `tests/test_evidence_matrix.py` — 27 tests for EvidenceMatrix.
 - `upcoming2.plan` — Full plan for kb/ package: model, store, turtle, sparql, inference, confidence. 1610 source lines, 130 tests across 6 phases.
+- `models/global_solar_epc.sysd` — 3-region multi-project SD+ABM+DES model with shared Asian supply chain. 11 stocks, 59 auxes, 5 DES queues, 3 resources, 2 agent types. KB_QUERY for disruption/supplier/project risk. STEP-based disruption gating port outflow. Model verified with 3 disruption scenarios (baseline 86.7%→$961M profit, moderate disruption 81%→$898M, severe disruption 69%→$766M). Flow expressions require aux intermediaries for cross-stock sharing.
+- `examples/global_solar_epc_dashboard.py` — 16-tab dashboard (~1200 lines). Pipeline: KB → RDFS inference → baseline sim → disruption → post-disruption → 6 scenarios → OAT → causes_strip → feedback loops → optimization. Generates `/tmp/solar_epc_16tab_dashboard.html` (615KB, 16 tabs).
+- `models/ev_battery_supply_chain.sysd` — 6-echelon EV battery supply chain with 10 stocks, 86 auxes, 4 DES queues, 2 resources, 120 agents.
+- `examples/ev_battery_supply_chain.py` — 8-page FPDF report generator with demand, inventory, DES, financials, bullwhip, 7 scenarios, LP optimization.
+- `hierarchy.md` — Complete feature hierarchy across all packages with file paths, test counts, and dependency relationships.

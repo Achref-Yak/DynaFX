@@ -2,8 +2,8 @@
 
 import pytest
 import numpy as np
-from dynafx.system.dsl import parse_sysd
-from dynafx.system.optimization import (
+from dynafx.dynamics.dsl import parse_sysd
+from dynafx.dynamics.optimization import (
     lp_minimize,
     lp_maximize,
     calibrate,

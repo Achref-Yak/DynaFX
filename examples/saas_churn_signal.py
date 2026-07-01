@@ -10,10 +10,10 @@ import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 os.environ.setdefault('TMPDIR', '/tmp')
 
-from dynafx.system.dsl import parse_sysd_file
-from dynafx.system.feedback import detect_feedback_loops
-from dynafx.system.causal import causal_trace
-from dynafx.system.units import UnitChecker
+from dynafx.dynamics.dsl import parse_sysd_file
+from dynafx.dynamics.feedback import detect_feedback_loops
+from dynafx.dynamics.causal import causal_trace
+from dynafx.dynamics.units import UnitChecker
 
 
 def main():

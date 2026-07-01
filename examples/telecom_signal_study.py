@@ -23,10 +23,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from fpdf import FPDF
 
-from dynafx.system.dsl import parse_sysd_file
-from dynafx.system.scenario import ScenarioComparison, ScenarioDef
-from dynafx.system.causal import causal_trace
-from dynafx.system.feedback import detect_feedback_loops
+from dynafx.dynamics.dsl import parse_sysd_file
+from dynafx.dynamics.scenario import ScenarioComparison, ScenarioDef
+from dynafx.dynamics.causal import causal_trace
+from dynafx.dynamics.feedback import detect_feedback_loops
 
 PLOTS_DIR = "reports"
 

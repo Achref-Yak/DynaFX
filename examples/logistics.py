@@ -1,6 +1,6 @@
 """Port-Warehouse supply chain — .sysd DSL with capacity, backlog, and policy."""
 
-from dynafx.system.dsl import parse_sysd, LookupTable
+from dynafx.dynamics.dsl import parse_sysd, LookupTable
 
 DSL = """
 model 'Port-Warehouse Supply Chain'

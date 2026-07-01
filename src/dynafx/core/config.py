@@ -62,7 +62,7 @@ def load_priors(path: str | Path | None = None) -> Priors:
     data = json.loads(p.read_text())
 
     if "node_counts" in data or "graph_count" in data:
-        from dynafx.reason.evidence import CorpusResult
+        from dynafx.epistemics.evidence import CorpusResult
         result = CorpusResult.load(p)
         return result.to_priors()
 

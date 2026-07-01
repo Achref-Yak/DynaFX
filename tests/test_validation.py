@@ -1,6 +1,6 @@
 """Tests for model validation."""
 
-from dynafx.system.dsl import parse_sysd
+from dynafx.dynamics.dsl import parse_sysd
 
 
 def test_valid_simple_model():
@@ -127,7 +127,7 @@ model 'Tbl'
 
 
 def test_validation_result_merge():
-    from dynafx.system.dsl import ValidationResult, ValidationIssue
+    from dynafx.dynamics.dsl import ValidationResult, ValidationIssue
     r1 = ValidationResult()
     r1.errors.append(ValidationIssue("error", "e1"))
     r2 = ValidationResult()

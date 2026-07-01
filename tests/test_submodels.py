@@ -6,7 +6,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 os.environ.setdefault("TMPDIR", "/tmp")
 
-from dynafx.system.dsl import parse_sysd, SubmodelDef, IncludeDef
+from dynafx.dynamics.dsl import parse_sysd, SubmodelDef, IncludeDef
 
 
 # ═══════════════════════════════════════════════════════════════

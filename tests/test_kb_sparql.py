@@ -5,15 +5,15 @@ from __future__ import annotations
 
 import pytest
 
-from dynafx.kb.model import (
+from dynafx.knowledge.model import (
     BlankNode,
     Literal,
     NamedNode,
     Triple,
     TriplePattern,
 )
-from dynafx.kb.store import TripleStore
-from dynafx.kb.sparql import (
+from dynafx.knowledge.store import TripleStore
+from dynafx.knowledge.sparql import (
     parse_sparql,
     evaluate,
     QueryResult,
@@ -540,3 +540,30 @@ def test_union_inside_optional(people_store):
     result = evaluate(algebra, store=people_store)
     # Each person has at least age, plus knows
     assert len(result.bindings) >= 3
+
+
+# ── 31. DECIMAL tokenization (regression) ──────────────────────
+
+
+def test_decimal_tokenization():
+    """FILTER with DECIMAL numbers must tokenize correctly (0.4 not INTEGER+WS+DOT)."""
+    query = 'SELECT ?x WHERE { ?x <http://ex.org/v> ?y . FILTER(?y >= 0.4) }'
+    algebra = parse_sparql(query)
+    assert algebra is not None
+
+
+def test_decimal_edge_cases():
+    """DECIMAL patterns with trailing dot must not match (0.x should fail)."""
+    from dynafx.knowledge.sparql import tokenize
+    with pytest.raises(SyntaxError):
+        tokenize("0.x")
+    # Valid DECIMAL numbers
+    tokens = tokenize("0.5")
+    assert any(t[0] == "DECIMAL" for t in tokens)
+    tokens = tokenize("1.0")
+    assert any(t[0] == "DECIMAL" for t in tokens)
+    # Integer + dot = two tokens, not one DECIMAL
+    tokens = tokenize("0.")
+    assert not any(t[0] == "DECIMAL" for t in tokens)
+    assert any(t[0] == "INTEGER" for t in tokens)
+    assert any(t[0] == "DOT" for t in tokens)

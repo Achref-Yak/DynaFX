@@ -21,7 +21,7 @@ import sys
 # ── Ensure the package is importable ──────────────────────────
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from dynafx.system.dsl import parse_sysd_file
+from dynafx.dynamics.dsl import parse_sysd_file
 
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "models", "pandemic_seirvh.sysd")
 
@@ -245,7 +245,7 @@ def step_6_full_run_cli(model):
     print("=" * 60)
 
     cli_sim = (
-        "python -m dynafx.system simulate models/pandemic_seirvh.sysd "
+        "python -m dynafx.dynamics simulate models/pandemic_seirvh.sysd "
         "--param N=10000000 --param R0=3.0 --param incubation_period=5.2 "
         "--param infectious_period=7.0 --param severe_fraction=0.07 "
         "--param base_mortality=0.03 --param vax_start=90 "
@@ -253,7 +253,7 @@ def step_6_full_run_cli(model):
     )
     print(f"  {cli_sim}")
     print()
-    cli_val = "python -m dynafx.system validate models/pandemic_seirvh.sysd"
+    cli_val = "python -m dynafx.dynamics validate models/pandemic_seirvh.sysd"
     print(f"  {cli_val}")
     print()
     print("  (CLI commands require manual execution with params)")

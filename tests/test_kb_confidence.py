@@ -3,7 +3,7 @@
 import pytest
 
 from dynafx.core.models import Opinion
-from dynafx.kb.confidence import (
+from dynafx.knowledge.confidence import (
     FusionResult,
     QueryGrade,
     _are_consistent,
@@ -12,9 +12,9 @@ from dynafx.kb.confidence import (
     fuse_graphs,
     grade_query,
 )
-from dynafx.kb.model import NamedNode, Triple, TriplePattern
-from dynafx.kb.sparql import QueryResult
-from dynafx.kb.store import TripleStore
+from dynafx.knowledge.model import NamedNode, Triple, TriplePattern
+from dynafx.knowledge.sparql import QueryResult
+from dynafx.knowledge.store import TripleStore
 
 
 # ── Helpers ───────────────────────────────────────────────────────

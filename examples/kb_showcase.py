@@ -6,7 +6,7 @@ Acme Corp and its relationships. Each source has different confidence.
 We fuse their reports and grade the results.
 """
 
-from dynafx.kb import (
+from dynafx.knowledge import (
     # Model
     Literal,
     NamedNode,

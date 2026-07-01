@@ -1,7 +1,7 @@
 from uuid import uuid4
 
 from dynafx.core.models import Graph, Node, NodeType, Edge, EdgeType, Severity
-from dynafx.reason.validators import validate_all, product_logic_check, level_mapping_check
+from dynafx.epistemics.validators import validate_all, product_logic_check, level_mapping_check
 
 
 def _make_node(text: str, type_: NodeType = NodeType.CLAIM, category: int = 2) -> Node:

@@ -19,18 +19,18 @@ import numpy as np
 from fpdf import FPDF
 
 from dynafx.core.models import Opinion
-from dynafx.kb.model import (
+from dynafx.knowledge.model import (
     Literal, NamedNode, Triple, TriplePattern,
 )
-from dynafx.kb.store import TripleStore
-from dynafx.kb.turtle import parse_turtle
-from dynafx.kb.sparql import evaluate, parse_sparql
-from dynafx.kb.inference import RuleEngine, rdfs_rules
-from dynafx.kb.confidence import fuse_graphs, grade_query
-from dynafx.reason.argumentation import AttackType, build_framework
-from dynafx.reason.evidence import EvidenceMatrix
-from dynafx.reason.fusion import cumulative_fusion
-from dynafx.reason.kbt import compute_kbt
+from dynafx.knowledge.store import TripleStore
+from dynafx.knowledge.turtle import parse_turtle
+from dynafx.knowledge.sparql import evaluate, parse_sparql
+from dynafx.knowledge.inference import RuleEngine, rdfs_rules
+from dynafx.knowledge.confidence import fuse_graphs, grade_query
+from dynafx.epistemics.argumentation import AttackType, build_framework
+from dynafx.epistemics.evidence import EvidenceMatrix
+from dynafx.epistemics.fusion import cumulative_fusion
+from dynafx.epistemics.kbt import compute_kbt
 
 EX = "http://example.org/"
 OUTPUT_PDF = "reasoning_insights.pdf"

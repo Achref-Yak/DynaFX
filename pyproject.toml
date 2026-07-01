@@ -37,6 +37,7 @@ dev = [
 ]
 viz = [
     "matplotlib>=3.7",
+    "plotly>=5.0",
 ]
 all = [
     "dynafx[dev,viz]",
@@ -48,7 +49,7 @@ Repository = "https://github.com/Achref-Yak/reasoning_engine"
 Documentation = "https://github.com/Achref-Yak/reasoning_engine#readme"
 
 [project.scripts]
-dynafx = "dynafx.system.__main__:main"
+dynafx = "dynafx.dynamics.__main__:main"
 
 [tool.setuptools.package-data]
 dynafx = ["default_priors.json"]

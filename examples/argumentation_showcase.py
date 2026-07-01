@@ -13,7 +13,7 @@ results.
 """
 
 from dynafx.core.models import Opinion
-from dynafx.kb import (
+from dynafx.knowledge import (
     Literal,
     NamedNode,
     Triple,
@@ -31,7 +31,7 @@ from dynafx.kb import (
     rdfs_rules,
     serialize_turtle,
 )
-from dynafx.reason.argumentation import (
+from dynafx.epistemics.argumentation import (
     PROV_NS,
     SOURCE_RELIABILITY,
     AttackType,

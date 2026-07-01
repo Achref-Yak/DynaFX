@@ -1,8 +1,8 @@
 """Tests for feedback loop detection."""
 
 import pytest
-from dynafx.system.dsl import parse_sysd
-from dynafx.system.feedback import (
+from dynafx.dynamics.dsl import parse_sysd
+from dynafx.dynamics.feedback import (
     detect_feedback_loops,
     loops_for_variable,
     FeedbackLoop,

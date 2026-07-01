@@ -3,8 +3,8 @@
 import pytest
 import math
 
-from dynafx.system.dsl import SysdModel, parse_sysd, SysdModelResult
-from dynafx.system.scenario import (
+from dynafx.dynamics.dsl import SysdModel, parse_sysd, SysdModelResult
+from dynafx.dynamics.scenario import (
     ScenarioComparison,
     ScenarioDef,
     ScenarioResult,
@@ -228,3 +228,26 @@ class TestEdgeCases:
         ])
         s = comp.summary()
         assert s["Low"]["Population"] < s["High"]["Population"]
+
+    def test_grade_scenarios_empty(self, model):
+        """grade_scenarios with empty grade_specs returns no grades."""
+        from dynafx.knowledge.store import TripleStore
+        comp = ScenarioComparison(model, [
+            ScenarioDef("Only", {}),
+        ])
+        store = TripleStore()
+        grades = comp.grade_scenarios([], store)
+        assert grades == {"Only": {}}
+
+    def test_explain_scenario_missing_name(self, model):
+        """explain_scenario raises ValueError for unknown scenario."""
+        from dynafx.knowledge.store import TripleStore
+        comp = ScenarioComparison(model, [
+            ScenarioDef("Only", {}),
+        ])
+        store = TripleStore()
+        with pytest.raises(ValueError, match="not found"):
+            comp.explain_scenario(
+                "Nope", store, evidence_map=[],
+                bridge=None, grade_specs=[],
+            )

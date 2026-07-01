@@ -3,9 +3,9 @@
 import pytest
 
 from dynafx.core.models import Opinion
-from dynafx.kb.model import Literal, NamedNode, Triple, TriplePattern
-from dynafx.kb.store import TripleStore
-from dynafx.reason.argumentation import (
+from dynafx.knowledge.model import Literal, NamedNode, Triple, TriplePattern
+from dynafx.knowledge.store import TripleStore
+from dynafx.epistemics.argumentation import (
     ARG_NS,
     PROV_NS,
     Argument,
@@ -343,7 +343,7 @@ class TestBuildFramework:
     def test_two_agree_one_dissents(self):
         """Two agree on value=100, one says 200 — grounded is empty
         (no unattacked argument), but preferred semantics finds {a,b}."""
-        from dynafx.reason.argumentation import ArgumentationFramework
+        from dynafx.epistemics.argumentation import ArgumentationFramework
         s = TripleStore()
         s.add(Triple(acme, revenue, Literal(100), opinion=Opinion(0.7, 0.1, 0.2)), graph="a")
         s.add(Triple(acme, revenue, Literal(100), opinion=Opinion(0.6, 0.2, 0.2)), graph="b")
@@ -372,7 +372,7 @@ class TestBuildFramework:
 class TestArgumentativeFilter:
     def test_filter_in_confidence_pipeline(self):
         """Integration: argumentative_filter removes contradicting triples."""
-        from dynafx.kb.confidence import (
+        from dynafx.knowledge.confidence import (
             argumentative_filter, fuse_graphs,
         )
         s = TripleStore()
@@ -402,7 +402,7 @@ class TestArgumentativeFilter:
 
     def test_no_effect_on_agreement(self, simple_store):
         """Uncontested triples pass through argumentation unchanged."""
-        from dynafx.kb.confidence import argumentative_filter
+        from dynafx.knowledge.confidence import argumentative_filter
         filtered = argumentative_filter(
             simple_store, ["src_a", "src_b"],
             auto_rebut=True, auto_undermine_low_belief=False,

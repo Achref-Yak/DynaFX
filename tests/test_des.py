@@ -1,7 +1,7 @@
 """Tests for Discrete Event Simulation (DES) engine."""
 
 import pytest
-from dynafx.system.des import (
+from dynafx.dynamics.des import (
     Event, EventQueue, Queue, Resource, DESEngine,
     QueueStats, ResourceStats, DESClock,
     Entity, Order, Shipment,
@@ -126,9 +126,9 @@ class TestQueue:
         q._compiled_service_time = lambda: 4.0
         q.enqueue({"id": 1}, t=0.0)
         assert q.is_service_active()
-        assert q.advance_service(2.0) is False
+        assert q.advance_service(2.0) == 0
         assert q.is_service_active()
-        assert q.advance_service(2.0) is True
+        assert q.advance_service(2.0) == 1
         # Service record stays until dequeue clears it
         assert q.is_service_active()
         entity = q.dequeue(t=4.0)
@@ -139,14 +139,14 @@ class TestQueue:
         q = Queue("svc", capacity=-1)
         q.enqueue({"id": 1}, t=0.0)
         assert not q.is_service_active()
-        assert q.advance_service(2.0) is False
+        assert q.advance_service(2.0) == 0
 
     def test_service_starts_on_first_enqueue(self):
         q = Queue("svc", capacity=-1, service_time="3.0")
         q._compiled_service_time = lambda: 3.0
         q.enqueue({"id": 1}, t=0.0)
-        assert q._service_record is not None
-        assert q._service_record.remaining == 3.0
+        assert q._service_records[0] is not None
+        assert q._service_records[0].remaining == 3.0
 
     def test_service_starts_on_next_entity_after_dequeue(self):
         q = Queue("svc", capacity=-1, service_time="2.0")
@@ -157,10 +157,11 @@ class TestQueue:
         while q.advance_service(5.0):
             break
         q.dequeue(t=5.0)
+        q.fill_servers(5.0)
         # service should start on entity 2
         assert q.is_service_active()
-        assert q._service_record is not None
-        assert q._service_record.entity["id"] == 2
+        assert q._service_records[0] is not None
+        assert q._service_records[0].entity["id"] == 2
 
 
 # ── Resource Cost Tracking ────────────────────────────────────────
@@ -308,7 +309,7 @@ class TestShipment:
         assert s.items[0].sku == "X"
 
     def test_shipment_entity_in_queue(self):
-        from dynafx.system.des import Queue
+        from dynafx.dynamics.des import Queue
         q = Queue("dock", capacity=10)
         s = Shipment(id=1, source="A", destination="B")
         assert q.enqueue(s, t=0.0)
@@ -564,19 +565,19 @@ class TestMultiStepService:
         # Step 1: dt=1, service advances by 1
         metrics = engine.step(0.0, 1.0)
         assert q.length() == 2
-        assert q._service_record is not None
-        assert q._service_record.remaining == pytest.approx(2.0)
+        assert q._service_records[0] is not None
+        assert q._service_records[0].remaining == pytest.approx(2.0)
         # Step 2: dt=1, remaining=1
         metrics = engine.step(1.0, 1.0)
         assert q.length() == 2
-        assert q._service_record.remaining == pytest.approx(1.0)
+        assert q._service_records[0].remaining == pytest.approx(1.0)
         # Step 3: dt=1, remaining=0 → entity 1 departs, service starts on entity 2
         metrics = engine.step(2.0, 1.0)
         assert q.length() == 1
         assert q.stats.total_departures == 1
         assert q.stats.total_served == 1
-        assert q._service_record is not None
-        assert q._service_record.entity["id"] == 2
+        assert q._service_records[0] is not None
+        assert q._service_records[0].entity["id"] == 2
 
     def test_multi_step_departure_metrics(self):
         engine = DESEngine()
@@ -596,7 +597,7 @@ class TestMultiStepService:
         q = Queue("inbox", capacity=-1)
         q.enqueue({"id": 1}, t=0.0)
         # No compiled service time → entity stays forever
-        assert q.advance_service(100.0) is False
+        assert q.advance_service(100.0) == 0
         assert q.length() == 1
 
 
@@ -778,7 +779,7 @@ class TestDESEngine:
 
 class TestDesDslIntegration:
     def test_des_engine_created_when_queues_defined(self):
-        from dynafx.system.dsl import parse_sysd
+        from dynafx.dynamics.dsl import parse_sysd
         m = parse_sysd(
             'Test\ndt 1\nfrom 0 to 3\n'
             'queue \"Q\": capacity 5\n'
@@ -788,7 +789,7 @@ class TestDesDslIntegration:
         assert "Q" in r.des_engine.queues
 
     def test_des_engine_created_when_resources_defined(self):
-        from dynafx.system.dsl import parse_sysd
+        from dynafx.dynamics.dsl import parse_sysd
         m = parse_sysd(
             'Test\ndt 1\nfrom 0 to 3\n'
             'resource \"Server\": capacity 2\n'
@@ -798,7 +799,7 @@ class TestDesDslIntegration:
         assert "Server" in r.des_engine.resources
 
     def test_no_des_when_no_queues_resources(self):
-        from dynafx.system.dsl import parse_sysd
+        from dynafx.dynamics.dsl import parse_sysd
         m = parse_sysd(
             'Test\ndt 1\nfrom 0 to 3\n'
             'stock "S" = 10\n'
@@ -808,7 +809,7 @@ class TestDesDslIntegration:
         assert r.des_engine is None
 
     def test_des_coexists_with_sd(self):
-        from dynafx.system.dsl import parse_sysd
+        from dynafx.dynamics.dsl import parse_sysd
         m = parse_sysd(
             'Test\ndt 1\nfrom 0 to 5\n'
             'stock "population" = 1000\n'
@@ -823,7 +824,7 @@ class TestDesDslIntegration:
         assert "Server" in r.des_engine.resources
 
     def test_queue_capacity_respected(self):
-        from dynafx.system.dsl import parse_sysd
+        from dynafx.dynamics.dsl import parse_sysd
         m = parse_sysd(
             'Test\ndt 1\nfrom 0 to 3\n'
             'queue \"Q\": capacity 2\n'
@@ -833,7 +834,7 @@ class TestDesDslIntegration:
         assert q.capacity == 2
 
     def test_resource_capacity_respected(self):
-        from dynafx.system.dsl import parse_sysd
+        from dynafx.dynamics.dsl import parse_sysd
         m = parse_sysd(
             'Test\ndt 1\nfrom 0 to 3\n'
             'resource \"R\": capacity 5\n'
@@ -841,3 +842,221 @@ class TestDesDslIntegration:
         r = m.simulate()
         stats = r.des_engine.get_all_stats()
         assert stats["R"]["capacity"] == 5
+
+
+# ── Event-Driven DES ────────────────────────────────────────────
+
+class TestEventDrivenQueue:
+    """Tests for event-driven queue mode (high-throughput DES)."""
+
+    def test_basic_throughput(self):
+        """Event-driven queue processes many entities in one step."""
+        engine = DESEngine()
+        q = Queue("test", service_time="0.001", servers=1, event_driven=True)
+        q._compiled_service_time = lambda: 0.001
+        engine.add_queue(q)
+        for i in range(999):
+            q.enqueue({"id": i}, 0.0, engine.event_queue)
+        # All queued, 1 in service (entity 0), 998 waiting
+        assert q.length() == 999
+        engine.step(0.0, 1.0)
+        # 999 * 0.001 = 0.999 < 1.0, so all complete in one step
+        assert q.stats.total_departures == 999, f"Expected 999, got {q.stats.total_departures}"
+        assert q.length() == 0
+
+    def test_multi_server_throughput(self):
+        """Multi-server event-driven queue processes entities across all servers."""
+        engine = DESEngine()
+        q = Queue("multi", service_time="0.001", servers=5, event_driven=True)
+        q._compiled_service_time = lambda: 0.001
+        engine.add_queue(q)
+        for i in range(1000):
+            q.enqueue({"id": i}, 0.0, engine.event_queue)
+        engine.step(0.0, 1.0)
+        # 5 servers * 1000/5 entities * 0.001 st = 0.2 < 1.0
+        assert q.stats.total_departures == 1000, f"Expected 1000, got {q.stats.total_departures}"
+        assert q.length() == 0
+
+    def test_advance_service_is_noop(self):
+        """advance_service returns 0 for event-driven queues."""
+        q = Queue("noop", service_time="0.1", servers=1, event_driven=True)
+        q._compiled_service_time = lambda: 0.1
+        assert q.advance_service(999.0) == 0
+
+    def test_throughput_scales_with_service_time(self):
+        """Smaller service_time → more entities per step."""
+        engine = DESEngine()
+        q = Queue("fast", service_time="0.001", servers=1, event_driven=True)
+        q._compiled_service_time = lambda: 0.001
+        engine.add_queue(q)
+        for i in range(100):
+            q.enqueue({"id": i}, 0.0, engine.event_queue)
+        m = engine.step(0.0, 1.0)
+        assert q.stats.total_departures == 100, f"Expected 100, got {q.stats.total_departures}"
+
+    def test_exact_timing(self):
+        """Event fires at exact time t + service_time, not off by dt."""
+        q = Queue("exact", service_time="2.5", servers=1, event_driven=True)
+        eq = EventQueue()
+        q._compiled_service_time = lambda: 2.5
+        # Enqueue calls fill_servers which schedules event at t + st
+        q.enqueue({"id": 1}, 1.0, eq)
+        event = eq.peek()
+        assert event is not None
+        assert event.name == "_dep_exact"
+        assert abs(event.time - 3.5) < 1e-12
+
+    def test_step_integration(self):
+        """Event-driven queue works through DESEngine.step()."""
+        engine = DESEngine()
+        q = Queue("prod", service_time="0.01", servers=1, event_driven=True)
+        q._compiled_service_time = lambda: 0.01
+        engine.add_queue(q)
+        # Enqueue 99 entities — 99 * 0.01 = 0.99 < 1.0
+        for i in range(99):
+            q.enqueue({"id": i}, 0.0, engine.event_queue)
+        assert q.length() == 99
+        assert q.stats.total_departures == 0
+        metrics = engine.step(0.0, 1.0)
+        assert metrics.get("prod_departed", 0) == 99, f"Expected 99, got {metrics.get('prod_departed', 0)}"
+        assert q.stats.total_departures == 99
+        assert q.length() == 0
+
+    def test_departure_chain_reaction(self):
+        """Departure handler chains: dequeue → fill_servers → next event."""
+        engine = DESEngine()
+        q = Queue("chain", service_time="0.001", servers=1, event_driven=True)
+        q._compiled_service_time = lambda: 0.001
+        engine.add_queue(q)
+        q.enqueue({"id": 0}, 0.001, engine.event_queue)
+        q.enqueue({"id": 1}, 0.001, engine.event_queue)
+        q.enqueue({"id": 2}, 0.001, engine.event_queue)
+        assert q.length() == 3  # all queued
+        engine.step(0.0, 1.0)
+        assert q.stats.total_departures == 3
+        assert q.length() == 0
+
+    def test_event_driven_flag_in_queue_init(self):
+        """event_driven defaults to False for backward compat."""
+        q_default = Queue("default")
+        assert not q_default.event_driven
+        q_ed = Queue("ed", event_driven=True)
+        assert q_ed.event_driven
+
+    def test_continues_across_steps(self):
+        """Event-driven queue wraps processing across multiple steps."""
+        engine = DESEngine()
+        q = Queue("cross", service_time="0.3", servers=1, event_driven=True)
+        q._compiled_service_time = lambda: 0.3
+        engine.add_queue(q)
+        # Enqueue 100 entities — each takes 0.3, so ~3.33 per step at dt=1
+        for i in range(100):
+            q.enqueue({"id": i}, 0.0, engine.event_queue)
+        assert q.length() == 100
+        # Step 1: events in [0, 1), process 3 entities (at 0.3, 0.6, 0.9)
+        m1 = engine.step(0.0, 1.0)
+        dep1 = m1.get("cross_departed", 0)
+        # 0.3*3 = 0.9 < 1.0, so 3 entities in first step. Next at 1.2 > 1.0, deferred.
+        assert dep1 == 3, f"Expected 3 in step 1, got {dep1}"
+        # Step 2: events in [1, 2), next departure at 1.2
+        m2 = engine.step(1.0, 1.0)
+        dep2 = dep1 + m2.get("cross_departed", 0)
+        assert dep2 >= 6, f"Expected >= 6 total by step 2, got {dep2}"
+
+    def test_sysd_parsing_event_driven(self):
+        """Event-driven queues can be defined in .sysd files."""
+        from dynafx.dynamics.dsl import parse_sysd
+        m = parse_sysd(
+            'Test\n'
+            'dt 1\n'
+            'from 0 to 5\n'
+            'queue "Q": capacity 1000, service_time 0.01, servers 5, event_driven\n'
+        )
+        assert len(m.queues) == 1
+        qd = m.queues[0]
+        assert qd.event_driven is True
+        assert qd.name == "Q"
+        assert qd.capacity == 1000
+        assert qd.servers == 5
+        assert qd.service_time == "0.01"
+
+    def test_sysd_simulation_event_driven(self):
+        """Event-driven queue processes entities during simulation when
+        arrival_rate is provided."""
+        from dynafx.dynamics.dsl import parse_sysd
+        m = parse_sysd(
+            'Test\n'
+            'dt 0.1\n'
+            'from 0 to 1\n'
+            'queue "Q": capacity 10000, service_time 0.01, servers 1, event_driven\n'
+            'arrival_rate 1000\n'
+        )
+        result = m.simulate()
+        stats = result.des_engine.get_all_stats()
+        assert stats["Q"]["total_arrivals"] > 0, "Should have arrivals"
+        assert stats["Q"]["total_departures"] > 0, "Should have departures"
+
+    def test_python_api_event_driven(self):
+        """Python API supports event_driven parameter."""
+        from dynafx.dynamics.dsl import parse_sysd
+        m = parse_sysd('Test\ndt 1\nfrom 0 to 3\n')
+        m.queue("Q", capacity=-1, service_time="0.001", servers=1, event_driven=True)
+        assert len(m.queues) == 1
+        assert m.queues[0].event_driven is True
+
+    def test_mixed_time_sliced_and_event_driven(self):
+        """Time-sliced and event-driven queues coexist in the same engine."""
+        engine = DESEngine()
+        ts = Queue("time_sliced", service_time="0.25", servers=1, event_driven=False)
+        ts._compiled_service_time = lambda: 0.25
+        ed = Queue("event_driven", service_time="0.001", servers=1, event_driven=True)
+        ed._compiled_service_time = lambda: 0.001
+        engine.add_queue(ts)
+        engine.add_queue(ed)
+        ts.enqueue({"id": 0}, 0.0)
+        ed.enqueue({"id": 0}, 0.0, engine.event_queue)
+        assert ed.is_service_active()  # event-driven started service
+        assert ts.length() == 1  # fill_servers not yet called (next step)
+        engine.step(0.0, 1.0)
+        engine.step(1.0, 1.0)
+        # Time-sliced: step 1 starts service, step 2 completes it
+        assert ts.stats.total_departures == 1
+        # Event-driven: both enqueued and completed in step 1
+        assert ed.stats.total_departures == 1
+
+    def test_multi_server_all_servers_utilized(self):
+        """All N servers process entities in parallel via events."""
+        q = Queue("parallel", service_time="0.01", servers=10, event_driven=True)
+        engine = DESEngine()
+        engine.add_queue(q)
+        q._compiled_service_time = lambda: 0.01
+        for i in range(1000):
+            q.enqueue({"id": i}, 0.0, engine.event_queue)
+        # 1000 entities × (0.01 / 10) = 1.0 time units for all 1000
+        engine.step(0.0, 2.0)
+        assert q.stats.total_departures == 1000
+
+    def test_zero_service_time(self):
+        """Zero service time is handled gracefully (skips fill_servers)."""
+        q = Queue("zero", service_time="0", servers=1, event_driven=True)
+        eq = EventQueue()
+        q._compiled_service_time = lambda: 0.0
+        q.fill_servers(0.0, eq)
+        assert q.is_service_active() is False  # st <= 0 → no server assigned
+        assert eq.empty is True  # no event scheduled
+
+    def test_throughput_benchmark(self):
+        """Event-driven can process 10,000 entities in well under 1 second."""
+        import time
+        engine = DESEngine()
+        q = Queue("bench", service_time="0.0001", servers=1, event_driven=True)
+        q._compiled_service_time = lambda: 0.0001
+        engine.add_queue(q)
+        start = time.time()
+        for i in range(9999):
+            q.enqueue({"id": i}, 0.0, engine.event_queue)
+        engine.step(0.0, 1.0)
+        elapsed = time.time() - start
+        # 9999 * 0.0001 = 0.9999 < 1.0
+        assert q.stats.total_departures == 9999, f"Expected 9999, got {q.stats.total_departures}"
+        assert elapsed < 1.0, f"10k entities took {elapsed:.2f}s (expected < 1s)"
