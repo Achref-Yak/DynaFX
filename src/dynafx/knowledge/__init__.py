@@ -42,6 +42,13 @@ from dynafx.knowledge.confidence import (
     fuse_graphs,
     grade_query,
 )
+from dynafx.knowledge.ingest_csv import (
+    ColumnMapping,
+    IngestReport,
+    MappingDef,
+    ingest_csv,
+    load_all_mappings,
+)
 from dynafx.knowledge.loader import TBox, load_tbox, GENERAL_TBOX
 from dynafx.knowledge.hierarchy import TypeNode, TypeHierarchy, MDM_TYPE_HIERARCHY
 from dynafx.knowledge.production import (
@@ -129,6 +136,12 @@ __all__ = [
     "argumentative_filter",
     "fuse_graphs",
     "grade_query",
+    # CSV ingestion
+    "ColumnMapping",
+    "IngestReport",
+    "ingest_csv",
+    "MappingDef",
+    "load_all_mappings",
     # TBox
     "TBox",
     "load_tbox",

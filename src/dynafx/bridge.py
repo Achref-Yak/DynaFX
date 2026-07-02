@@ -512,7 +512,7 @@ def grade_queries(
                         break
             elif qr.cardinality > 0:
                 val = 1.0
-            grades[f"{prefix}{q_idx}"] = val
+            grades[f"{prefix}{q_idx}"] = max(0.0, min(1.0, val))
         except Exception:
             grades[f"{prefix}{q_idx}"] = 0.0
     return grades

@@ -1,6 +1,6 @@
 """System dynamics DSL — parse .sysd files into simulation-ready models.
 
-Syntax (Vensim-inspired):
+Syntax:
     model "Name"
       dt 0.5
       from 0 to 100
@@ -13,8 +13,14 @@ Syntax (Vensim-inspired):
         x: [0, 10, 20]
         y: [5, 15, 5]
 
-Expressions support: +, -, *, /, parentheses, MIN(a,b), MAX(a,b),
-IF(cond,a,b), SMOOTH(x,delay), and references to other stocks/flows.
+Expressions support: +, -, *, /, parentheses, comparison (<, >, <=, >=, =),
+MIN(a,b), MAX(a,b), IF(cond,a,b), ABS(x), EXP(x), LN(x), SQRT(x), SIN(x),
+COS(x), PI, SMOOTH(x,delay), SMOOTHI(x,delay,init), DELAY3(input,delay),
+DELAYN(input,delay,n), DELAY_FIXED(input,delay), CONVEY(input,delay),
+CONVEY_BATCH(input,delay,batch), PULSE(vol,start,width), STEP(height,start),
+RAMP(slope,start,end), NOISE(amplitude), UNIFORM(a,b), LOGNORMAL(mu,sigma),
+ALLOCATE_FRACTION(available,demand,total), KB_QUERY(sparql,var),
+KB_ASSERT(s,p,o,belief,graph), and user-defined func() macros.
 """
 
 from __future__ import annotations
@@ -737,6 +743,8 @@ class SysdModel:
         abm_metrics_history: list[dict[str, float]] = [dict(abm_initial_metrics)] if abm_engine else []
         des_metrics_history: list[dict[str, float]] = [{}] if des_engine else []
 
+        _rng = random.Random(42)  # seeded for reproducibility (ABM + aux-replay)
+
         while abs(t0 - t_end) > 1e-12:
             remaining = abs(t_end - t0)
             if remaining < abs(step):
@@ -766,9 +774,9 @@ class SysdModel:
                     "PULSE": lambda volume, start, width, _t=t0: volume if start <= _t < start + width else 0.0,
                     "STEP": lambda height, start, _t=t0: height if _t >= start else 0.0,
                     "RAMP": lambda slope, start, end, _t=t0: 0.0 if _t < start else slope * (_t - start) if _t <= end else slope * (end - start),
-                    "NOISE": lambda _amplitude: 0.0,
-                    "UNIFORM": lambda _a, _b: (_a + _b) / 2.0,
-                    "LOGNORMAL": lambda mu, _sigma: mu,
+                    "NOISE": lambda amplitude, _rng=_rng: _rng.uniform(-amplitude, amplitude),
+                    "UNIFORM": lambda a, b, _rng=_rng: _rng.uniform(a, b),
+                    "LOGNORMAL": lambda mu, sigma, _rng=_rng: _rng.lognormvariate(mu, sigma) if sigma > 0 else mu,
                 }
                 for _k, _v in _cp_abm:
                     _ns_abm[_k] = _v
@@ -881,9 +889,9 @@ class SysdModel:
                     "RAMP": lambda slope, start, end, _t=_t: (
                         0.0 if _t < start else slope * (_t - start) if _t <= end else slope * (end - start)
                     ),
-                    "NOISE": lambda _amplitude: 0.0,
-                    "UNIFORM": lambda _a, _b: (_a + _b) / 2.0,
-                    "LOGNORMAL": lambda mu, _sigma: mu,
+                    "NOISE": lambda amplitude, _rng=_rng: _rng.uniform(-amplitude, amplitude),
+                    "UNIFORM": lambda a, b, _rng=_rng: _rng.uniform(a, b),
+                    "LOGNORMAL": lambda mu, sigma, _rng=_rng: _rng.lognormvariate(mu, sigma) if sigma > 0 else mu,
                 }
                 for _k, _v in _call_p:
                     _ns[_k] = _v

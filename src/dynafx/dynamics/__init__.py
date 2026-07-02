@@ -7,7 +7,7 @@ Primary API::
     result = model.simulate()
     result.plot("output.png")
 
-Subpackages: dsl, causal, feedback, scenario, units, agent, des, vensim
+Subpackages: dsl, causal, feedback, scenario, units, agent, des
 """
 
 from dynafx.dynamics.dsl import (
