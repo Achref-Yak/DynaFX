@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Tuple
 
-from dynafx.core.models import Graph, Violation, Severity
+from dynafx.core.models import Graph, Severity, Violation
 from dynafx.domain import domain as _domain
 
 

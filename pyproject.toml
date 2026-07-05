@@ -34,13 +34,23 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.1",
+    "mypy>=1.15",
+    "pyright>=1.1",
+    "pre-commit>=3.0",
 ]
 viz = [
     "matplotlib>=3.7",
     "plotly>=5.0",
 ]
+docs = [
+    "mkdocs-material>=9.0",
+    "pymdown-extensions>=10.0",
+    "mkdocs-git-revision-date-localized-plugin>=1.0",
+]
 all = [
-    "dynafx[dev,viz]",
+    "dynafx[dev,viz,docs]",
 ]
 
 [project.urls]
@@ -63,8 +73,25 @@ line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I"]
-ignore = ["E501"]
+select = ["E", "F", "W", "I", "N", "UP", "SIM", "C4", "B", "RUF"]
+ignore = [
+    "E501",  # line too long — ~100 is fine for DSL/SPARQL expressions
+    "E741",  # ambiguous variable name — `l` is idiomatic in DES
+    "F811",  # redefinition — serialization methods duplicated in models.py (legacy)
+    "N801", "N802", "N803", "N806",  # allow CamelCase/non-PEP8 in DSL models
+    "N815", "N816",  # allow mixedCase vars in SD equations
+    "N999",  # non-module packages (__init__.py)
+    "RUF001", "RUF002",  # ambiguous × in docstrings — intentional (math notation)
+    "UP007",  # Optional[X] → X | None (requires `from __future__ import annotations`)
+    "UP038",  # isinstance(X, (A, B)) → isinstance(X, A | B) (same issue)
+]
+# UP007/UP038 deferred: many files lack `from __future__ import annotations`;
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_ignores = true
+ignore_missing_imports = true
+exclude = ["examples/"]
 
 [tool.pyright]
 pythonVersion = "3.12"

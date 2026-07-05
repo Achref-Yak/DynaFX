@@ -9,6 +9,14 @@ Evidence and argumentation::
     from dynafx.epistemics import EvidenceMatrix, build_framework
 """
 
+from dynafx.epistemics.argumentation import (
+    Argument,
+    ArgumentationFramework,
+    Attack,
+    AttackType,
+    SupportType,
+    build_framework,
+)
 from dynafx.epistemics.evidence import (
     ClaimAssessment,
     ConsensusLevel,
@@ -21,41 +29,33 @@ from dynafx.epistemics.fusion import (
     consensus_to_fusion_situation,
     cumulative_fusion,
 )
-from dynafx.epistemics.argumentation import (
-    Argument,
-    ArgumentationFramework,
-    Attack,
-    AttackType,
-    SupportType,
-    build_framework,
+from dynafx.epistemics.graph_ops import (
+    create_edge,
+    create_node,
+    get_edge,
+    get_node,
+    get_trace_history,
+    list_nodes,
+    merge_nodes,
+    query_by_role,
+    query_contested,
+    retract,
+    set_parameter,
+    set_role,
 )
 from dynafx.epistemics.kbt import KBTResult, compute_kbt
-from dynafx.epistemics.graph_ops import (
-    list_nodes,
-    get_node,
-    get_edge,
-    query_contested,
-    query_by_role,
-    get_trace_history,
-    create_node,
-    create_edge,
-    set_role,
-    set_parameter,
-    merge_nodes,
-    retract,
-)
-from dynafx.epistemics.sl_validation import (
-    ArgumentType,
-    ValidationResult,
-    ValidationArgument,
-    ValidationAttack,
-    ValidationResultDetail,
-    validate_system_internal,
-    get_validation_summary,
-)
 from dynafx.epistemics.sl_params import (
     bind_parameters,
     get_parameter_summary,
+)
+from dynafx.epistemics.sl_validation import (
+    ArgumentType,
+    ValidationArgument,
+    ValidationAttack,
+    ValidationResult,
+    ValidationResultDetail,
+    get_validation_summary,
+    validate_system_internal,
 )
 
 __all__ = [

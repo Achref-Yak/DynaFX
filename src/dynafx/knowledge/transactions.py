@@ -32,16 +32,16 @@ from __future__ import annotations
 import time
 import uuid
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Optional
 
+from dynafx.core.models import Opinion
 from dynafx.knowledge.model import (
     Literal,
     NamedNode,
     Triple,
 )
 from dynafx.knowledge.store import TripleStore
-from dynafx.core.models import Opinion
 
 NS_TX = "http://dynafx.org/transaction#"
 NS_EVENT = "http://dynafx.org/event#"

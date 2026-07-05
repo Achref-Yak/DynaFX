@@ -12,8 +12,12 @@ queues, request/release resources, and trigger side effects.
 from __future__ import annotations
 
 import heapq
+import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
+from typing import Any, Optional
+
+_logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -108,6 +112,8 @@ class DESClock:
     time: float = 0.0
 
     def advance(self, dt: float) -> float:
+        if dt < 0:
+            raise ValueError("dt must be non-negative")
         self.time += dt
         return self.time
 
@@ -243,6 +249,8 @@ class EventQueue:
 
         The event auto-reschedules itself each time it fires.
         """
+        if interval <= 0:
+            raise ValueError("interval must be positive")
         self.schedule(Event(
             time=start_time, name=name,
             payload={"__recurring__": True, "_interval": interval, **(payload or {})},
@@ -283,6 +291,8 @@ class Queue:
     def __init__(self, name: str, capacity: int = -1, service_time: str = "",
                  discipline: str = "FIFO", servers: int = 1, event_driven: bool = False):
         self.name = name
+        if capacity == 0:
+            raise ValueError("Queue capacity must be -1 (unlimited) or positive, got 0")
         self.capacity = capacity  # -1 = unlimited
         self.service_time = service_time
         self.discipline = discipline.upper()
@@ -293,6 +303,7 @@ class Queue:
         self._enter_times: list[float] = []
         self._service_records: list[Optional[ServiceRecord]] = [None] * self.servers
         self._in_service: set[int] = set()  # id() of entities currently being served
+        self._server_overages: list[float] = [0.0] * self.servers  # M6: carry-forward overage
         self.stats = QueueStats(name=name)
         # Routing rules: list of (condition_expression, target_queue_name)
         self._routing_rules: list[tuple[str, str]] = []
@@ -397,8 +408,11 @@ class Queue:
 
     def dequeue(self, t: float) -> Optional[EntityData | Entity]:
         """Remove and return front entity. Returns None if empty.
-        Clears the service record for this entity so the server is freed.
-        Does NOT start new service — call fill_servers() separately."""
+
+        For multi-server queues this should only be called for single-server
+        (servers=1) or when the specific completed entity is known. Use
+        dequeue_completed() for multi-server.
+        """
         if not self._entities:
             return None
         entity = self._entities.pop(0)
@@ -408,7 +422,6 @@ class Queue:
         self.stats.total_served += 1
         self.stats.total_departures += 1
         self._in_service.discard(id(entity))
-        # Clear the service record for this entity
         for i in range(self.servers):
             sr = self._service_records[i]
             if sr is not None and sr.entity is entity:
@@ -420,27 +433,62 @@ class Queue:
             hook(self, entity=entity, t=t)
         return entity
 
+    def dequeue_completed(self, server_index: int, t: float) -> Optional[EntityData | Entity]:
+        """Remove and return the entity that completed service on server_index.
+
+        Correctly handles multi-server queues by removing the specific entity
+        that finished, regardless of its position in _entities.
+        """
+        if server_index < 0 or server_index >= self.servers:
+            return None
+        sr = self._service_records[server_index]
+        if sr is None:
+            return None
+        entity = sr.entity
+        self._service_records[server_index] = None
+        self._in_service.discard(id(entity))
+        try:
+            idx = next(i for i, e in enumerate(self._entities) if id(e) == id(entity))
+            self._entities.pop(idx)
+            enter_t = self._enter_times.pop(idx)
+            wait = t - enter_t
+            self.stats.total_wait_time += wait
+            self.stats.total_served += 1
+            self.stats.total_departures += 1
+        except StopIteration:
+            _logger.warning("dequeue_completed: entity %s not found in _entities (double-free?)", entity)
+        from dynafx.registry import get_queue_hooks
+        for hook in get_queue_hooks("dequeue"):
+            hook(self, entity=entity, t=t)
+        return entity
+
     def peek(self) -> Optional[EntityData | Entity]:
         return self._entities[0] if self._entities else None
 
-    def advance_service(self, dt: float) -> int:
-        """Advance all active services by dt. Returns count of completions.
-        For event-driven queues, returns 0 (completions handled by events)."""
+    def advance_service(self, dt: float) -> list[int]:
+        """Advance all active services by dt. Returns list of server indices that completed.
+        For event-driven queues, returns [] (completions handled by events).
+        Accounts for overage carry-forward from prior completions."""
         if self.event_driven:
-            return 0
-        completed = 0
+            return []
+        completed: list[int] = []
         for i in range(self.servers):
             sr = self._service_records[i]
             if sr is None:
+                if self._server_overages[i] > 0:
+                    self._server_overages[i] = max(0.0, self._server_overages[i] - dt)
                 continue
-            sr.remaining -= dt
+            effective_dt = dt + self._server_overages[i]
+            self._server_overages[i] = 0.0
+            sr.remaining -= effective_dt
             if sr.remaining <= 0.0:
-                completed += 1
+                self._server_overages[i] = -sr.remaining
+                completed.append(i)
         return completed
 
     def fill_servers(self, t: float, event_queue: Optional[EventQueue] = None) -> None:
         """Fill any free servers from the front of the queue.
-        
+
         For event-driven queues, schedules a departure event for each
         newly started service so completion happens at the exact time
         rather than via time-sliced dt decrement.
@@ -560,6 +608,8 @@ class Resource:
 
     def __init__(self, name: str, capacity: int = 1, cost_per_unit: float = 0.0):
         self.name = name
+        if capacity <= 0:
+            raise ValueError(f"Resource capacity must be positive, got {capacity}")
         self.capacity = capacity
         self.cost_per_unit = cost_per_unit
         self._busy: int = 0
@@ -609,6 +659,8 @@ class Resource:
             self.stats.total_denied += 1
             return False
 
+        if quantity < 1:
+            _logger.warning("Resource '%s' request quantity=%d is invalid, using 1", self.name, quantity)
         quantity = max(1, quantity)
         self.stats.total_requests += 1
         granted = False
@@ -701,7 +753,8 @@ class DESEngine:
         """
         def handler(event: Event, engine: DESEngine) -> dict[str, float]:
             queue = engine.queues[queue_name]
-            entity = queue.dequeue(event.time)
+            server_i = event.payload.get("server", 0)
+            entity = queue.dequeue_completed(server_i, event.time)
             if entity is not None:
                 queue.fill_servers(event.time, engine.event_queue)
             return {}
@@ -763,9 +816,9 @@ class DESEngine:
                 continue
             if q.length() == 0 and not q.is_service_active():
                 continue
-            completed = q.advance_service(dt)
-            for _ in range(completed):
-                entity = q.dequeue(t)
+            completed_indices = q.advance_service(dt)
+            for server_i in completed_indices:
+                entity = q.dequeue_completed(server_i, t)
                 if entity is not None:
                     metrics[f"{q.name}_departed"] = metrics.get(f"{q.name}_departed", 0) + 1
             q.fill_servers(t)

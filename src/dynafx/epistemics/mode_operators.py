@@ -12,7 +12,6 @@ from dynafx.core.models import (
 from dynafx.epistemics.fusion import _clamp
 from dynafx.epistemics.sl_operators import (
     compute_opinions,
-    conditional_deduction,
     projected_probability,
 )
 

@@ -13,31 +13,26 @@ function selects which figures are worth including in a report.
 
 from __future__ import annotations
 
-from collections import defaultdict
+from collections.abc import Callable
 from io import BytesIO
-from typing import Any, Callable, Optional
+from typing import Any
 
-import matplotlib
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 
 from dynafx.core.models import Opinion
-from dynafx.knowledge.model import NamedNode, Literal, Triple
-from dynafx.knowledge.sparql import QueryResult
-from dynafx.knowledge.store import TripleStore
 from dynafx.epistemics.argumentation import (
-    Attack,
-    AttackType,
     ArgumentationFramework,
+    AttackType,
 )
 from dynafx.epistemics.evidence import (
-    ConsensusLevel,
     EvidenceMatrixResult,
 )
 from dynafx.epistemics.kbt import KBTResult
-
+from dynafx.knowledge.model import Literal, NamedNode
+from dynafx.knowledge.sparql import QueryResult
 
 # ── Helpers ────────────────────────────────────────────────────────
 
@@ -601,7 +596,7 @@ def plot_trust_evolution(kbt: KBTResult, max_sources: int = 10) -> plt.Figure:
     ax2.set_xlim(0, 1)
     ax2.set_xlabel("Final Trust")
     ax2.set_title("Source Reliability")
-    for i, (bar, t) in enumerate(zip(bars, final_trusts)):
+    for i, (bar, t) in enumerate(zip(bars, final_trusts, strict=False)):
         ax2.text(t + 0.02, i, f"{t:.3f}", va="center", fontsize=7)
 
     fig.tight_layout()

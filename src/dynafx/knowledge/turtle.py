@@ -13,9 +13,8 @@ Handles the common subset:
 from __future__ import annotations
 
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
-from dynafx.core.models import Opinion
 from dynafx.knowledge.model import (
     BlankNode,
     Literal,
@@ -24,7 +23,6 @@ from dynafx.knowledge.model import (
     Triple,
 )
 from dynafx.knowledge.store import TripleStore
-
 
 # ── Tokenizer ────────────────────────────────────────────────────
 
@@ -366,7 +364,7 @@ def parse_turtle(text: str, base_iri: str = "",
 
 def serialize_turtle(
     triples: list[Triple],
-    prefixes: Optional[Dict[str, str]] = None,
+    prefixes: Optional[dict[str, str]] = None,
     comment_opinions: bool = True,
 ) -> str:
     """Serialize triples to pretty-printed Turtle.
@@ -426,7 +424,7 @@ def serialize_turtle(
     return "\n".join(lines) + ("\n" if lines else "")
 
 
-def _n3_with_prefix(node: RDFNode, prefixes: Dict[str, str]) -> str:
+def _n3_with_prefix(node: RDFNode, prefixes: dict[str, str]) -> str:
     """Serialize an RDFNode using prefix abbreviations where possible."""
     if isinstance(node, NamedNode):
         iri = node.iri

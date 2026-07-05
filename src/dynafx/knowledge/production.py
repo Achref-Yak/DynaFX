@@ -26,8 +26,9 @@ from __future__ import annotations
 import logging
 import operator
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 from dynafx.core.models import Opinion
 from dynafx.knowledge.inference import InferencePattern
@@ -39,8 +40,9 @@ from dynafx.knowledge.model import (
     Triple,
     TriplePattern,
 )
+from dynafx.knowledge.sparql import evaluate as _sparql_evaluate
+from dynafx.knowledge.sparql import parse_sparql as _parse_sparql
 from dynafx.knowledge.store import TripleStore
-from dynafx.knowledge.sparql import evaluate as _sparql_evaluate, parse_sparql as _parse_sparql
 
 logger = logging.getLogger(__name__)
 

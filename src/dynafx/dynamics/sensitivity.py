@@ -24,13 +24,12 @@ from __future__ import annotations
 
 import math
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Optional
 
 import numpy as np
 
 from dynafx.dynamics.dsl import SysdModel, SysdModelResult
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Result
@@ -697,8 +696,8 @@ class SensitivityAnalyzer:
         names = list(reversed(result.param_names))
         lo_vals = [result.oat_low[n] for n in names]
         hi_vals = [result.oat_high[n] for n in names]
-        mid_vals = [(l + h) / 2.0 for l, h in zip(lo_vals, hi_vals)]
-        spread = [abs(h - l) for h, l in zip(hi_vals, lo_vals)]
+        mid_vals = [(l + h) / 2.0 for l, h in zip(lo_vals, hi_vals, strict=False)]
+        spread = [abs(h - l) for h, l in zip(hi_vals, lo_vals, strict=False)]
 
         fig, ax = plt.subplots(figsize=figsize)
         y_pos = np.arange(len(names))
@@ -821,7 +820,7 @@ class SensitivityAnalyzer:
         n = X.shape[0]
         y = np.empty(n)
         for i in range(n):
-            params = dict(zip(param_names, X[i]))
+            params = dict(zip(param_names, X[i], strict=False))
             y[i] = self._evaluate_output(params, output, t, **sim_kwargs)
         return y
 

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ class OccurrentSubcategory(Enum):
 
 # ── Role → BFO mapping ─────────────────────────────────────────
 
-ROLE_TO_BFO: Dict[str, Dict[str, str]] = {
+ROLE_TO_BFO: dict[str, dict[str, str]] = {
     # Stock = Continuant (persists and accumulates)
     "stock": {
         "category": BfoContinuantCategory.CONTINUANT.value,
@@ -83,7 +83,7 @@ ROLE_TO_BFO: Dict[str, Dict[str, str]] = {
 }
 
 
-def get_bfo_alignment(role: str) -> Optional[Dict[str, str]]:
+def get_bfo_alignment(role: str) -> Optional[dict[str, str]]:
     """Get BFO alignment for a role.
 
     Args:
@@ -95,7 +95,7 @@ def get_bfo_alignment(role: str) -> Optional[Dict[str, str]]:
     return ROLE_TO_BFO.get(role)
 
 
-def get_all_bfo_alignments() -> Dict[str, Dict[str, str]]:
+def get_all_bfo_alignments() -> dict[str, dict[str, str]]:
     """Get all role-to-BFO alignments."""
     return ROLE_TO_BFO.copy()
 
@@ -127,7 +127,7 @@ def get_bfo_description(role: str) -> str:
     return ""
 
 
-def get_continuant_roles() -> List[str]:
+def get_continuant_roles() -> list[str]:
     """Get all roles that map to BFO continuants."""
     return [
         role for role, alignment in ROLE_TO_BFO.items()
@@ -135,7 +135,7 @@ def get_continuant_roles() -> List[str]:
     ]
 
 
-def get_occurrent_roles() -> List[str]:
+def get_occurrent_roles() -> list[str]:
     """Get all roles that map to BFO occurrents."""
     return [
         role for role, alignment in ROLE_TO_BFO.items()
@@ -143,13 +143,13 @@ def get_occurrent_roles() -> List[str]:
     ]
 
 
-def get_bfo_summary() -> Dict[str, List[str]]:
+def get_bfo_summary() -> dict[str, list[str]]:
     """Get summary of BFO alignments by category.
 
     Returns:
         Dictionary mapping BFO categories to list of roles
     """
-    summary: Dict[str, List[str]] = {
+    summary: dict[str, list[str]] = {
         BfoContinuantCategory.CONTINUANT.value: [],
         BfoContinuantCategory.OCCURRENT.value: [],
     }

@@ -20,38 +20,39 @@ DELAYN(input,delay,n), DELAY_FIXED(input,delay), CONVEY(input,delay),
 CONVEY_BATCH(input,delay,batch), PULSE(vol,start,width), STEP(height,start),
 RAMP(slope,start,end), NOISE(amplitude), UNIFORM(a,b), LOGNORMAL(mu,sigma),
 ALLOCATE_FRACTION(available,demand,total), KB_QUERY(sparql,var),
-KB_ASSERT(s,p,o,belief,graph), and user-defined func() macros.
+KB_QUERY_TEMPLATE(template,subject_iri,var), KB_ASSERT(s,p,o,belief,graph),
+and user-defined func() macros.
 """
 
 from __future__ import annotations
 
-import csv
+import logging
 import math
 import random
 import re
+
+logger = logging.getLogger(__name__)
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
 from types import CodeType
-from uuid import uuid4
+from typing import Any, Optional
 
 from dynafx.core.decomposer import SystemDecomposer
 from dynafx.dynamics._parser import (
-    ExprNode,
-    ExprLiteral,
-    ExprRef,
     ExprBinOp,
     ExprFuncCall,
+    ExprLiteral,
+    ExprNode,
     ExprParser,
+    ExprRef,
     _compile_expr,
-    _find_refs,
+    _expand_func_calls,
     _replace_smooths,
     _serialize_expr,
     _topo_sort,
-    _expand_func_calls,
 )
-from dynafx.dynamics.equations import rk4_step, euler_step
-
+from dynafx.dynamics.equations import euler_step, rk4_step
 
 # ── AST Nodes ───────────────────────────────────────────────────
 
@@ -107,12 +108,26 @@ class AgentRuleDef:
 
 
 @dataclass
+class AgentStrategy:
+    """Named rule set for strategy switching."""
+    name: str
+    rules: list[AgentRuleDef] = field(default_factory=list)
+
+
+@dataclass
 class AgentDef:
-    """Agent type definition with properties and behavioral rules."""
+    """Agent type definition with properties and behavioral rules.
+
+    If ``strategies`` is non-empty, agent uses strategy-scoped rules
+    instead of the flat ``rules`` list. ``meta_rules`` are always
+    evaluated regardless of active strategy.
+    """
     name: str
     count: int = 1
     properties: list[AgentPropDef] = field(default_factory=list)
     rules: list[AgentRuleDef] = field(default_factory=list)
+    strategies: list[AgentStrategy] = field(default_factory=list)
+    meta_rules: list[AgentRuleDef] = field(default_factory=list)
     network_type: str = "none"  # none, complete, random, small-world, scale-free
 
 
@@ -143,6 +158,8 @@ class EventDef:
     rate: str = ""           # rate expression or distribution
     target_queue: str = ""
     effects: list[str] = field(default_factory=list)
+    payload: Any = None
+    enqueue_to: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -187,6 +204,7 @@ class _StockCtx:
 
     def __enter__(self) -> _StockCtx:
         self._model.stocks.append(self._stock)
+        self._model._bump_revision()
         return self
 
     def __exit__(self, *args: Any) -> None:
@@ -209,6 +227,8 @@ class _AgentCtx:
         with model.agent("customer", 100) as a:
             a.prop("satisfaction", 1.0, min_val=0, max_val=1)
             a.rule("churn", "satisfaction < 0.3", ["churn_risk += 0.1"])
+            a.strategy("crisis").rule("ration", "inventory < 10", ["safety_stock += 50"])
+            a.meta_rule("detect", "KB_QUERY(q) > 0.5", ["SWITCH_STRATEGY('crisis')"])
     """
     def __init__(self, model: SysdModel, name: str, count: int = 1) -> None:
         self._model = model
@@ -229,8 +249,32 @@ class _AgentCtx:
         self._agent.rules.append(AgentRuleDef(name, condition, effects or [], priority))
         return self
 
+    def strategy(self, name: str) -> _StrategyCtx:
+        return _StrategyCtx(self._agent, name)
+
+    def meta_rule(self, name: str, condition: str, effects: Optional[list[str]] = None, priority: int = 0) -> _AgentCtx:
+        self._agent.meta_rules.append(AgentRuleDef(name, condition, effects or [], priority))
+        return self
+
     def network(self, network_type: str = "none") -> _AgentCtx:
         self._agent.network_type = network_type
+        return self
+
+
+class _StrategyCtx:
+    """Context manager returned by ``_AgentCtx.strategy()``."""
+    def __init__(self, agent: AgentDef, name: str) -> None:
+        self._strategy = AgentStrategy(name)
+        agent.strategies.append(self._strategy)
+
+    def __enter__(self) -> _StrategyCtx:
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        pass
+
+    def rule(self, name: str, condition: str, effects: Optional[list[str]] = None, priority: int = 0) -> _StrategyCtx:
+        self._strategy.rules.append(AgentRuleDef(name, condition, effects or [], priority))
         return self
 
 
@@ -316,6 +360,10 @@ class SysdModel:
     params: dict[str, float] = field(default_factory=dict)
     func_defs: list[FuncDef] = field(default_factory=list)
     _compiled_cache: Any = field(default=None, repr=False)
+    _model_revision: int = 0
+
+    def _bump_revision(self) -> None:
+        self._model_revision += 1
 
     def to_decomposer(self) -> SystemDecomposer:
         d = SystemDecomposer(name=self.name)
@@ -355,11 +403,13 @@ class SysdModel:
     def aux(self, name: str, expr: str, unit: str = "") -> SysdModel:
         """Add an auxiliary variable computed each step."""
         self.aux_vars.append(AuxDef(name, expr, unit))
+        self._bump_revision()
         return self
 
     def table(self, name: str, x: list[float], y: list[float]) -> SysdModel:
         """Add a lookup table."""
         self.tables.append(TableDef(name, x, y))
+        self._bump_revision()
         return self
 
     def param(self, name: str, value: float) -> SysdModel:
@@ -383,6 +433,7 @@ class SysdModel:
         Functions are expanded at compile time (macros).
         """
         self.func_defs.append(FuncDef(name, params, body))
+        self._bump_revision()
         return self
 
     def agent(self, name: str, count: int = 1) -> _AgentCtx:
@@ -450,8 +501,6 @@ class SysdModel:
                        "hours", "days", "seconds" (convert datetime to this unit).
                        For float columns, parsed directly regardless of time_unit.
         """
-        import csv
-        from datetime import datetime
 
         raw = self._read_csv_auto(path, time_unit)
         data = self._fill_missing(raw, fill)
@@ -606,7 +655,8 @@ class SysdModel:
             # Linear interpolation
             for i in range(len(times) - 1):
                 if times[i] <= t <= times[i + 1]:
-                    frac = (t - times[i]) / (times[i + 1] - times[i])
+                    denom = times[i + 1] - times[i]
+                    frac = (t - times[i]) / denom if denom > 0 else 0.0
                     return values[i] + frac * (values[i + 1] - values[i])
             return values[-1]
         return interpolator
@@ -655,7 +705,10 @@ class SysdModel:
                     pass  # Expression auxes stay as expressions
 
         # Cache compiled artifacts for subsequent simulate() calls
-        if self._compiled_cache is None:
+        if (self._compiled_cache is None
+                or self._compiled_cache.revision != self._model_revision
+                or len(self._compiled_cache.stock_names) != len(self.stocks)
+                or len(self._compiled_cache.aux_names_ordered) != len(self.aux_vars)):
             self._compiled_cache = _compile_system(self)
         build_result = _build_system(self, params, self.emergent_props, seed=42, cache=self._compiled_cache, kb=kb)
         f = build_result[0]
@@ -687,7 +740,9 @@ class SysdModel:
         des_engine = None
         if self.queues or self.resources or self.events:
             from dynafx.dynamics.des import (
-                DESEngine, Queue, Resource, Event, DESClock,
+                DESEngine,
+                Queue,
+                Resource,
             )
             des_engine = DESEngine()
             for q in self.queues:
@@ -699,17 +754,16 @@ class SysdModel:
                         st_node = ExprParser(q.service_time).parse()
                         st_compiled = _compile_expr(st_node, set(), set())
                         q_obj._compiled_service_time = lambda _c=st_compiled: eval(
-                            _c, {"__builtins__": {}}, {**params, **dict(zip(stock_names, y0))}
+                            _c, {"__builtins__": {}}, {**params, **dict(zip(stock_names, y0, strict=False))}
                         )
-                    except Exception:
-                        pass
+                    except Exception as _e:
+                        logger.warning("Failed to compile service_time '%s' — %s", q.service_time, _e)
                 des_engine.add_queue(q_obj)
             for r in self.resources:
                 r_obj = Resource(r.name, r.capacity, r.cost_per_unit)
                 des_engine.add_resource(r_obj)
             for ev in self.events:
-                # Schedule initial events
-                if ev.rate > 0:
+                if ev.rate:
                     des_engine.schedule_event(0.0, ev.name, ev.payload)
                 for enq in ev.enqueue_to:
                     if enq in des_engine.queues:
@@ -731,8 +785,8 @@ class SysdModel:
                         ar_code = compile(ar_compiled, "<arrival_rate>", "eval")
                         des_arrival_injectors.append((q.name, ar_code))
                         des_arrival_accum[q.name] = 0.0
-                    except Exception:
-                        pass
+                    except Exception as _e:
+                        logger.warning("Failed to compile arrival_rate '%s' — %s", q.arrival_rate, _e)
 
         t0, t_end = t_span
         direction = 1 if t_end >= t0 else -1
@@ -747,25 +801,16 @@ class SysdModel:
 
         while abs(t0 - t_end) > 1e-12:
             remaining = abs(t_end - t0)
-            if remaining < abs(step):
-                y = step_fn(f, t0, y, direction * remaining, params)
-                t0 = t_end
-            else:
-                y = step_fn(f, t0, y, direction * step, params)
-                t0 += direction * step
+            actual_step = direction * (remaining if remaining < abs(step) else abs(step))
 
-            # Process pipeline delays (DELAY_FIXED / CONVEY) — ONCE per step
-            if pipeline_info is not None:
-                pipeline_info["process"](t0, y, params)
-
-            # Compute aux values from current state for ABM visibility
+            # Compute aux values from current state for ABM/DES visibility
             _aux_info = getattr(f, '_aux_info', None)
             _a_abm: dict[str, float] = {}
             if _aux_info is not None:
                 _np_abm_build, _cp_abm, _b_abm, _nb_abm, _anames_abm, _acode_abm, _sc_abm = _aux_info
                 _np_abm = {k: v for k, v in params.items() if isinstance(v, (int, float))}
                 _sp_abm = {k: v for k, v in params.items() if isinstance(v, str)}
-                _s_abm = dict(zip(stock_names, y))
+                _s_abm = dict(zip(stock_names, y, strict=False))
                 _s_abm.update(_np_abm)
                 if _sp_abm:
                     _s_abm.update(_sp_abm)
@@ -787,16 +832,16 @@ class SysdModel:
                         _a_abm[_aname] = eval(_acode_abm[_i], _nb_abm, _ns_abm)
                 _s_abm.update(_a_abm)
 
-            # Run ABM step if agents exist
+            # Run ABM step BEFORE stock advancement so metrics feed current step
             if abm_engine:
-                shared_state = dict(zip(stock_names, y))
+                shared_state = dict(zip(stock_names, y, strict=False))
                 shared_state["t"] = t0
                 shared_state.update(params)
                 if _aux_info is not None:
                     shared_state.update(_a_abm)
                 if _kb_builtins_sim:
                     shared_state.update(_kb_builtins_sim)
-                abm_metrics = abm_engine.step(t0, step, shared_state)
+                abm_metrics = abm_engine.step(t0, actual_step, shared_state)
                 params.update(abm_metrics)
                 abm_metrics_history.append(dict(abm_metrics))
 
@@ -812,7 +857,7 @@ class SysdModel:
                     "PI": math.pi,
                     **_kb_builtins_sim,
                 }
-                _s_ar = dict(zip(stock_names, y))
+                _s_ar = dict(zip(stock_names, y, strict=False))
                 _s_ar.update({k: v for k, v in params.items() if isinstance(v, (int, float))})
                 _sp_ar = {k: v for k, v in params.items() if isinstance(v, str)}
                 if _sp_ar:
@@ -825,7 +870,7 @@ class SysdModel:
                 for _qname, _ar_code in des_arrival_injectors:
                     _rate = eval(_ar_code, _builtins_ar, _ns_arrival)
                     if _rate > 0 and _qname in des_engine.queues:
-                        des_arrival_accum[_qname] += _rate * step
+                        des_arrival_accum[_qname] += _rate * actual_step
                         while des_arrival_accum[_qname] >= 1.0:
                             des_engine.queues[_qname].enqueue(
                                 {"source": _qname, "time": t0}, t0,
@@ -833,11 +878,9 @@ class SysdModel:
                             )
                             des_arrival_accum[_qname] -= 1.0
 
-            # Run DES step if queues/resources/events exist
+            # Run DES step BEFORE stock advancement so metrics feed current step
             if des_engine:
-                shared_state = dict(zip(stock_names, y))
-                params.update(shared_state)
-                # Recompile service_time lambdas with current state
+                shared_state = dict(zip(stock_names, y, strict=False))
                 for q in self.queues:
                     if q.service_time and q.name in des_engine.queues:
                         q_obj = des_engine.queues[q.name]
@@ -850,11 +893,24 @@ class SysdModel:
                             q_obj._compiled_service_time = lambda _c=st_compiled, _s=_state_snapshot: eval(
                                 _c, {"__builtins__": {}}, {**params, **_s}
                             )
-                        except Exception:
-                            pass
-                des_metrics = des_engine.step(t0 - direction * step, step)
-                params.update(des_metrics)
+                        except Exception as _e:
+                            logger.warning("Failed to recompile service_time '%s' — %s", q.service_time, _e)
+                des_metrics = des_engine.step(max(t0, 0.0), actual_step)
                 des_metrics_history.append(dict(des_metrics))
+                step_params = {**params, **des_metrics}
+            else:
+                step_params = params
+
+            # Stock advancement using current params (includes ABM/DES metrics)
+            y = step_fn(f, t0, y, actual_step, step_params)
+            if remaining < abs(step):
+                t0 = t_end
+            else:
+                t0 += actual_step
+
+            # Process pipeline delays (DELAY_FIXED / CONVEY) — ONCE per step
+            if pipeline_info is not None:
+                pipeline_info["process"](t0, y, params)
 
             times.append(t0)
             y_hist.append(list(y))
@@ -869,15 +925,15 @@ class SysdModel:
             _aux_builtins = self._compiled_cache.builtins
             _full_names = self._compiled_cache.all_names
             _no_builtins = {"__builtins__": {}}
-            for _si, (_t, _y_full) in enumerate(zip(times, y_hist)):
+            for _si, (_t, _y_full) in enumerate(zip(times, y_hist, strict=False)):
                 _step_p = dict(params_history[_si]) if _si < len(params_history) else dict(params)
                 for _tbl in self.tables:
                     _step_p[_tbl.name] = LookupTable(_tbl.x, _tbl.y)
                 _step_p["dt"] = step
                 _num_p = {k: v for k, v in _step_p.items() if isinstance(v, (int, float))}
                 _str_p = {k: v for k, v in _step_p.items() if isinstance(v, str)}
-                _call_p = [(k, v) for k, v in _step_p.items() if hasattr(v, "__call__")]
-                _s = dict(zip(_full_names, _y_full))
+                _call_p = [(k, v) for k, v in _step_p.items() if callable(v)]
+                _s = dict(zip(_full_names, _y_full, strict=False))
                 _s.update(_num_p)
                 if _str_p:
                     _s.update(_str_p)
@@ -1106,13 +1162,16 @@ class SysdModel:
                     std_val = (high - low) / 4
                     val = rng.gauss(mean_val, std_val)
                 elif dist == "lognormal":
-                    mu = math.log(low)
+                    mu = math.log(max(low, 1e-10))
                     sigma = (math.log(high) - mu) / 3
                     val = rng.lognormvariate(mu, sigma)
                 else:
                     val = low + rng.random() * (high - low)
                 sample[pname] = val
             samples.append(sample)
+
+        if not samples:
+            return {"times": [], "stocks": {}, "mean": {}, "std": {}, "p5": {}, "p95": {}, "trajectories": []}
 
         for sample in samples:
             result = self.simulate(method=method, params=sample, **sim_kwargs)
@@ -1199,7 +1258,7 @@ class SysdModelResult:
             fig, axes = plt.subplots(len(names), 1, figsize=(8, 2 * len(names)), sharex=True)
             if len(names) == 1:
                 axes = [axes]
-            for ax, name in zip(axes, names):
+            for ax, name in zip(axes, names, strict=False):
                 ax.plot(self.times, self.values[name], label=name)
                 ax.set_ylabel(name)
                 ax.legend()
@@ -1329,13 +1388,16 @@ class LookupTable:
         self.y = y
 
     def __call__(self, t: float) -> float:
+        if not self.x:
+            return 0.0
         if t <= self.x[0]:
             return self.y[0]
         if t >= self.x[-1]:
             return self.y[-1]
         for i in range(len(self.x) - 1):
             if self.x[i] <= t < self.x[i + 1]:
-                frac = (t - self.x[i]) / (self.x[i + 1] - self.x[i])
+                denom = self.x[i + 1] - self.x[i]
+                frac = (t - self.x[i]) / denom if denom > 0 else 0.0
                 return self.y[i] + frac * (self.y[i + 1] - self.y[i])
         return self.y[-1]
 
@@ -1376,6 +1438,7 @@ class CompiledSystem:
     smooth_ode_code: list[CodeType]
     df_input_code: list[CodeType]
     df_delay_code: list[CodeType]
+    revision: int = 0
 
 
 def _compile_system(model: SysdModel) -> CompiledSystem:
@@ -1406,6 +1469,8 @@ def _compile_system(model: SysdModel) -> CompiledSystem:
     stock_outflow_nodes: list[list[ExprNode]] = [[] for _ in model.stocks]
     for si, s in enumerate(model.stocks):
         for fl in s.flows:
+            if not fl.expr.strip():
+                continue
             node = ExprParser(fl.expr).parse()
             if func_map:
                 node = _expand_func_calls(node, func_map)
@@ -1542,7 +1607,7 @@ def _compile_system(model: SysdModel) -> CompiledSystem:
             except Exception:
                 _delay_compiled = delay_str
             smooth_ode_strs.append(
-                f"({input_compiled} - _s.get('{aux_name}', 0.0)) / ({_delay_compiled})"
+                f"({input_compiled} - _s.get('{aux_name}', 0.0)) / MAX({_delay_compiled}, 1e-10)"
             )
 
     aux_compile_strs: list[str] = []
@@ -1554,6 +1619,7 @@ def _compile_system(model: SysdModel) -> CompiledSystem:
     aux_compile_ordered = [aux_compile_strs[i] for i in aux_order]
 
     import math
+
     from dynafx.registry import get_registered_builtins
     def _allocate_frac(available: float, demand: float, total_demand: float) -> float:
         """Proportional split: out = demand * min(1, available / max(1, total_demand))."""
@@ -1611,6 +1677,7 @@ def _compile_system(model: SysdModel) -> CompiledSystem:
         delay_fixed_compiled=delay_fixed_compiled,
         cbatch_compiled=cbatch_entries,
         builtins=builtins,
+        revision=model._model_revision,
         aux_code=aux_code,
         inflow_code=inflow_code,
         outflow_code=outflow_code,
@@ -1629,22 +1696,33 @@ def _make_kb_builtins(kb_store: Any = None) -> dict[str, Any]:
     if kb_store is None:
         return {
             "KB_QUERY": lambda sparql_str="", var="v": 0.0,
+            "KB_QUERY_TEMPLATE": lambda template="", subject_iri="", var="v": 0.0,
             "KB_ASSERT": lambda s="", p="", o="", belief=1.0, graph="simulation": 0.0,
         }
 
-    from dynafx.knowledge.sparql import parse_sparql, evaluate as _sparql_evaluate
-    from dynafx.knowledge.sparql import Ask as _SparqlAsk
+    from dynafx.core.models import Opinion as _Opinion
     from dynafx.knowledge.model import (
-        Triple as _Triple,
-        NamedNode as _NamedNode,
-        Literal as _Literal,
         BlankNode as _BlankNode,
     )
-    from dynafx.core.models import Opinion as _Opinion
+    from dynafx.knowledge.model import (
+        Literal as _Literal,
+    )
+    from dynafx.knowledge.model import (
+        NamedNode as _NamedNode,
+    )
+    from dynafx.knowledge.model import (
+        Triple as _Triple,
+    )
+    from dynafx.knowledge.sparql import Ask as _SparqlAsk
+    from dynafx.knowledge.sparql import evaluate as _sparql_evaluate
+    from dynafx.knowledge.sparql import parse_sparql
 
     _sparql_cache: dict[str, Any] = {}
+    _SPARQL_CACHE_MAX = 256
 
     def _kb_query(sparql_str: str, var: str = "v") -> float:
+        if len(_sparql_cache) > _SPARQL_CACHE_MAX:
+            _sparql_cache.clear()
         if sparql_str not in _sparql_cache:
             _sparql_cache[sparql_str] = parse_sparql(sparql_str)
         algebra = _sparql_cache[sparql_str]
@@ -1659,6 +1737,10 @@ def _make_kb_builtins(kb_store: Any = None) -> dict[str, Any]:
             if val is not None:
                 return float(getattr(val, "value", val))
         return 0.0
+
+    def _kb_query_template(sparql_template: str, subject_iri: str = "", var: str = "v") -> float:
+        resolved = sparql_template.replace("$subject", str(subject_iri))
+        return _kb_query(resolved, var)
 
     def _resolve_kb_node(x: Any, force_literal: bool = False) -> Any:
         if isinstance(x, (_NamedNode, _BlankNode, _Literal)):
@@ -1683,7 +1765,7 @@ def _make_kb_builtins(kb_store: Any = None) -> dict[str, Any]:
         kb_store.add(triple, graph=graph)
         return 1.0
 
-    return {"KB_QUERY": _kb_query, "KB_ASSERT": _kb_assert}
+    return {"KB_QUERY": _kb_query, "KB_QUERY_TEMPLATE": _kb_query_template, "KB_ASSERT": _kb_assert}
 
 
 def _build_system(
@@ -1705,6 +1787,9 @@ def _build_system(
 
     all_names = list(cache.all_names)
     y0 = list(cache.base_y0)
+    # Overwrite stock portion with current model initial values
+    for i, s in enumerate(model.stocks):
+        y0[i] = s.initial
     stock_names = cache.stock_names
     inflow_strs = cache.inflow_strs
     outflow_strs = cache.outflow_strs
@@ -1766,14 +1851,14 @@ def _build_system(
         y0[_stock_count_rt + i] = init_val
 
     # Pre-compute callable params (lookup tables etc.)
-    _callable_params = [(k, v) for k, v in params.items() if hasattr(v, "__call__")]
+    _callable_params = [(k, v) for k, v in params.items() if callable(v)]
 
     _kb_builtins = _make_kb_builtins(kb)
 
     _cbatch_remainder: dict[str, float] = {}
 
     def f(t: float, y: list[float], p: dict) -> list[float]:
-        _s = dict(zip(all_names, y))
+        _s = dict(zip(all_names, y, strict=False))
         # Merge pre-computed params + runtime params (includes string SPARQL queries for KB_QUERY)
         _s.update(_numeric_params)
         if _string_params:
@@ -1807,7 +1892,7 @@ def _build_system(
             _ns[_k] = _v
         if p:
             for _k, _v in p.items():
-                if hasattr(_v, "__call__"):
+                if callable(_v):
                     _ns[_k] = _v
         # Evaluate auxes in dependency order (using pre-compiled code objects)
         # Numeric params override aux expressions when the name matches
@@ -1854,7 +1939,7 @@ def _build_system(
         """Update pipeline delay buffers and inject values into y.
         Must be called exactly ONCE per step, after f() completes.
         """
-        _s = dict(zip(all_names, y))
+        _s = dict(zip(all_names, y, strict=False))
         _s.update(_numeric_params)
         if _string_params:
             _s.update(_string_params)
@@ -1882,7 +1967,7 @@ def _build_system(
             _ns[_k] = _v
         if p:
             for _k, _v in p.items():
-                if hasattr(_v, "__call__"):
+                if callable(_v):
                     _ns[_k] = _v
         for _i in range(len(aux_names_ordered)):
             _aname = aux_names_ordered[_i]
@@ -2085,7 +2170,7 @@ def _build_tree(lines: list[_TokenLine]) -> SysdModel:
                 else:
                     parent.y = vals
                 continue
-            # Fall through if parent is not TableDef (e.g., agent rule effect)
+            # Fall through: x/y can also be agent rule effect lines
 
         if keyword in ("+", "-"):
             parent = stack[-1][1] if stack else None
@@ -2133,15 +2218,19 @@ def _build_tree(lines: list[_TokenLine]) -> SysdModel:
             continue
 
         if keyword == "rule":
-            # Pop stack to find the owning AgentDef (may need to pop prior rule)
+            # Pop stack to find the owning AgentDef or AgentStrategy
             while stack and stack[-1][0] >= indent:
                 stack.pop()
             parent = stack[-1][1] if stack else None
+            rule = _parse_agent_rule(args)
             if isinstance(parent, AgentDef):
-                rule = _parse_agent_rule(args)
                 parent.rules.append(rule)
-                # Push rule onto stack so indented effect lines attach to it
-                stack.append((indent, rule))
+            elif isinstance(parent, AgentStrategy):
+                parent.rules.append(rule)
+            else:
+                continue  # orphan rule, skip
+            # Push rule onto stack so indented effect lines attach to it
+            stack.append((indent, rule))
             continue
 
         if keyword == "network":
@@ -2150,6 +2239,29 @@ def _build_tree(lines: list[_TokenLine]) -> SysdModel:
             parent = stack[-1][1] if stack else None
             if isinstance(parent, AgentDef):
                 parent.network_type = _STRIP_RE.sub("", args.strip()).lower() or "none"
+            continue
+
+        if keyword == "strategy":
+            # strategy "name" — creates scoped rule block
+            while stack and stack[-1][0] >= indent:
+                stack.pop()
+            parent = stack[-1][1] if stack else None
+            if isinstance(parent, AgentDef):
+                strategy_name = _STRIP_RE.sub("", args.strip()).strip('"\' ')
+                strategy = AgentStrategy(strategy_name)
+                parent.strategies.append(strategy)
+                stack.append((indent, strategy))
+            continue
+
+        if keyword == "meta_rule":
+            # meta_rule "name": when condition — always-evaluated rules
+            while stack and stack[-1][0] >= indent:
+                stack.pop()
+            parent = stack[-1][1] if stack else None
+            if isinstance(parent, AgentDef):
+                rule = _parse_agent_rule(args)
+                parent.meta_rules.append(rule)
+                stack.append((indent, rule))
             continue
 
         # Rule effect lines (indented under a rule)
@@ -2167,6 +2279,10 @@ def _build_tree(lines: list[_TokenLine]) -> SysdModel:
                 continue
             # Handle KB_ASSERT side-effect
             if keyword == "KB_ASSERT":
+                parent.effects.append(full_line)
+                continue
+            # Handle SEND and SWITCH_STRATEGY side-effects
+            if keyword in ("SEND", "SWITCH_STRATEGY"):
                 parent.effects.append(full_line)
                 continue
 
@@ -2382,13 +2498,16 @@ def _parse_name_value(args: str) -> tuple[str, float]:
     if sep:
         name, val = args.split(sep, 1)
         name = _STRIP_RE.sub("", name.strip())
-        # Strip ~Unit~ annotation from value before parsing
+        # Strip ~Unit~ annotation from both name and value
+        name = re.sub(r'~[^~]*~', '', name).strip()
         val = re.sub(r'~[^~]*~', '', val).strip()
         try:
             return name, float(val)
         except ValueError:
             return name, 0.0
-    return _STRIP_RE.sub("", args.strip()), 0.0
+    name = _STRIP_RE.sub("", args.strip())
+    name = re.sub(r'~[^~]*~', '', name).strip()
+    return name, 0.0
 
 
 def _parse_name_expr(args: str) -> tuple[str, str]:
@@ -2412,7 +2531,14 @@ def _parse_list(args: str) -> list[float]:
     """Parse '[1, 2, 3]' or '1, 2, 3' into [1.0, 2.0, 3.0]."""
     args = args.strip().strip("[]")
     parts = [p.strip() for p in args.split(",") if p.strip()]
-    return [float(p) for p in parts]
+    result: list[float] = []
+    for p in parts:
+        try:
+            result.append(float(p))
+        except ValueError:
+            logger.error("Cannot parse table value '%s' as float", p)
+            raise
+    return result
 
 
 def _parse_agent_property(args: str) -> AgentPropDef:
@@ -2474,7 +2600,8 @@ def _expand_includes(model: SysdModel) -> SysdModel:
     for inc in model.includes:
         template = submodel_registry.get(inc.submodel_name)
         if template is None:
-            continue  # unknown submodel, skip
+            logger.warning("Unknown submodel '%s' in include, skipping", inc.submodel_name)
+            continue
 
         prefix = inc.instance_name
         sep = "_" if prefix else ""
@@ -2533,8 +2660,11 @@ def _expand_includes(model: SysdModel) -> SysdModel:
             return result
 
         # Copy stocks with prefixed names
+        existing_stock_names = {s.name for s in model.stocks}
         for stock in template.stocks:
             new_name = f"{prefix}{sep}{stock.name}" if prefix else stock.name
+            if new_name in existing_stock_names:
+                logger.warning("Duplicate stock '%s' from include '%s' — may cause collisions", new_name, inc.submodel_name)
             new_flows = []
             for flow in stock.flows:
                 # Update flow names and expressions
@@ -2595,8 +2725,11 @@ def _expand_includes(model: SysdModel) -> SysdModel:
         model.aux_vars[insert_idx:insert_idx] = param_auxes
 
         # Copy tables with prefixed names
+        existing_table_names = {t.name for t in model.tables}
         for table in template.tables:
             new_name = f"{prefix}{sep}{table.name}" if prefix else table.name
+            if new_name in existing_table_names:
+                logger.warning("Duplicate table '%s' from include '%s' — may cause collisions", new_name, inc.submodel_name)
             model.tables.append(TableDef(
                 name=new_name,
                 x=list(table.x),

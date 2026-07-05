@@ -3,7 +3,9 @@
 from dynafx.knowledge.model import NamedNode, Literal, Triple, TriplePattern
 from dynafx.knowledge.store import TripleStore
 from dynafx.core.models import Opinion
-from dynafx.dynamics.dsl import parse_sysd
+from dynafx.dynamics.dsl import (
+    parse_sysd, SysdModel, AgentDef, AgentPropDef, AgentRuleDef, AgentStrategy,
+)
 from dynafx.bridge import KBSimBridge
 
 
@@ -344,3 +346,256 @@ def test_bridge_full_roundtrip():
         for t in store.triples(TriplePattern(S, P, None), graph=g):
             found = True
     assert found, "No evidence triples found in KB"
+
+
+# ── KB_QUERY_TEMPLATE tests ─────────────────────────────────────
+
+
+NS_P_IRI = f"{NS}predicate"
+
+def test_kb_query_template_basic():
+    """KB_QUERY_TEMPLATE substitutes $subject and returns KB value."""
+    store = _store_with_triples()
+    template = f"SELECT ?v WHERE {{ <$subject> <{NS_P_IRI}> ?v }}"
+    sysd = """
+    T
+    dt 1.0
+    from 0 to 2
+    stock X: 100
+      - O: X / dt
+    aux "kb_val": KB_QUERY_TEMPLATE(my_tmpl, s_iri)
+    """
+    model = parse_sysd(sysd)
+    params = {
+        "my_tmpl": template,
+        "s_iri": S.iri,
+    }
+    r = model.simulate(params=params, kb=store)
+    assert abs(r.aux_values["kb_val"][0] - 42.0) < 1e-9
+
+
+def test_kb_query_template_multiple_subjects():
+    """KB_QUERY_TEMPLATE returns different values for different subjects."""
+    store = _store_with_triples()
+    store.add(Triple(
+        NamedNode(f"{NS}other_subj"), P, Literal(77.0),
+        opinion=Opinion(0.9, 0.05, 0.05),
+    ), graph="source_a")
+    template = f"SELECT ?v WHERE {{ <$subject> <{NS_P_IRI}> ?v }}"
+
+    def run_with_subject(subj_iri):
+        sysd = """
+        T
+        dt 1.0
+        from 0 to 2
+        stock X: 100
+          - O: X / dt
+        aux "kv": KB_QUERY_TEMPLATE(tmpl, subj)
+        """
+        model = parse_sysd(sysd)
+        r = model.simulate(params={"tmpl": template, "subj": subj_iri}, kb=store)
+        return r.aux_values["kv"][0]
+
+    val_a = run_with_subject(S.iri)
+    val_b = run_with_subject(f"{NS}other_subj")
+    assert abs(val_a - 42.0) < 1e-9, f"Expected 42, got {val_a}"
+    assert abs(val_b - 77.0) < 1e-9, f"Expected 77, got {val_b}"
+    assert val_a != val_b, "Different subjects should return different values"
+
+
+def test_kb_query_template_ask():
+    """KB_QUERY_TEMPLATE works with ASK queries."""
+    store = TripleStore()
+    subj = NamedNode(f"{NS}thing")
+    pred = NamedNode(f"{NS}active")
+    pred_iri = f"{NS}active"
+    store.add(Triple(subj, pred, Literal("true")), graph="g")
+    template = f"ASK {{ <$subject> <{pred_iri}> \"true\" }}"
+    sysd = """
+    T
+    dt 1.0
+    from 0 to 2
+    stock X: 100
+      - O: X / dt
+    aux "found": KB_QUERY_TEMPLATE(tmpl, subj)
+    """
+    model = parse_sysd(sysd)
+    r = model.simulate(params={"tmpl": template, "subj": subj.iri}, kb=store)
+    assert abs(r.aux_values["found"][0] - 1.0) < 1e-9
+
+
+def test_kb_query_template_in_abm_condition():
+    """KB_QUERY_TEMPLATE in ABM rule condition with per-agent binding."""
+    store = TripleStore()
+    store.add(Triple(
+        NamedNode(f"{NS}agent_1"), NamedNode(f"{NS}status"), Literal("critical"),
+        opinion=Opinion(0.9, 0.05, 0.05),
+    ), graph="g")
+    store.add(Triple(
+        NamedNode(f"{NS}agent_2"), NamedNode(f"{NS}status"), Literal("normal"),
+        opinion=Opinion(0.9, 0.05, 0.05),
+    ), graph="g")
+
+    template = f"ASK {{ <$subject> <{NS}status> \"critical\" }}"
+
+    model = SysdModel("test_abm_template")
+    model.dt = 1.0
+    model.t_start = 0.0
+    model.t_end = 5.0
+
+    with model.stock("X", 100) as s:
+        s.outflow("O", "X / dt")
+
+    for iri in [f"{NS}agent_1", f"{NS}agent_2"]:
+        model.agents.append(AgentDef(
+            "TestAgent", 1,
+            properties=[AgentPropDef("val", 0.0)],
+            strategies=[
+                AgentStrategy("default", [
+                    AgentRuleDef("check", "always",
+                        [f"val = KB_QUERY_TEMPLATE(q_template, '{iri}')"]),
+                ]),
+            ],
+        ))
+
+    r = model.simulate(params={"q_template": template}, kb=store)
+    assert r is not None
+
+
+# ── Bridge ergonomics tests ──────────────────────────────────────
+
+
+def test_bridge_params_for_class():
+    """params_for_class introspects rdf:type to find instances."""
+    store = TripleStore()
+    cls_iri = f"{NS}Widget"
+    cls_node = NamedNode(cls_iri)
+    rdf_type = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+
+    inst1 = NamedNode(f"{NS}widget_1")
+    inst2 = NamedNode(f"{NS}widget_2")
+    store.add(Triple(inst1, NamedNode(rdf_type), cls_node), graph="g")
+    store.add(Triple(inst2, NamedNode(rdf_type), cls_node), graph="g")
+    store.add(Triple(inst1, NamedNode(f"{NS}weight"), Literal(10.0)), graph="g")
+    store.add(Triple(inst2, NamedNode(f"{NS}weight"), Literal(20.0)), graph="g")
+    store.add(Triple(inst1, NamedNode(f"{NS}count"), Literal(5)), graph="g")
+
+    bridge = KBSimBridge(store)
+    params = bridge.params_for_class(cls_iri)
+    assert "Widget_weight" in params or any("weight" in k for k in params), \
+        f"Expected weight in params, got {params}"
+    assert len(params) > 0, f"Expected non-empty params, got {params}"
+
+
+def test_bridge_params_for_class_with_filter():
+    """params_for_class respects subject_filter."""
+    store = TripleStore()
+    cls_iri = f"{NS}Portfolio"
+    cls_node = NamedNode(cls_iri)
+    rdf_type = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+    status_p = f"{NS}status"
+    risk_p = f"{NS}risk_score"
+
+    p1 = NamedNode(f"{NS}portfolio_1")
+    p2 = NamedNode(f"{NS}portfolio_2")
+    store.add(Triple(p1, NamedNode(rdf_type), cls_node), graph="g")
+    store.add(Triple(p2, NamedNode(rdf_type), cls_node), graph="g")
+    store.add(Triple(p1, NamedNode(status_p), Literal("active")), graph="g")
+    store.add(Triple(p2, NamedNode(status_p), Literal("archived")), graph="g")
+    store.add(Triple(p1, NamedNode(risk_p), Literal(0.8)), graph="g")
+    store.add(Triple(p2, NamedNode(risk_p), Literal(0.2)), graph="g")
+
+    bridge = KBSimBridge(store)
+    filtered = bridge.params_for_class(
+        cls_iri, subject_filter={status_p: "active"})
+    assert len(filtered) > 0, f"Expected some params, got {filtered}"
+    raw_vals = list(filtered.values())
+    assert all(v > 0.5 for v in raw_vals), \
+        f"Active portfolio should have higher risk, got {filtered}"
+
+
+def test_bridge_evidence_for_stock_percentile():
+    """evidence_for_stock with percentile method."""
+    store = _store_with_triples()
+    bridge = KBSimBridge(store)
+
+    model = parse_sysd("""
+    T
+    dt 1.0
+    from 0 to 5
+    stock X: 100
+      - O: X * 0.1
+    stock Y: 50
+      - O: Y * 0.05
+    """)
+    result = model.simulate()
+
+    triple = bridge.evidence_for_stock("X", S, P, result, method="percentile")
+    assert triple is not None
+    assert triple.opinion is not None
+    assert 0.0 <= triple.opinion.belief <= 1.0
+
+
+def test_bridge_evidence_for_stock_delta():
+    """evidence_for_stock with delta method."""
+    store = _store_with_triples()
+    bridge = KBSimBridge(store)
+
+    model = parse_sysd("""
+    T
+    dt 1.0
+    from 0 to 5
+    stock X: 100
+      - O: X * 0.1
+    """)
+    result = model.simulate()
+
+    triple = bridge.evidence_for_stock("X", S, P, result, method="delta")
+    assert triple is not None
+    assert 0.0 <= triple.opinion.belief <= 1.0
+
+
+def test_bridge_evidence_for_stock_threshold():
+    """evidence_for_stock with threshold method."""
+    store = _store_with_triples()
+    bridge = KBSimBridge(store)
+
+    model = parse_sysd("""
+    T
+    dt 1.0
+    from 0 to 5
+    stock X: 100
+      - O: X * 0.1
+    """)
+    result = model.simulate()
+
+    triple = bridge.evidence_for_stock("X", S, P, result, method="threshold",
+                                       threshold=50)
+    assert triple is not None
+    assert triple.opinion.belief in (0.0, 1.0)
+
+
+def test_bridge_load_queries(tmp_path):
+    """load_queries reads SPARQL from a YAML file."""
+    yaml_file = tmp_path / "queries.yaml"
+    yaml_file.write_text("""
+disruption_active:
+  sparql: "ASK { ?s ?p ?o }"
+  mode: ask
+
+supplier_risk:
+  sparql: "SELECT ?v WHERE { ?s epc:risk ?v }"
+  mode: select
+  var: v
+""")
+    queries = KBSimBridge.load_queries(str(yaml_file))
+    assert "disruption_active" in queries
+    assert "supplier_risk" in queries
+    assert "ASK" in queries["disruption_active"]
+    assert "SELECT" in queries["supplier_risk"]
+
+
+def test_bridge_load_queries_missing_file():
+    """load_queries returns empty dict for missing file."""
+    queries = KBSimBridge.load_queries("/nonexistent/queries.yaml")
+    assert queries == {}

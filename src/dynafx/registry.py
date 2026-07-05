@@ -7,7 +7,7 @@ Usage:
     register_resource_hook("pre_request", my_handler)
 """
 
-from typing import Callable, Any
+from collections.abc import Callable
 
 _REGISTERED_BUILTINS: dict[str, Callable] = {}
 _REGISTERED_RESOURCE_HOOKS: dict[str, list[Callable]] = {}

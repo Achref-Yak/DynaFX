@@ -12,14 +12,35 @@ Quick start::
     result = model.simulate()
 """
 
-from dynafx.dynamics import SysdModel, SysdModelResult, parse_sysd, parse_sysd_file
-from dynafx.dynamics import causal_trace, detect_feedback_loops
-from dynafx.dynamics import ScenarioComparison, ScenarioDef
-from dynafx.dynamics.optimization import lp_minimize, lp_maximize, calibrate, optimize
-from dynafx.dynamics.optimization import kb_lp_minimize, kb_lp_maximize, kb_calibrate, kb_optimize
+from dynafx.bridge import (
+    ClosedLoopReasoner,
+    ClosedLoopResult,
+    KBSimBridge,
+    ReasoningPass,
+    grade_queries,
+)
+from dynafx.dynamics import (
+    ScenarioComparison,
+    ScenarioDef,
+    SysdModel,
+    SysdModelResult,
+    causal_trace,
+    detect_feedback_loops,
+    parse_sysd,
+    parse_sysd_file,
+)
+from dynafx.dynamics.optimization import (
+    calibrate,
+    kb_calibrate,
+    kb_lp_maximize,
+    kb_lp_minimize,
+    kb_optimize,
+    lp_maximize,
+    lp_minimize,
+    optimize,
+)
+from dynafx.epistemics import EvidenceMatrix, cumulative_fusion
 from dynafx.knowledge import TripleStore, parse_turtle
-from dynafx.epistemics import cumulative_fusion, EvidenceMatrix
-from dynafx.bridge import KBSimBridge, ClosedLoopReasoner, ReasoningPass, ClosedLoopResult, grade_queries
 
 __all__ = [
     # SD / multi-paradigm

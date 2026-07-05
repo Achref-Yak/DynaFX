@@ -7,14 +7,12 @@ Usage:
 """
 
 import argparse
-import csv
 import copy
-import glob
-import os
+import csv
 import sys
 from pathlib import Path
 
-from dynafx.dynamics.dsl import parse_sysd_file, parse_sysd
+from dynafx.dynamics.dsl import parse_sysd_file
 
 
 def _find_library_models() -> list[tuple[str, str]]:
@@ -76,7 +74,7 @@ def cmd_simulate(args: argparse.Namespace) -> None:
     print(f"Method: {args.method}, Steps: {result.steps}")
 
     if result.stocks:
-        print(f"Final state:")
+        print("Final state:")
         for i, name in enumerate(result.stocks):
             print(f"  {name}: {result.final_state[i]:.4f}")
 
@@ -86,7 +84,7 @@ def cmd_simulate(args: argparse.Namespace) -> None:
             print(f"  {inst.agent_def.name}[{inst.id}]: {inst.state}")
 
     if result.des_engine:
-        print(f"\nDES Statistics:")
+        print("\nDES Statistics:")
         for name, stats in result.des_engine.get_all_stats().items():
             print(f"  {name}: {stats}")
 

@@ -5,10 +5,8 @@ Forward-chaining rule engine with opinion propagation.
 
 from __future__ import annotations
 
-import math
-from collections import defaultdict
-from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
+from dataclasses import dataclass
+from typing import Any, Optional
 
 from dynafx.core.models import Opinion
 from dynafx.knowledge.model import (
@@ -20,8 +18,6 @@ from dynafx.knowledge.model import (
     TriplePattern,
 )
 from dynafx.knowledge.store import TripleStore
-from dynafx.epistemics.fusion import cumulative_fusion
-
 
 # ── Namespace constants ──────────────────────────────────────────
 
@@ -269,16 +265,16 @@ class RuleEngine:
         self,
         body: list[InferencePattern],
         store: TripleStore,
-    ) -> list[Tuple[Dict[str, RDFNode], List[Optional[Opinion]]]]:
+    ) -> list[tuple[dict[str, RDFNode], list[Optional[Opinion]]]]:
         """Evaluate body patterns against the store.
 
         Returns list of (binding, opinions) tuples where binding maps
         variable names to RDFNodes and opinions is a parallel list of
         opinions from each body pattern match.
         """
-        result: list[Tuple[Dict[str, RDFNode], List[Optional[Opinion]]]] = [({}, [])]
+        result: list[tuple[dict[str, RDFNode], list[Optional[Opinion]]]] = [({}, [])]
         for pat in body:
-            next_result: list[Tuple[Dict[str, RDFNode], List[Optional[Opinion]]]] = []
+            next_result: list[tuple[dict[str, RDFNode], list[Optional[Opinion]]]] = []
             for binding, opin_list in result:
                 resolved = self._resolve_pat(pat, binding)
                 for triple in store.triples(resolved):
@@ -294,7 +290,7 @@ class RuleEngine:
     @staticmethod
     def _resolve_pat(
         pat: InferencePattern,
-        binding: Dict[str, RDFNode],
+        binding: dict[str, RDFNode],
     ) -> TriplePattern:
         """Resolve an inference pattern by substituting known bindings."""
         s = pat.subject
@@ -320,8 +316,8 @@ class RuleEngine:
     def _extract_bindings(
         pat: InferencePattern,
         triple: Triple,
-        current_binding: Dict[str, RDFNode],
-    ) -> Optional[Dict[str, RDFNode]]:
+        current_binding: dict[str, RDFNode],
+    ) -> Optional[dict[str, RDFNode]]:
         """Extract new bindings from a matching triple, checking consistency."""
         new_binding = dict(current_binding)
         for pos_name, pos_val in [("subject", pat.subject),
@@ -342,9 +338,9 @@ class RuleEngine:
     @staticmethod
     def _instantiate(
         pat: InferencePattern,
-        binding: Dict[str, RDFNode],
+        binding: dict[str, RDFNode],
         rule: Rule,
-        body_opinions: List[Optional[Opinion]],
+        body_opinions: list[Optional[Opinion]],
     ) -> Optional[Triple]:
         """Instantiate a head pattern with variable bindings."""
         s = pat.subject

@@ -3,18 +3,17 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set, Tuple
+from dataclasses import dataclass
+from typing import Optional
 
 from dynafx.core.models import Opinion
-from dynafx.knowledge.model import Triple, TriplePattern
-from dynafx.knowledge.sparql import QueryResult
-from dynafx.knowledge.store import TripleStore
 from dynafx.epistemics.fusion import (
     consensus_compromise,
     cumulative_fusion,
 )
-
+from dynafx.knowledge.model import Triple
+from dynafx.knowledge.sparql import QueryResult
+from dynafx.knowledge.store import TripleStore
 
 # ── FusionResult ─────────────────────────────────────────────────
 
@@ -74,7 +73,7 @@ def fuse_graphs(
         return FusionResult(source_graphs=[], fused_count=0,
                             total_candidates=0, agreement_ratio=1.0)
 
-    triples_by_key: Dict[Tuple, List[Triple]] = defaultdict(list)
+    triples_by_key: dict[tuple, list[Triple]] = defaultdict(list)
     total_candidates = 0
 
     for graph in source_graphs:
@@ -163,7 +162,7 @@ def _fuse_opinions(opinions: list[Opinion], method: str) -> Opinion:
 
 
 def _compute_agreement_ratio(
-    triples_by_key: Dict[Tuple, List[Triple]],
+    triples_by_key: dict[tuple, list[Triple]],
 ) -> float:
     """Compute the ratio of triples with consistent opinions across sources."""
     if not triples_by_key:

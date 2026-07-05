@@ -14,15 +14,12 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 
-from dynafx.core.models import Opinion
-from dynafx.knowledge.model import Literal, NamedNode, Triple
-from dynafx.knowledge.store import TripleStore
 from dynafx.epistemics.argumentation import (
-    PROV_NS,
     SOURCE_RELIABILITY,
 )
+from dynafx.knowledge.model import Literal, NamedNode, Triple
+from dynafx.knowledge.store import TripleStore
 
 
 @dataclass
@@ -35,10 +32,10 @@ class KBTResult:
         converged: Whether the algorithm converged before max_iterations.
         trust_history: Per-iteration trust values for each source.
     """
-    source_trust: Dict[str, float]
+    source_trust: dict[str, float]
     iterations: int
     converged: bool
-    trust_history: Dict[str, List[float]] = field(default_factory=dict)
+    trust_history: dict[str, list[float]] = field(default_factory=dict)
 
 
 def compute_kbt(
@@ -68,8 +65,8 @@ def compute_kbt(
 
     # ── 1. Collect claims per source ─────────────────────────────
     # claims_by_sp: (s, p) -> {source: [(o, belief)]}
-    claims_by_sp: Dict[
-        Tuple, Dict[str, List[Tuple[object, float]]]
+    claims_by_sp: dict[
+        tuple, dict[str, list[tuple[object, float]]]
     ] = defaultdict(lambda: defaultdict(list))
 
     for g in source_graphs:
@@ -79,14 +76,14 @@ def compute_kbt(
             claims_by_sp[key][g].append((t.object_, belief))
 
     # ── 2. Initialize trust ───────────────────────────────────────
-    trust: Dict[str, float] = {g: 0.5 for g in source_graphs}
-    history: Dict[str, List[float]] = {g: [0.5] for g in source_graphs}
+    trust: dict[str, float] = {g: 0.5 for g in source_graphs}
+    history: dict[str, list[float]] = {g: [0.5] for g in source_graphs}
 
     # ── 3. EM iterations ─────────────────────────────────────────
     for iteration in range(max_iterations):
         # ── E-step: score each distinct o per (s,p) group ────────
         # truth_scores: (s,p) -> {o: score}
-        truth_scores: Dict[Tuple, Dict[object, float]] = defaultdict(
+        truth_scores: dict[tuple, dict[object, float]] = defaultdict(
             lambda: defaultdict(float)
         )
         for sp_key, source_claims in claims_by_sp.items():
@@ -95,7 +92,7 @@ def compute_kbt(
                     truth_scores[sp_key][obj] += trust[g] * belief
 
         # ── M-step: update source trust ──────────────────────────
-        new_trust: Dict[str, float] = {}
+        new_trust: dict[str, float] = {}
         for g in source_graphs:
             total = 0
             correct = 0
@@ -143,7 +140,7 @@ def compute_kbt(
 
 
 def _write_reliability(
-    store: TripleStore, trust: Dict[str, float]
+    store: TripleStore, trust: dict[str, float]
 ) -> None:
     """Write prov:reliability triples into the meta graph."""
     for source, score in trust.items():

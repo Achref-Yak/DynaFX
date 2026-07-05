@@ -73,7 +73,7 @@ def l2_norm(delta: dict[UUID, float]) -> float:
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:
     """cos(a,b) = dot(a,b) / (||a|| · ||b||)."""
-    dot = sum(x * y for x, y in zip(a, b))
+    dot = sum(x * y for x, y in zip(a, b, strict=False))
     na = math.sqrt(sum(x * x for x in a))
     nb = math.sqrt(sum(y * y for y in b))
     if na == 0 or nb == 0:
@@ -202,7 +202,7 @@ def conditional_deduction(
     warrant: tuple[tuple[float, float, float, float], tuple[float, float, float, float]],
 ) -> tuple[float, float, float, float]:
     """Conditional deduction ω_c|p,ω_c|¬p applied to ω_p.
-    
+
     Returns ω_c = ω_p ⊗ (ω_c|p, ω_c|¬p).
     """
     b_p, d_p, u_p, _ = omega_p
@@ -292,7 +292,7 @@ def reverse_warrant(
     base_rate_target: float,
 ) -> tuple[tuple[float, float, float, float], tuple[float, float, float, float]]:
     """Bayesian inversion of a conditional warrant.
-    
+
     Given ω_t|s and ω_t|¬s, compute ω_s|t and ω_s|¬t.
     """
     omega_t_s, omega_t_ns = forward_warrant
@@ -456,7 +456,7 @@ def softmax_retrieval(
     names = list(activations.keys())
     values = [activations[n] for n in names]
     probs = softmax(values, temperature)
-    return dict(zip(names, probs))
+    return dict(zip(names, probs, strict=False))
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -480,7 +480,7 @@ def joint_probability(
     topo_order: list[str],
 ) -> float:
     """P(config) = Π_i P(X_i | Parents(X_i)).
-    
+
     variables: name → {parents: list[str], cpt: dict}
     """
     prob = 1.0
@@ -1143,7 +1143,7 @@ def count_violations(
     opinion_threshold: float = 0.01,
 ) -> dict[UUID, int]:
     """Count constraint violations per node.
-    
+
     Checks: opinion invariant |b+d+u-1| > threshold,
     negative uncertainty, edge consistency.
     """

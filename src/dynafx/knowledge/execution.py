@@ -34,16 +34,16 @@ import logging
 import time
 import uuid
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Optional
 
+from dynafx.core.models import Opinion
 from dynafx.knowledge.model import (
     Literal,
     NamedNode,
     Triple,
 )
 from dynafx.knowledge.store import TripleStore
-from dynafx.core.models import Opinion
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +85,7 @@ class ExecutionStore:
         <exec/{id}> exec:ruleName <string>
         <exec/{id}> exec:timestamp <float>
         <exec/{id}> exec:status <string>
-        <exec/{id}> exec:hasOutput ... 
+        <exec/{id}> exec:hasOutput ...
     """
 
     def __init__(self, triple_store: TripleStore):

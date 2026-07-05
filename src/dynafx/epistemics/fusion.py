@@ -2,15 +2,16 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from dynafx.domain import domain as _domain
 from dynafx.core.models import (
     Edge,
     FusionSituation,
     Graph,
-    Node,
-    NodeType,
     Opinion,
 )
+from dynafx.domain import domain as _domain
+from dynafx.epistemics.evidence import ConsensusLevel
+
+
 def _clamp(op: Opinion) -> Opinion:
     b, d, u, a = op
     b = max(0.0, min(1.0, b))
@@ -196,7 +197,7 @@ def classify_fusion_situation(
 
 
 def consensus_to_fusion_situation(
-    consensus_level: "ConsensusLevel",
+    consensus_level: ConsensusLevel,
     source_count: int,
 ) -> FusionSituation:
     """Map an EvidenceMatrix consensus level to a FusionSituation category.
@@ -205,8 +206,6 @@ def consensus_to_fusion_situation(
     FusionSituation taxonomy (graph-based). For cases where graph topology
     is unavailable, this provides a reasonable approximation.
     """
-    from dynafx.epistemics.evidence import ConsensusLevel
-
     if source_count < 2:
         return FusionSituation.INDEPENDENT_SOURCES
 
@@ -218,28 +217,3 @@ def consensus_to_fusion_situation(
         return FusionSituation.INDEPENDENT_SOURCES
     else:  # MILD_AGREEMENT
         return FusionSituation.INDEPENDENT_SOURCES
-
-    conflict_detected = False
-    for i in range(len(contributions)):
-        for j in range(i + 1, len(contributions)):
-            if _opinions_conflict(contributions[i], contributions[j]):
-                conflict_detected = True
-                break
-        if conflict_detected:
-            break
-
-    if conflict_detected:
-        return FusionSituation.CONFLICTING_VIEWS
-
-    source_ids = {e.source_id for e in incoming_edges if e.source_id in graph.nodes}
-
-    if len(source_ids) < len(incoming_edges):
-        return FusionSituation.SAME_SOURCE
-
-    src_list = list(source_ids)
-    for i in range(len(src_list)):
-        for j in range(i + 1, len(src_list)):
-            if _shared_ancestor(src_list[i], src_list[j], graph):
-                return FusionSituation.DEPENDENT_SOURCES
-
-    return FusionSituation.INDEPENDENT_SOURCES

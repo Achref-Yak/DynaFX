@@ -13,7 +13,6 @@ import re
 from dataclasses import dataclass
 from typing import Any, Optional
 
-
 # ── Expression tokenizer ─────────────────────────────────────────
 
 _TOKEN_RE = re.compile(r"""
@@ -44,6 +43,8 @@ def _tokenize(source: str) -> list[Token]:
             ch = m.group(3)
             if ch in _OP_CHARS:
                 tokens.append(("op", ch))
+        elif m.group(4):
+            raise SyntaxError(f"Unexpected character '{m.group(4)}' at position {pos}")
         pos = m.end()
     return tokens
 
@@ -186,6 +187,10 @@ def _compile_expr(node: ExprNode, stock_names: set[str], aux_names: set[str] = f
             return _COMPILED_CONSTANTS[node.name]
         if node.name in aux_names:
             return f"_a['{node.name}']"
+        if node.name in stock_names:
+            return f"_s['{node.name}']"
+        # Unknown name — may be a numeric param, lookup table, or ABM metric
+        # Use safe fallback; compile-time warnings for truly undefined names
         return f"_s.get('{node.name}', 0.0)"
     if isinstance(node, ExprBinOp):
         left = _compile_expr(node.left, stock_names, aux_names)
@@ -399,7 +404,7 @@ def _expand_func_calls(node: ExprNode, func_map: dict[str, tuple[list[str], Expr
                     f"Function '{node.name}' expects {len(params)} "
                     f"arguments, got {len(args)}"
                 )
-            sub_map = dict(zip(params, args))
+            sub_map = dict(zip(params, args, strict=False))
             result = _substitute_refs(body, sub_map)
             # Re-expand for nested user function calls in the body
             return _expand_func_calls(result, func_map)

@@ -115,10 +115,8 @@ result.plot("math_outcome.png", stocks=["Math_Performance"])
 ### Knowledge Graph Pipeline
 
 ```python
-from dynafx.kb.turtle import parse_turtle
-from dynafx.kb.store import TripleStore
-from dynafx.reason.kbt import compute_kbt
-from dynafx.reason.argumentation import build_framework
+from dynafx.knowledge import parse_turtle, TripleStore
+from dynafx.epistemics import compute_kbt, build_framework
 
 store = TripleStore()
 for t in parse_turtle(turtle_string).triples():
@@ -133,16 +131,16 @@ accepted = af.compute_grounded()
 
 ```bash
 # Simulate a model
-python -m dynafx.system simulate models/student_math.sysd
+dynafx simulate models/student_math.sysd
 
 # Simulate with ABM and DES stats
-python -m dynafx.system simulate models/pandemic_response.sysd --paradigm all --stats
+dynafx simulate models/pandemic_response.sysd --paradigm all --stats
 
 # Validate a model
-python -m dynafx.system validate models/pandemic_seirvh.sysd
+dynafx validate models/pandemic_seirvh.sysd
 
 # List available models
-python -m dynafx.system list
+dynafx list
 ```
 
 ---

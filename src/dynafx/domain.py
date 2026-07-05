@@ -235,7 +235,7 @@ _default_config: DomainConfig = DomainConfig()
 """Cached default config so domain.active() is cheap."""
 
 
-_current_domain: contextvars.ContextVar[Optional["Domain"]] = (
+_current_domain: contextvars.ContextVar[Optional[Domain]] = (
     contextvars.ContextVar("_current_domain", default=None)
 )
 

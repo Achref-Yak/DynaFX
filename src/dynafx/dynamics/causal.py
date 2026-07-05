@@ -13,7 +13,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from dynafx.dynamics.dsl import SysdModel, StockDef, AuxDef, FlowDef
+from dynafx.dynamics.dsl import SysdModel
 
 
 @dataclass

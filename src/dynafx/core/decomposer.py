@@ -37,7 +37,7 @@ from dynafx.core.models import (
 )
 
 
-def __graph_depth(graph: Graph, node_id: UUID) -> int:
+def _graph_depth(graph: Graph, node_id: UUID) -> int:
     depth = 0
     current = node_id
     visited: set[UUID] = set()

@@ -6,8 +6,6 @@ from dynafx.core.models import (
     Edge,
     FusionSituation,
     Graph,
-    NodeType,
-    EdgeType,
     Opinion,
 )
 from dynafx.epistemics.fusion import (

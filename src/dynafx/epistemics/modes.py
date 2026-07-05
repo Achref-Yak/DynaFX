@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Dict, Optional, Set
+from typing import Optional
 
 from dynafx.core.config import Priors
-from dynafx.core.models import Graph, EdgeType, ReasoningMode, NodeType
-from dynafx.epistemics.mode_operators import apply_mode_operator
+from dynafx.core.models import EdgeType, Graph, ReasoningMode
 from dynafx.domain import domain as _domain
+from dynafx.epistemics.mode_operators import apply_mode_operator
 
 
 class _ModeEdgeLookup:

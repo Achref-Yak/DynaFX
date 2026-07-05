@@ -10,20 +10,16 @@ Validates the system using:
 from __future__ import annotations
 
 import logging
-import warnings
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 from uuid import UUID
 
 from dynafx.core.math import dung_semantics
 from dynafx.core.models import (
-    Edge,
     Graph,
-    Node,
     NodeType,
     Opinion,
-    Parameter,
 )
 
 logger = logging.getLogger(__name__)
@@ -50,8 +46,8 @@ class ValidationArgument:
     argument_type: ArgumentType
     claim: str
     confidence: Opinion
-    source_nodes: List[UUID]
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    source_nodes: list[UUID]
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -61,25 +57,25 @@ class ValidationAttack:
     target_id: UUID
     attack_type: str  # "rebut", "undercut", "undermine"
     confidence: Opinion
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
 class ValidationResultDetail:
     """Detailed validation result for the system."""
-    accepted_nodes: Set[UUID]
-    rejected_nodes: Set[UUID]
-    contested_nodes: Set[UUID]
-    unknown_nodes: Set[UUID]
-    arguments: List[ValidationArgument]
-    attacks: List[ValidationAttack]
-    loop_classifications: List[Dict[str, Any]]
+    accepted_nodes: set[UUID]
+    rejected_nodes: set[UUID]
+    contested_nodes: set[UUID]
+    unknown_nodes: set[UUID]
+    arguments: list[ValidationArgument]
+    attacks: list[ValidationAttack]
+    loop_classifications: list[dict[str, Any]]
     is_consistent: bool
     consistency_score: float
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
-def _build_arguments_from_graph(graph: Graph) -> List[ValidationArgument]:
+def _build_arguments_from_graph(graph: Graph) -> list[ValidationArgument]:
     """Build arguments from graph nodes and edges.
 
     Argument types:
@@ -162,9 +158,9 @@ def _build_arguments_from_graph(graph: Graph) -> List[ValidationArgument]:
 
 
 def _build_attacks_from_arguments(
-    arguments: List[ValidationArgument],
+    arguments: list[ValidationArgument],
     graph: Graph,
-) -> List[ValidationAttack]:
+) -> list[ValidationAttack]:
     """Build attack relations between arguments.
 
     Attack types:
@@ -248,9 +244,9 @@ def _build_attacks_from_arguments(
 
 
 def _run_dung_semantics(
-    arguments: List[ValidationArgument],
-    attacks: List[ValidationAttack],
-) -> Set[UUID]:
+    arguments: list[ValidationArgument],
+    attacks: list[ValidationAttack],
+) -> set[UUID]:
     """Run Dung semantics to find accepted arguments.
 
     Returns:
@@ -260,7 +256,7 @@ def _run_dung_semantics(
     beliefs = {arg.id: arg.confidence.belief for arg in arguments}
 
     # Build attack graph
-    attack_graph: Dict[UUID, List[UUID]] = {}
+    attack_graph: dict[UUID, list[UUID]] = {}
     for attack in attacks:
         if attack.target_id not in attack_graph:
             attack_graph[attack.target_id] = []
@@ -272,7 +268,7 @@ def _run_dung_semantics(
     return accepted
 
 
-def _classify_loop_polarity(graph: Graph) -> List[Dict[str, Any]]:
+def _classify_loop_polarity(graph: Graph) -> list[dict[str, Any]]:
     """Classify loop polarity in the system.
 
     Returns:
@@ -302,9 +298,9 @@ def validate_system_internal(graph: Graph) -> ValidationResultDetail:
     accepted_args = _run_dung_semantics(arguments, attacks)
 
     # Map arguments to nodes
-    accepted_nodes: Set[UUID] = set()
-    rejected_nodes: Set[UUID] = set()
-    contested_nodes: Set[UUID] = set()
+    accepted_nodes: set[UUID] = set()
+    rejected_nodes: set[UUID] = set()
+    contested_nodes: set[UUID] = set()
 
     for arg in arguments:
         node_ids = arg.source_nodes
@@ -357,7 +353,7 @@ def validate_system_internal(graph: Graph) -> ValidationResultDetail:
     )
 
 
-def get_validation_summary(result: ValidationResultDetail) -> Dict[str, Any]:
+def get_validation_summary(result: ValidationResultDetail) -> dict[str, Any]:
     """Get summary of validation results."""
     return {
         "is_consistent": result.is_consistent,

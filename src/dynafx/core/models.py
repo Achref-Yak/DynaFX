@@ -4,9 +4,8 @@ import json
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from uuid import UUID, uuid4
-
 
 NodeId = UUID
 EdgeId = UUID
@@ -200,7 +199,7 @@ class Parameter:
         }
 
     @classmethod
-    def from_dict(cls, d: dict) -> "Parameter":
+    def from_dict(cls, d: dict) -> Parameter:
         return cls(
             value=d.get("value"),
             opinion=Opinion(
@@ -245,10 +244,10 @@ class Node:
     salience: float = 0.5
     opinion: Opinion = field(default_factory=Opinion)
     category: int = 2
-    embedding: Optional[List[float]] = None
+    embedding: Optional[list[float]] = None
     timestamps: TimeInfo = field(default_factory=TimeInfo)
-    attrs: Dict = field(default_factory=dict)
-    metadata: Dict = field(default_factory=dict)
+    attrs: dict = field(default_factory=dict)
+    metadata: dict = field(default_factory=dict)
     bfo_category: Optional[BfoCategory] = None
     container_id: Optional[UUID] = None
     orthogonal_partition: Optional[str] = None
@@ -265,8 +264,8 @@ class Edge:
     opinion: Opinion = field(default_factory=Opinion)
     warrant: Optional[Warrant] = None
     polarity: int = 1
-    attrs: Dict = field(default_factory=dict)
-    metadata: Dict = field(default_factory=dict)
+    attrs: dict = field(default_factory=dict)
+    metadata: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -277,9 +276,9 @@ class Entity:
     name: str = ""
     superordinate: Optional[str] = None
     subordinate: Optional[str] = None
-    attributes: Dict[str, Any] = field(default_factory=dict)
-    spans: List[Span] = field(default_factory=list)
-    metadata: Dict = field(default_factory=dict)
+    attributes: dict[str, Any] = field(default_factory=dict)
+    spans: list[Span] = field(default_factory=list)
+    metadata: dict = field(default_factory=dict)
     bfo_category: Optional[BfoCategory] = None
 
 
@@ -290,7 +289,7 @@ class WorldRelation:
     source_id: UUID = field(default_factory=uuid4)
     target_id: UUID = field(default_factory=uuid4)
     kind: str = ""
-    metadata: Dict = field(default_factory=dict)
+    metadata: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -302,15 +301,15 @@ class TypedEdge:
     type: str = ""
     opinion: Opinion = field(default_factory=Opinion)
     warrant: Optional[Warrant] = None
-    metadata: Dict = field(default_factory=dict)
+    metadata: dict = field(default_factory=dict)
 
 
 @dataclass
 class Interpretation:
     """A named view over entities + relations produced by one module."""
     name: str = ""
-    roles: Dict[UUID, str] = field(default_factory=dict)
-    edges: List[TypedEdge] = field(default_factory=list)
+    roles: dict[UUID, str] = field(default_factory=dict)
+    edges: list[TypedEdge] = field(default_factory=list)
 
 
 @dataclass
@@ -461,14 +460,14 @@ def _strip_defaults(obj: Any, _is_top_level: bool = False) -> Any:
 
 @dataclass
 class Graph:
-    nodes: Dict[UUID, Node] = field(default_factory=dict)
-    edges: Dict[UUID, Edge] = field(default_factory=dict)
-    entities: Dict[UUID, Entity] = field(default_factory=dict)
-    world_relations: List[WorldRelation] = field(default_factory=list)
-    interpretations: Dict[str, Interpretation] = field(default_factory=dict)
+    nodes: dict[UUID, Node] = field(default_factory=dict)
+    edges: dict[UUID, Edge] = field(default_factory=dict)
+    entities: dict[UUID, Entity] = field(default_factory=dict)
+    world_relations: list[WorldRelation] = field(default_factory=list)
+    interpretations: dict[str, Interpretation] = field(default_factory=dict)
     mode: ReasoningMode = ReasoningMode.ARGUMENT
     source_text: str = ""
-    metadata: Dict = field(default_factory=dict)
+    metadata: dict = field(default_factory=dict)
     cta: Optional[ConversationTree] = None
     emergent_properties: list[EmergentProperty] = field(default_factory=list)
 
@@ -495,7 +494,7 @@ class Graph:
         return obj
 
     @staticmethod
-    def _collect_roles(interpretations: Dict[str, Interpretation]) -> Dict[UUID, str]:
+    def _collect_roles(interpretations: dict[str, Interpretation]) -> dict[UUID, str]:
         roles: dict[UUID, str] = {}
         for interp in interpretations.values():
             for eid, role in interp.roles.items():
@@ -503,7 +502,7 @@ class Graph:
         return roles
 
     @staticmethod
-    def _build_outgoing_map(edges: Dict[UUID, Edge]) -> Dict[UUID, List[Edge]]:
+    def _build_outgoing_map(edges: dict[UUID, Edge]) -> dict[UUID, list[Edge]]:
         outgoing: dict[UUID, list[Edge]] = defaultdict(list)
         for edge in edges.values():
             outgoing[edge.source_id].append(edge)
@@ -511,10 +510,10 @@ class Graph:
 
     @staticmethod
     def _serialize_nodes(
-        nodes: Dict[UUID, Node],
-        roles: Dict[UUID, str],
-        outgoing: Dict[UUID, List[Edge]],
-    ) -> List[dict]:
+        nodes: dict[UUID, Node],
+        roles: dict[UUID, str],
+        outgoing: dict[UUID, list[Edge]],
+    ) -> list[dict]:
         sorted_nodes = sorted(
             nodes.items(),
             key=lambda x: (x[1].span.start if x[1].span else 0, x[1].text),
@@ -528,7 +527,7 @@ class Graph:
         return propositions
 
     @staticmethod
-    def _serialize_entities(entities: Dict[UUID, Entity]) -> List[dict]:
+    def _serialize_entities(entities: dict[UUID, Entity]) -> list[dict]:
         sorted_entities = sorted(
             entities.items(),
             key=lambda x: (x[1].spans[0].start if x[1].spans else 0, x[1].name),
@@ -536,7 +535,7 @@ class Graph:
         return [Graph._convert_value(e) for _, e in sorted_entities]
 
     @staticmethod
-    def _serialize_world_relations(world_relations: List[WorldRelation]) -> List[dict]:
+    def _serialize_world_relations(world_relations: list[WorldRelation]) -> list[dict]:
         sorted_wr = sorted(
             world_relations,
             key=lambda r: (r.kind, r.source_id.hex),
@@ -787,16 +786,9 @@ class Graph:
             metadata=data.get("metadata", {}),
             cta=cta,
         )
-        propositions: list[dict] = []
-        for nid, node in sorted_nodes:
-            nd = Graph._convert_value(node)
-            nd["argumentation_role"] = roles.get(nid, node.type.name)
-            nd["outgoing_edges"] = [Graph._convert_value(e) for e in outgoing.get(nid, [])]
-            propositions.append(nd)
-        return propositions
 
     @staticmethod
-    def _serialize_entities(entities: Dict[UUID, Entity]) -> List[dict]:
+    def _serialize_entities(entities: dict[UUID, Entity]) -> list[dict]:
         sorted_entities = sorted(
             entities.items(),
             key=lambda x: (x[1].spans[0].start if x[1].spans else 0, x[1].name),
@@ -804,7 +796,7 @@ class Graph:
         return [Graph._convert_value(e) for _, e in sorted_entities]
 
     @staticmethod
-    def _serialize_world_relations(world_relations: List[WorldRelation]) -> List[dict]:
+    def _serialize_world_relations(world_relations: list[WorldRelation]) -> list[dict]:
         sorted_wr = sorted(
             world_relations,
             key=lambda r: (r.kind, r.source_id.hex),
@@ -1108,7 +1100,7 @@ class Context:
     source_id: str
     text: str
     span: Optional[Span] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         d: dict = {
@@ -1141,7 +1133,7 @@ class Annotation:
     annotator: str
     label: str
     confidence: float = 1.0
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         d: dict = {
@@ -1172,8 +1164,8 @@ class Trace:
     id: UUID
     trace_type: str
     timestamp: float
-    data: Dict[str, Any] = field(default_factory=dict)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
@@ -1214,5 +1206,5 @@ class Violation:
 @dataclass
 class ReviewResult:
     status: str
-    violations: List[Violation] = field(default_factory=list)
+    violations: list[Violation] = field(default_factory=list)
     feedback: str = ""

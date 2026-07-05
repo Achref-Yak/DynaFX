@@ -11,19 +11,18 @@ supported by acceptable arguments proceed to belief fusion.
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, Iterator, List, Optional, Set, Tuple
+from typing import Optional
 
-from dynafx.core.models import Opinion
 from dynafx.knowledge.model import (
+    BlankNode,
     Literal,
     NamedNode,
     Triple,
     TriplePattern,
 )
 from dynafx.knowledge.store import TripleStore
-
 
 # ── Enums ─────────────────────────────────────────────────────────
 
@@ -92,7 +91,7 @@ class ArgumentationFramework:
 
     def compute_grounded(
         self, min_attack_strength: float = 0.0
-    ) -> Set[str]:
+    ) -> set[str]:
         """Compute the grounded extension via least fixed point.
 
         The grounded extension is the unique, minimal, skeptical
@@ -126,7 +125,7 @@ class ArgumentationFramework:
                     changed = True
         return extension
 
-    def compute_preferred(self) -> List[Set[str]]:
+    def compute_preferred(self) -> list[set[str]]:
         """Compute all preferred extensions (maximal admissible sets).
 
         Admissible set: conflict-free and defends all its members.
@@ -169,8 +168,8 @@ class ArgumentationFramework:
     # ── Queries ───────────────────────────────────────────────
 
     def acceptable_triples(
-        self, extension: Optional[Set[str]] = None,
-    ) -> Set[Triple]:
+        self, extension: Optional[set[str]] = None,
+    ) -> set[Triple]:
         """Return triples supported by at least one acceptable argument."""
         if extension is None:
             extension = self.compute_grounded()
@@ -183,7 +182,7 @@ class ArgumentationFramework:
     def filter_store(
         self,
         store: TripleStore,
-        extension: Optional[Set[str]] = None,
+        extension: Optional[set[str]] = None,
     ) -> TripleStore:
         """Return a new TripleStore with only acceptable triples."""
         if extension is None:

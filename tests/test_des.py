@@ -126,12 +126,12 @@ class TestQueue:
         q._compiled_service_time = lambda: 4.0
         q.enqueue({"id": 1}, t=0.0)
         assert q.is_service_active()
-        assert q.advance_service(2.0) == 0
+        assert q.advance_service(2.0) == []  # no completions yet
         assert q.is_service_active()
-        assert q.advance_service(2.0) == 1
-        # Service record stays until dequeue clears it
+        assert q.advance_service(2.0) == [0]  # server 0 completed
+        # Service record stays until dequeue_completed clears it
         assert q.is_service_active()
-        entity = q.dequeue(t=4.0)
+        entity = q.dequeue_completed(0, t=4.0)
         assert entity["id"] == 1
         assert not q.is_service_active()
 
@@ -139,7 +139,7 @@ class TestQueue:
         q = Queue("svc", capacity=-1)
         q.enqueue({"id": 1}, t=0.0)
         assert not q.is_service_active()
-        assert q.advance_service(2.0) == 0
+        assert q.advance_service(2.0) == []
 
     def test_service_starts_on_first_enqueue(self):
         q = Queue("svc", capacity=-1, service_time="3.0")
@@ -597,7 +597,7 @@ class TestMultiStepService:
         q = Queue("inbox", capacity=-1)
         q.enqueue({"id": 1}, t=0.0)
         # No compiled service time → entity stays forever
-        assert q.advance_service(100.0) == 0
+        assert q.advance_service(100.0) == []
         assert q.length() == 1
 
 
@@ -881,7 +881,7 @@ class TestEventDrivenQueue:
         """advance_service returns 0 for event-driven queues."""
         q = Queue("noop", service_time="0.1", servers=1, event_driven=True)
         q._compiled_service_time = lambda: 0.1
-        assert q.advance_service(999.0) == 0
+        assert q.advance_service(999.0) == []
 
     def test_throughput_scales_with_service_time(self):
         """Smaller service_time → more entities per step."""

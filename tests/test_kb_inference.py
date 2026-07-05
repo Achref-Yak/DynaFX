@@ -589,3 +589,362 @@ class TestEdgeCases:
         count = eng.apply(store)
         assert count >= 1
         assert TriplePattern(x, q, Literal(42)) in store
+
+
+# ── Query-time inference (with_inference) ──────────────────────────
+
+
+class TestQueryTimeInference:
+    """Tests for TripleStore.triples(with_inference="rdfs") mode.
+
+    This queries against the RDFS type closure directly without
+    materialising inference triples via the rule engine.
+    """
+
+    RDF_TYPE_STR = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+    RDFS_SUBCLASS_OF_STR = "http://www.w3.org/2000/01/rdf-schema#subClassOf"
+    RDFS_DOMAIN_STR = "http://www.w3.org/2000/01/rdf-schema#domain"
+    RDFS_RANGE_STR = "http://www.w3.org/2000/01/rdf-schema#range"
+
+    EX = "http://example.org/"
+
+    def test_simple_subclass_expansion(self):
+        """(?x rdf:type ?c) ∧ (?c rdfs:subClassOf ?d) → (?x rdf:type ?d)."""
+        store = TripleStore()
+        vehicle = NamedNode(self.EX + "Vehicle")
+        car = NamedNode(self.EX + "Car")
+        my_car = NamedNode(self.EX + "myCar")
+
+        store.add(Triple(car, RDFS_SUBCLASS_OF, vehicle))
+        store.add(Triple(my_car, RDF_TYPE, car))
+
+        # Without inference: only direct type
+        results = list(store.triples(TriplePattern(my_car, RDF_TYPE, None)))
+        assert len(results) == 1
+        assert results[0].object_ == car
+
+        # With inference: also finds Vehicle
+        inf_results = list(store.triples(
+            TriplePattern(my_car, RDF_TYPE, None), with_inference="rdfs"
+        ))
+        types = {r.object_.iri for r in inf_results}
+        assert car.iri in types
+        assert vehicle.iri in types
+
+    def test_transitive_subclass_chain(self):
+        """SubClassOf closure is transitive."""
+        store = TripleStore()
+        thing = NamedNode(self.EX + "Thing")
+        vehicle = NamedNode(self.EX + "Vehicle")
+        car = NamedNode(self.EX + "Car")
+        my_car = NamedNode(self.EX + "myCar")
+
+        store.add(Triple(car, RDFS_SUBCLASS_OF, vehicle))
+        store.add(Triple(vehicle, RDFS_SUBCLASS_OF, thing))
+        store.add(Triple(my_car, RDF_TYPE, car))
+
+        inf_results = list(store.triples(
+            TriplePattern(my_car, RDF_TYPE, None), with_inference="rdfs"
+        ))
+        types = {r.object_.iri for r in inf_results}
+        assert car.iri in types
+        assert vehicle.iri in types
+        assert thing.iri in types
+
+    def test_query_with_specific_class_expands_subclasses(self):
+        """Query (?s rdf:type Vehicle) matches instances of Car."""
+        store = TripleStore()
+        vehicle = NamedNode(self.EX + "Vehicle")
+        car = NamedNode(self.EX + "Car")
+        my_car = NamedNode(self.EX + "myCar")
+
+        store.add(Triple(car, RDFS_SUBCLASS_OF, vehicle))
+        store.add(Triple(my_car, RDF_TYPE, car))
+
+        # Without inference: no direct Vehicle instances
+        results = list(store.triples(TriplePattern(None, RDF_TYPE, vehicle)))
+        assert len(results) == 0
+
+        # With inference: myCar is a Vehicle via subclass
+        inf_results = list(store.triples(
+            TriplePattern(None, RDF_TYPE, vehicle), with_inference="rdfs"
+        ))
+        assert len(inf_results) == 1
+        assert inf_results[0].subject == my_car
+
+    def test_domain_inference(self):
+        """(?x ?p ?o) ∧ (?p rdfs:domain ?c) → (?x rdf:type ?c)."""
+        store = TripleStore()
+        person = NamedNode(self.EX + "Person")
+        has_age = NamedNode(self.EX + "hasAge")
+        alice = NamedNode(self.EX + "Alice")
+
+        store.add(Triple(has_age, RDFS_DOMAIN, person))
+        store.add(Triple(alice, has_age, Literal(30)))
+
+        inf_results = list(store.triples(
+            TriplePattern(alice, RDF_TYPE, None), with_inference="rdfs"
+        ))
+        types = {r.object_.iri for r in inf_results}
+        assert person.iri in types
+
+    def test_range_inference(self):
+        """(?x ?p ?o) ∧ (?p rdfs:range ?c) → (?o rdf:type ?c)."""
+        store = TripleStore()
+        person = NamedNode(self.EX + "Person")
+        has_owner = NamedNode(self.EX + "hasOwner")
+        alice = NamedNode(self.EX + "Alice")
+        bob = NamedNode(self.EX + "Bob")
+
+        store.add(Triple(has_owner, RDFS_RANGE, person))
+        store.add(Triple(alice, has_owner, bob))
+
+        inf_results = list(store.triples(
+            TriplePattern(bob, RDF_TYPE, None), with_inference="rdfs"
+        ))
+        types = {r.object_.iri for r in inf_results}
+        assert person.iri in types
+
+    def test_no_inference_without_flag(self):
+        """Default triples() does not return inferred results."""
+        store = TripleStore()
+        vehicle = NamedNode(self.EX + "Vehicle")
+        car = NamedNode(self.EX + "Car")
+        my_car = NamedNode(self.EX + "myCar")
+
+        store.add(Triple(car, RDFS_SUBCLASS_OF, vehicle))
+        store.add(Triple(my_car, RDF_TYPE, car))
+
+        results = list(store.triples(TriplePattern(my_car, RDF_TYPE, None)))
+        assert all(r.object_ == car for r in results)
+
+    def test_cache_invalidation_on_add(self):
+        """Adding a triple invalidates the inference cache."""
+        store = TripleStore()
+        vehicle = NamedNode(self.EX + "Vehicle")
+        car = NamedNode(self.EX + "Car")
+        my_car = NamedNode(self.EX + "myCar")
+
+        store.add(Triple(car, RDFS_SUBCLASS_OF, vehicle))
+        store.add(Triple(my_car, RDF_TYPE, car))
+
+        # Warm cache
+        list(store.triples(
+            TriplePattern(my_car, RDF_TYPE, None), with_inference="rdfs"
+        ))
+        assert store._rdfs_type_closure is not None
+
+        # Add new triple — cache should be cleared
+        bike = NamedNode(self.EX + "Bike")
+        my_bike = NamedNode(self.EX + "myBike")
+        store.add(Triple(bike, RDFS_SUBCLASS_OF, vehicle))
+        store.add(Triple(my_bike, RDF_TYPE, bike))
+
+        assert store._rdfs_type_closure is None
+
+        # Should now find myBike as Vehicle too
+        inf_results = list(store.triples(
+            TriplePattern(None, RDF_TYPE, vehicle), with_inference="rdfs"
+        ))
+        subjects = {r.subject for r in inf_results}
+        assert my_car in subjects
+        assert my_bike in subjects
+
+    def test_sparql_query_with_inference(self):
+        """SPARQL evaluate passes with_inference through to store."""
+        from dynafx.knowledge.sparql import parse_sparql, evaluate as sparql_evaluate
+
+        store = TripleStore()
+        vehicle = NamedNode(self.EX + "Vehicle")
+        car = NamedNode(self.EX + "Car")
+        my_car = NamedNode(self.EX + "myCar")
+
+        store.add(Triple(car, RDFS_SUBCLASS_OF, vehicle))
+        store.add(Triple(my_car, RDF_TYPE, car))
+
+        # SPARQL: SELECT ?x WHERE { ?x rdf:type <Vehicle> }
+        query = f"SELECT ?x WHERE {{ ?x <{self.RDF_TYPE_STR}> <{vehicle.iri}> }}"
+        algebra = parse_sparql(query)
+
+        # Without inference
+        result = sparql_evaluate(algebra, store)
+        assert result.cardinality == 0
+
+        # With inference
+        result_inf = sparql_evaluate(algebra, store, with_inference="rdfs")
+        assert result_inf.cardinality == 1
+        assert result_inf.bindings[0]["x"] == my_car
+
+    def test_non_type_query_no_inference_penalty(self):
+        """Non-rdf:type queries return empty inferred set (fast path)."""
+        store = TripleStore()
+        p = NamedNode(self.EX + "p")
+        s = NamedNode(self.EX + "s")
+        o = NamedNode(self.EX + "o")
+        store.add(Triple(s, p, o))
+
+        results = list(store.triples(
+            TriplePattern(s, p, None), with_inference="rdfs"
+        ))
+        assert len(results) == 1
+        assert results[0].object_ == o
+
+    # ── Phase 2: subPropertyOf expansion ────────────────────────
+
+    def test_subproperty_of_expansion(self):
+        """(?x ?q ?o) ∧ (?q rdfs:subPropertyOf ?p) → (?x ?p ?o).
+
+        Querying with super-property P should match sub-property Q triples.
+        """
+        store = TripleStore()
+        has_owner = NamedNode(self.EX + "hasOwner")
+        has_legal_owner = NamedNode(self.EX + "hasLegalOwner")
+        alice = NamedNode(self.EX + "Alice")
+        bob = NamedNode(self.EX + "Bob")
+
+        store.add(Triple(has_legal_owner, RDFS_SUBPROPERTY_OF, has_owner))
+        store.add(Triple(alice, has_legal_owner, bob))
+
+        # Without inference: alice hasLegalOwner bob, but not hasOwner
+        assert len(list(store.triples(TriplePattern(None, has_owner, None)))) == 0
+
+        # With inference: sub-property expands
+        inf_results = list(store.triples(
+            TriplePattern(None, has_owner, None), with_inference="rdfs"
+        ))
+        assert len(inf_results) == 1
+        assert inf_results[0].subject == alice
+        assert inf_results[0].object_ == bob
+
+    def test_subproperty_transitive_chain(self):
+        """Transitive subPropertyOf chain is followed."""
+        store = TripleStore()
+        general = NamedNode(self.EX + "generalProp")
+        specific = NamedNode(self.EX + "specificProp")
+        very_specific = NamedNode(self.EX + "verySpecificProp")
+        s = NamedNode(self.EX + "s")
+        o = NamedNode(self.EX + "o")
+
+        store.add(Triple(specific, RDFS_SUBPROPERTY_OF, general))
+        store.add(Triple(very_specific, RDFS_SUBPROPERTY_OF, specific))
+        store.add(Triple(s, very_specific, o))
+
+        inf_results = list(store.triples(
+            TriplePattern(None, general, None), with_inference="rdfs"
+        ))
+        assert len(inf_results) == 1
+        assert inf_results[0].subject == s
+
+    def test_subproperty_sparql(self):
+        """SPARQL queries with inference expand subPropertyOf."""
+        from dynafx.knowledge.sparql import parse_sparql, evaluate as sparql_evaluate
+
+        store = TripleStore()
+        has_owner = NamedNode(self.EX + "hasOwner")
+        has_legal_owner = NamedNode(self.EX + "hasLegalOwner")
+        alice = NamedNode(self.EX + "Alice")
+        bob = NamedNode(self.EX + "Bob")
+
+        store.add(Triple(has_legal_owner, RDFS_SUBPROPERTY_OF, has_owner))
+        store.add(Triple(alice, has_legal_owner, bob))
+
+        query = f"SELECT ?s ?o WHERE {{ ?s <{has_owner.iri}> ?o }}"
+        algebra = parse_sparql(query)
+
+        result = sparql_evaluate(algebra, store, with_inference="rdfs")
+        assert result.cardinality == 1
+        assert result.bindings[0]["s"] == alice
+        assert result.bindings[0]["o"] == bob
+
+    # ── Phase 3: Confidence-aware query rewriting ───────────────
+
+    def test_min_belief_filter(self):
+        """min_belief filters out low-belief triples."""
+        store = TripleStore()
+        s = NamedNode(self.EX + "s")
+        p = NamedNode(self.EX + "p")
+        o = NamedNode(self.EX + "o")
+
+        store.add(Triple(s, p, o, opinion=Opinion(0.3, 0.1, 0.6)))
+        s2 = NamedNode(self.EX + "s2")
+        o2 = NamedNode(self.EX + "o2")
+        store.add(Triple(s2, p, o2, opinion=Opinion(0.9, 0.05, 0.05)))
+
+        results = list(store.triples(
+            TriplePattern(None, p, None),
+            with_inference={"mode": "rdfs", "min_belief": 0.5},
+        ))
+        assert len(results) == 1
+        assert results[0].subject == s2
+
+    def test_min_confidence_filter(self):
+        """min_confidence filters by belief + (1 - uncertainty)."""
+        store = TripleStore()
+        s = NamedNode(self.EX + "s")
+        p = NamedNode(self.EX + "p")
+        o = NamedNode(self.EX + "o")
+
+        # confidence = 0.3 + (1 - 0.6) = 0.7
+        store.add(Triple(s, p, o, opinion=Opinion(0.3, 0.1, 0.6)))
+        s2 = NamedNode(self.EX + "s2")
+        o2 = NamedNode(self.EX + "o2")
+        # confidence = 0.9 + (1 - 0.05) = 1.85
+        store.add(Triple(s2, p, o2, opinion=Opinion(0.9, 0.05, 0.05)))
+
+        results = list(store.triples(
+            TriplePattern(None, p, None),
+            with_inference={"mode": "rdfs", "min_confidence": 1.0},
+        ))
+        assert len(results) == 1
+        assert results[0].subject == s2
+
+    def test_min_belief_sparql(self):
+        """SPARQL evaluate threads min_belief through to store."""
+        from dynafx.knowledge.sparql import parse_sparql, evaluate as sparql_evaluate
+
+        store = TripleStore()
+        p = NamedNode(self.EX + "p")
+        s_high = NamedNode(self.EX + "sHigh")
+        s_low = NamedNode(self.EX + "sLow")
+
+        store.add(Triple(s_high, p, Literal(1), opinion=Opinion(0.9, 0.05, 0.05)))
+        store.add(Triple(s_low, p, Literal(2), opinion=Opinion(0.1, 0.8, 0.1)))
+
+        query = f"SELECT ?s ?v WHERE {{ ?s <{p.iri}> ?v }}"
+        algebra = parse_sparql(query)
+
+        result = sparql_evaluate(algebra, store, with_inference={"mode": "rdfs", "min_belief": 0.5})
+        assert result.cardinality == 1
+        assert result.bindings[0]["s"] == s_high
+
+    def test_dict_inference_with_belief_maintains_type_expansion(self):
+        """Dict config with min_belief still applies type inference."""
+        store = TripleStore()
+        vehicle = NamedNode(self.EX + "Vehicle")
+        car = NamedNode(self.EX + "Car")
+        my_car = NamedNode(self.EX + "myCar")
+
+        store.add(Triple(car, RDFS_SUBCLASS_OF, vehicle))
+        store.add(Triple(my_car, RDF_TYPE, car, opinion=Opinion(0.8, 0.1, 0.1)))
+
+        results = list(store.triples(
+            TriplePattern(my_car, RDF_TYPE, None),
+            with_inference={"mode": "rdfs", "min_belief": 0.5},
+        ))
+        types = {r.object_.iri for r in results}
+        assert car.iri in types
+        assert vehicle.iri in types  # inferred via subclass
+
+    def test_no_opinion_triples_pass_through(self):
+        """Triples with no opinion are never filtered by min_belief."""
+        store = TripleStore()
+        s = NamedNode(self.EX + "s")
+        p = NamedNode(self.EX + "p")
+        o = NamedNode(self.EX + "o")
+        store.add(Triple(s, p, o))  # no opinion
+
+        results = list(store.triples(
+            TriplePattern(None, p, None),
+            with_inference={"mode": "rdfs", "min_belief": 0.5},
+        ))
+        assert len(results) == 1

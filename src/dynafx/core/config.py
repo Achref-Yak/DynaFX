@@ -5,21 +5,21 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from importlib.resources import files as resource_files
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Optional
 
 from dynafx.core.models import Opinion
 from dynafx.domain import domain as _domain
 
-OpinionPair = Tuple[Opinion, Opinion]
+OpinionPair = tuple[Opinion, Opinion]
 
 
 @dataclass
 class Priors:
-    default_opinions: Dict[str, Opinion] = field(default_factory=dict)
+    default_opinions: dict[str, Opinion] = field(default_factory=dict)
 
-    source_type_map: Dict[str, str] = field(default_factory=dict)
+    source_type_map: dict[str, str] = field(default_factory=dict)
 
-    edge_warrants: Dict[str, OpinionPair] = field(default_factory=dict)
+    edge_warrants: dict[str, OpinionPair] = field(default_factory=dict)
 
     default_warrant: Optional[OpinionPair] = None
 

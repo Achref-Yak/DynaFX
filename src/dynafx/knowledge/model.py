@@ -14,7 +14,6 @@ from uuid import uuid4
 
 from dynafx.core.models import Opinion
 
-
 # ── Node types ───────────────────────────────────────────────────
 
 

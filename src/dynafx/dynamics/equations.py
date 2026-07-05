@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import Any, Optional
 from uuid import UUID
 
 from dynafx.core.models import (
@@ -37,12 +38,12 @@ class Equation:
     stock_id: UUID
     stock_name: str
     equation_type: str  # "stock_flow"
-    inflow_ids: List[UUID]
-    outflow_ids: List[UUID]
+    inflow_ids: list[UUID]
+    outflow_ids: list[UUID]
     inflow_expression: str
     outflow_expression: str
     full_expression: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 def _get_parameter_value(node: Node) -> Optional[float]:
@@ -62,12 +63,12 @@ def _get_node_role(node: Node) -> Optional[str]:
     return node.metadata.get('role')
 
 
-def _find_incoming_edges(graph: Graph, node_id: UUID) -> List[Edge]:
+def _find_incoming_edges(graph: Graph, node_id: UUID) -> list[Edge]:
     """Find all edges targeting this node."""
     return [e for e in graph.edges.values() if e.target_id == node_id]
 
 
-def _find_outgoing_edges(graph: Graph, node_id: UUID) -> List[Edge]:
+def _find_outgoing_edges(graph: Graph, node_id: UUID) -> list[Edge]:
     """Find all edges originating from this node."""
     return [e for e in graph.edges.values() if e.source_id == node_id]
 
@@ -103,10 +104,10 @@ def _compile_stock_equation(
     outgoing = _find_outgoing_edges(graph, stock_id)
 
     # Categorize flows by polarity
-    inflow_ids: List[UUID] = []
-    outflow_ids: List[UUID] = []
-    inflow_parts: List[str] = []
-    outflow_parts: List[str] = []
+    inflow_ids: list[UUID] = []
+    outflow_ids: list[UUID] = []
+    inflow_parts: list[str] = []
+    outflow_parts: list[str] = []
 
     for edge in incoming:
         polarity = _get_edge_polarity(edge)
@@ -163,6 +164,7 @@ def _compile_stock_equation(
         outflow_expr = " - ".join(outflow_parts)
         full_expr = f"d({stock_name})/dt = {inflow_expr} - {outflow_expr}"
     else:
+        outflow_expr = "0"
         full_expr = f"d({stock_name})/dt = {inflow_expr}"
 
     return Equation(
@@ -182,9 +184,9 @@ def _compile_stock_equation(
 
 def _classify_loop_polarity(
     graph: Graph,
-    cycle_nodes: List[UUID],
-    cycle_edges: List[UUID],
-) -> Tuple[str, str]:
+    cycle_nodes: list[UUID],
+    cycle_edges: list[UUID],
+) -> tuple[str, str]:
     """Classify loop polarity based on edge signs.
 
     Returns:
@@ -223,7 +225,7 @@ def _classify_loop_polarity(
     return loop_type, gain_sign
 
 
-def compile_equations(graph: Graph) -> List[Equation]:
+def compile_equations(graph: Graph) -> list[Equation]:
     """Compile symbolic equations from tagged graph.
 
     Stock-flow template: dx/dt = inflow - outflow
@@ -266,7 +268,7 @@ def compile_equations(graph: Graph) -> List[Equation]:
     return equations
 
 
-def get_equation_summary(equations: List[Equation]) -> Dict[str, Any]:
+def get_equation_summary(equations: list[Equation]) -> dict[str, Any]:
     """Get summary of compiled equations."""
     return {
         "total_equations": len(equations),
@@ -293,9 +295,12 @@ def _parse_expression(expr: str) -> Callable[[float, dict[str, float]], float]:
 
     "production(1200)"  →  callable(t, params) returning 1200
     "150"               →  callable returning 150
-    "?" or unknown      →  callable returning 0.0
+    "?" or unknown      →  callable returning 0.0 (with warning)
     """
     expr = expr.strip()
+    if not expr:
+        logger.warning("Empty expression in _parse_expression, returning 0.0")
+        return lambda _t, _params: 0.0
     m = _EXPR_RE.match(expr)
     if m:
         try:
@@ -307,6 +312,7 @@ def _parse_expression(expr: str) -> Callable[[float, dict[str, float]], float]:
         val = float(expr)
         return lambda _t, _params: val
     except ValueError:
+        logger.warning("Could not parse expression '%s', returning 0.0", expr)
         return lambda _t, _params: 0.0
 
 
@@ -330,7 +336,7 @@ def _build_ode_fn(
     def f(t: float, y: list[float], params: dict[str, float]) -> list[float]:
         return [
             infn(t, params) - outfn(t, params)
-            for infn, outfn in zip(inflow_fns, outflow_fns)
+            for infn, outfn in zip(inflow_fns, outflow_fns, strict=False)
         ]
 
     return f, stock_names
@@ -347,12 +353,12 @@ def rk4_step(
     if params is None:
         params = {}
     k1 = f(t, y, params)
-    k2 = f(t + dt / 2, [yi + dti * dt / 2 for yi, dti in zip(y, k1)], params)
-    k3 = f(t + dt / 2, [yi + dti * dt / 2 for yi, dti in zip(y, k2)], params)
-    k4 = f(t + dt, [yi + dti * dt for yi, dti in zip(y, k3)], params)
+    k2 = f(t + dt / 2, [yi + dti * dt / 2 for yi, dti in zip(y, k1, strict=False)], params)
+    k3 = f(t + dt / 2, [yi + dti * dt / 2 for yi, dti in zip(y, k2, strict=False)], params)
+    k4 = f(t + dt, [yi + dti * dt for yi, dti in zip(y, k3, strict=False)], params)
     return [
         yi + (k1i + 2 * k2i + 2 * k3i + k4i) * dt / 6
-        for yi, k1i, k2i, k3i, k4i in zip(y, k1, k2, k3, k4)
+        for yi, k1i, k2i, k3i, k4i in zip(y, k1, k2, k3, k4, strict=False)
     ]
 
 
@@ -366,7 +372,7 @@ def euler_step(
     """Single forward Euler step."""
     if params is None:
         params = {}
-    return [yi + dti * dt for yi, dti in zip(y, f(t, y, params))]
+    return [yi + dti * dt for yi, dti in zip(y, f(t, y, params), strict=False)]
 
 
 def simulate_equations(
@@ -389,6 +395,10 @@ def simulate_equations(
         Dict with times, stock names, per-stock value histories,
         final state, method, and step count.
     """
+    if dt == 0:
+        raise ValueError("dt must be non-zero")
+    if method not in ("rk4", "euler"):
+        raise ValueError(f"Unknown method '{method}', expected 'rk4' or 'euler'")
     step_fn = rk4_step if method == "rk4" else euler_step
     f, stock_names = _build_ode_fn(equations)
 

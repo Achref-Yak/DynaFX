@@ -8,10 +8,9 @@ Detects and classifies feedback loops in model structure:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
+from dynafx.dynamics.causal import _get_dependencies
 from dynafx.dynamics.dsl import SysdModel
-from dynafx.dynamics.causal import _get_dependencies, _get_reverse_deps
 
 
 @dataclass

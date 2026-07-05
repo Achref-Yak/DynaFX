@@ -14,18 +14,26 @@ Integration:
     - `epistemics/` provides SL Opinion, cumulative_fusion, EvidenceMatrix
 """
 
-from dynafx.knowledge.model import (
-    BlankNode,
-    Literal,
-    NamedNode,
-    RDFNode,
-    Triple,
-    TriplePattern,
-    xsd,
+from dynafx.core.models import (
+    FusionSituation,
+    Opinion,
 )
-from dynafx.knowledge.store import TripleStore
-from dynafx.knowledge.turtle import parse_turtle, serialize_turtle
-from dynafx.knowledge.sparql import QueryResult, evaluate as _evaluate, parse_sparql as _parse_sparql
+from dynafx.epistemics.fusion import (
+    consensus_compromise,
+    cumulative_fusion,
+)
+from dynafx.knowledge.confidence import (
+    FusionResult,
+    QueryGrade,
+    argumentative_filter,
+    fuse_graphs,
+    grade_query,
+)
+from dynafx.knowledge.execution import (
+    ExecutionRecord,
+    ExecutionStore,
+)
+from dynafx.knowledge.hierarchy import MDM_TYPE_HIERARCHY, TypeHierarchy, TypeNode
 from dynafx.knowledge.inference import (
     InferencePattern,
     Rule,
@@ -35,13 +43,6 @@ from dynafx.knowledge.inference import (
     propagate_opinion,
     rdfs_rules,
 )
-from dynafx.knowledge.confidence import (
-    FusionResult,
-    QueryGrade,
-    argumentative_filter,
-    fuse_graphs,
-    grade_query,
-)
 from dynafx.knowledge.ingest_csv import (
     ColumnMapping,
     IngestReport,
@@ -49,8 +50,16 @@ from dynafx.knowledge.ingest_csv import (
     ingest_csv,
     load_all_mappings,
 )
-from dynafx.knowledge.loader import TBox, load_tbox, GENERAL_TBOX
-from dynafx.knowledge.hierarchy import TypeNode, TypeHierarchy, MDM_TYPE_HIERARCHY
+from dynafx.knowledge.loader import GENERAL_TBOX, TBox, load_tbox
+from dynafx.knowledge.model import (
+    BlankNode,
+    Literal,
+    NamedNode,
+    RDFNode,
+    Triple,
+    TriplePattern,
+    xsd,
+)
 from dynafx.knowledge.production import (
     Action,
     ActionResult,
@@ -71,27 +80,21 @@ from dynafx.knowledge.production import (
     TripleAction,
     TripleCondition,
 )
+from dynafx.knowledge.sparql import QueryResult
+from dynafx.knowledge.sparql import evaluate as _evaluate
+from dynafx.knowledge.sparql import parse_sparql as _parse_sparql
+from dynafx.knowledge.store import TripleStore
 from dynafx.knowledge.transactions import (
     Transaction,
     TransactionQuery,
     TransactionStore,
 )
-from dynafx.knowledge.execution import (
-    ExecutionRecord,
-    ExecutionStore,
-)
-from dynafx.epistemics.fusion import (
-    consensus_compromise,
-    cumulative_fusion,
-)
-from dynafx.core.models import (
-    FusionSituation,
-    Opinion,
-)
+from dynafx.knowledge.turtle import parse_turtle, serialize_turtle
 
 sparql_evaluate = _evaluate
 
 import warnings as _warnings
+
 
 def __getattr__(name: str):
     if name == "evaluate":

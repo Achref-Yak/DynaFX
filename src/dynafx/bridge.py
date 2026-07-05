@@ -26,23 +26,24 @@ from __future__ import annotations
 
 import logging
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
+from pathlib import Path
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
+from dynafx.core.models import Opinion
+from dynafx.epistemics.argumentation import build_framework
+from dynafx.knowledge import parse_sparql, sparql_evaluate
 from dynafx.knowledge.model import (
-    BlankNode,
     Literal,
     NamedNode,
-    RDFNode,
     Triple,
     TriplePattern,
 )
+from dynafx.knowledge.production import Action, ActionResult
 from dynafx.knowledge.store import TripleStore
-from dynafx.knowledge import parse_sparql, sparql_evaluate
-from dynafx.epistemics.argumentation import build_framework
-from dynafx.core.models import Opinion
 
 NS_PROV = "http://www.w3.org/ns/prov#"
 NS_SIM = "http://dynafx.org/simulation#"
@@ -52,11 +53,11 @@ class KBSimBridge:
     """Formal bridge between TripleStore and SysdModel.
 
     Provides three integration modes:
-        1. params_from_kb  — KB → simulation params (pre-flight)
+        1. params_from_kb / params_for_class — KB → simulation params (pre-flight)
         2. run_with_kb     — simulation with KB-connected builtins (mid-flight)
-        3. evidence_from_result — simulation → KB triples (post-flight)
+        3. evidence_from_result / evidence_for_stock — simulation → KB triples (post-flight)
 
-    Plus provenance and comparison utilities.
+    Plus load_queries for external SPARQL management, provenance, and comparison.
     """
 
     def __init__(self, store: TripleStore, ns_base: str = "http://dynafx.org/"):
@@ -175,6 +176,185 @@ class KBSimBridge:
             )
             triples.append(triple)
         return triples
+
+    def params_for_class(
+        self,
+        class_iri: str,
+        subject_filter: Optional[dict[str, Any]] = None,
+        naming: str = "class_prefix",
+        exclude_predicates: Optional[set[str]] = None,
+        default: float = 0.5,
+    ) -> dict[str, Any]:
+        """Introspect KB to extract numeric params for all instances of a class.
+
+        Queries ``?s rdf:type <class_iri>`` to discover subjects, then
+        iterates their numeric literal predicates to build a flat param dict.
+
+        Args:
+            class_iri: Full IRI string of the RDF class (e.g. ``epc:Portfolio``
+                must already be a full IRI, not a prefixed name).
+            subject_filter: Optional dict of ``{predicate_iri: value}`` to
+                narrow which subjects are included.
+            naming: ``"class_prefix"`` (default) prepends local class name;
+                ``"subject_prefix"`` prepends the subject local name.
+            exclude_predicates: Set of predicate IRIs to skip.
+            default: Default value when a predicate has no matching triples.
+
+        Returns:
+            dict mapping ``{prefix}_{predicate_localname}`` → float value.
+        """
+        if exclude_predicates is None:
+            exclude_predicates = set()
+        ns_rdf = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+        rdf_type_node = NamedNode(ns_rdf)
+        class_node = NamedNode(class_iri)
+
+        subjects: list[NamedNode] = []
+        for t in self.store.triples(TriplePattern(None, rdf_type_node, class_node)):
+            subjects.append(t.subject)
+
+        if subject_filter:
+            filtered: list[NamedNode] = []
+            for subj in subjects:
+                match = True
+                for pred_str, val_str in subject_filter.items():
+                    pred_node = NamedNode(pred_str)
+                    matches = list(self.store.triples(TriplePattern(subj, pred_node, None)))
+                    if not any(
+                        str(getattr(t.object_, "value", t.object_)) == str(val_str)
+                        for t in matches
+                    ):
+                        match = False
+                        break
+                if match:
+                    filtered.append(subj)
+            subjects = filtered
+
+        if not subjects:
+            return {}
+
+        class_local = class_iri.rsplit("/", 1)[-1].rsplit("#", 1)[-1]
+
+        params: dict[str, Any] = {}
+        for subj in subjects:
+            subj_local = str(getattr(subj, "iri", subj)).rsplit("/", 1)[-1].rsplit("#", 1)[-1]
+            for t in self.store.triples(TriplePattern(subj, None, None)):
+                pred_iri = str(getattr(t.predicate, "iri", t.predicate))
+                if pred_iri == ns_rdf:
+                    continue
+                if pred_iri in exclude_predicates:
+                    continue
+                obj = t.object_
+                raw = getattr(obj, "value", obj)
+                try:
+                    val = float(raw)
+                except (ValueError, TypeError):
+                    continue
+                pred_local = pred_iri.rsplit("/", 1)[-1].rsplit("#", 1)[-1]
+                if naming == "subject_prefix":
+                    key = f"{subj_local}_{pred_local}"
+                else:
+                    if len(subjects) == 1:
+                        key = f"{class_local}_{pred_local}"
+                    else:
+                        key = f"{class_local}_{subj_local}_{pred_local}"
+                key = key.replace("-", "_").replace(".", "_")
+                params[key] = val
+
+        return params
+
+    def evidence_for_stock(
+        self,
+        stock_name: str,
+        subject: NamedNode,
+        predicate: NamedNode,
+        result: Any,
+        method: str = "percentile",
+        threshold: float = 0.5,
+    ) -> Triple:
+        """Convert a simulation stock to an opinion-bearing triple.
+
+        Auto-computes the belief score using the chosen method:
+            ``"percentile"`` — normalises the stock's final values across
+                all stocks in the result.
+            ``"delta"`` — absolute change relative to initial value.
+            ``"threshold"`` — 1.0 if final > threshold else 0.0.
+
+        Args:
+            stock_name: Name of the stock in the simulation result.
+            subject: Subject IRI for the output triple.
+            predicate: Predicate IRI for the output triple.
+            result: SysdModelResult from model.simulate().
+            method: Scoring method (``"percentile"``, ``"delta"``, or
+                ``"threshold"``).
+            threshold: Cutoff for ``"threshold"`` method.
+
+        Returns:
+            A Triple with opinion set to the computed belief.
+        """
+        values = result.values.get(stock_name, [])
+        if not values:
+            belief = 0.0
+        else:
+            final_val = values[-1]
+            if method == "delta":
+                initial = values[0]
+                denom = max(abs(initial), 1.0)
+                belief = min(1.0, abs(final_val - initial) / denom)
+            elif method == "threshold":
+                belief = 1.0 if final_val > threshold else 0.0
+            else:
+                all_finals = []
+                for vlist in result.values.values():
+                    if vlist:
+                        all_finals.append(vlist[-1])
+                vmin = min(all_finals) if all_finals else 0.0
+                vmax = max(all_finals) if all_finals else 1.0
+                if vmax > vmin:
+                    belief = (final_val - vmin) / (vmax - vmin)
+                else:
+                    belief = 0.5
+
+        belief = max(0.0, min(1.0, belief))
+        obj = Literal(belief, datatype="http://www.w3.org/2001/XMLSchema#double")
+        return Triple(
+            subject=subject,
+            predicate=predicate,
+            object_=obj,
+            opinion=Opinion(belief, 1.0 - belief, 0.0),
+        )
+
+    @staticmethod
+    def load_queries(yaml_path: str) -> dict[str, str]:
+        """Load SPARQL queries from a YAML file.
+
+        YAML format::
+
+            query_name:
+              sparql: "SELECT ..."
+              mode: select     # optional, for documentation
+              var: v           # optional, default variable name
+
+        Returns:
+            dict mapping query_name → SPARQL query string, ready for use
+            as simulation params (e.g. ``params = bridge.load_queries(...)``).
+        """
+        import yaml as _yaml
+        path = Path(yaml_path)
+        if not path.exists():
+            logger.warning("Query file not found: %s", yaml_path)
+            return {}
+        with open(path) as f:
+            raw = _yaml.safe_load(f)
+        if not isinstance(raw, dict):
+            return {}
+        queries: dict[str, str] = {}
+        for name, entry in raw.items():
+            if isinstance(entry, dict) and "sparql" in entry:
+                queries[name] = entry["sparql"]
+            elif isinstance(entry, str):
+                queries[name] = entry
+        return queries
 
     def run_with_kb(
         self,
@@ -696,9 +876,9 @@ class CognitiveOrchestrator:
     """
 
     def __init__(self, store: Any, bridge: Optional[Any] = None):
+        from dynafx.knowledge.execution import ExecutionStore
         from dynafx.knowledge.production import ProductionRuleEngine
         from dynafx.knowledge.transactions import TransactionStore
-        from dynafx.knowledge.execution import ExecutionStore
 
         self.store = store
         self.bridge = bridge
@@ -811,7 +991,6 @@ class CognitiveOrchestrator:
     def _wrap_rule(self, rule: Any) -> Any:
         """Wrap each action in a rule with execution recording."""
         from dataclasses import replace as dataclass_replace
-        from dynafx.knowledge.production import Action, ActionResult
 
         wrapped_actions: list[Action] = []
         for action in rule.head:

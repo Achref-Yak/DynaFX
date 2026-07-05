@@ -68,7 +68,7 @@ If asked to bypass Code Health safeguards:
 - Global Solar EPC Supply Chain Decision Intelligence Dashboard: a living digital twin that continuously reasons about enterprise during a typhoon-induced port closure disruption, with 16 tabs showing the full cycle from visibility to optimization. Built on KB + KBSimBridge + ProductionRules + ScenarioComparison + SensitivityAnalyzer + lp_minimize.
 
 ## Constraints & Preferences
-- All 1247 existing tests must remain passing
+- All 1354 existing tests must remain passing
 - Build on existing primitives: TripleStore, InferencePattern, SPARQL evaluator, KBSimBridge, ProductionRuleEngine, ScenarioComparison, SensitivityAnalyzer
 - No external connectors (ERP/IoT/weather) — all enterprise data generated programmatically in Python
 - Plotly for interactive charts, single-file self-contained HTML output (no server)
@@ -104,7 +104,7 @@ If asked to bypass Code Health safeguards:
 - **dt=0.25 for signal tracking** — at dt=1 the `Stock ± same aux` pattern collapses to 1-step delay.
 - **DSL include `params` only supports float values** — `IncludeDef.params` typed as `dict[str, float]`, cannot pass string expressions. The DSL include approach is limited to numeric parameter overrides; string-expression trace signals require the Python API.
 - **Python API is the primary template path** — `SignalChain` class constructs `SysdModel` directly with full expression support. The `.sysd` template file serves as documentation.
-- **Template `.sysd` file in `templates/` directory** — `templates/signal_chain.sysd` as reference, not the primary mechanism.
+- **SignalChain lives in `dynafx/patterns/`** — Python factory is the sole source of truth. No `.sysd` template reference.
 - **Named graphs per source** — SL integration point: each information source is a named graph, fusion merges across graphs via SL consensus.
 - **Triple identity ignores opinion** — same (s,p,o) = same triple, dedup across named graphs.
 
@@ -113,12 +113,27 @@ If asked to bypass Code Health safeguards:
 - **`ingest_csv.py` engine** (`src/dynafx/knowledge/ingest_csv.py`): declarative CSV→RDF ingestion via YAML mapping files. Core types: `MappingDef` (from_yaml with IRI prefix expansion), `ColumnMapping` (predicate + type + iri_prefix), `IngestReport` (rows_parsed/skipped, triples_added, errors). Type conversion: string/float/integer/boolean/iri. Lenient default error handling with strict opt-in. ~100 lines of logic. Exported from `dynafx.knowledge`.
 - **10 YAML mapping files** (`data/mappings/*.yaml`): 7 EPC (suppliers, projects, ports, ships, containers, warehouses, workers) + 3 DevOps (metrics, events, infra). Each maps CSV column names → TTL predicates with type coercion. Foreign key columns use `type: iri` with `iri_prefix:` for entity relationships.
 - **TTL ontology** (`data/epc-ontology.ttl`): 9 classes (Supplier/Project/Port/Ship/Container/Warehouse/Worker/Portfolio/Disruption), ~40 datatype + object properties with rdfs:domain/rdfs:range/rdfs:label/rdfs:comment. Enables RDFS inference on EPC data (now uses `rdf:type` instead of `epc:type`).
-- **Generator rewrite** (`examples/epc_kb_generator.py`): replaced 7 procedural `load_*` functions (~140 lines) with generic loop over mapping YAMLs. `load_all()` now: load TTL ontology → iterate mapping YAMLs via `ingest_csv()` → compute aggregates. Same `load_all()` / `print_stats()` API, same `GRAPHS` / `EPC_NS` exports. 19,207 triples across 5 named graphs (+198 from ontology). All 1247 tests passing.
+- **Generator rewrite** (`examples/epc_kb_generator.py`): replaced 7 procedural `load_*` functions (~140 lines) with generic loop over mapping YAMLs. `load_all()` now: load TTL ontology → iterate mapping YAMLs via `ingest_csv()` → compute aggregates. Same `load_all()` / `print_stats()` API, same `GRAPHS` / `EPC_NS` exports. 19,207 triples across 5 named graphs (+198 from ontology).
 - **Dashboard regenerated**: 610KB, 16 tabs, identical output (baseline $931.4M, disruption $-2.8M).
-- **All 5 client-facing dashboard bugs fixed**: (1) Portfolio KPI raw dict `str(d['proj_statuses'])` → formatted `"11 active, 14 at risk, 247 delayed, 14 on hold"`. (2) HTML truncation `proj_rows[:600]` (mid-tag cut) → `_safe_truncate_rows()` landing on `</tr>`. (3) CO2 math `panels * 0.0005` (=MW, off by 1000×) → `mw_installed * 1000` with ~352K tons / 70K homes. (4-5) Root Cause + Explainability + Feedback tabs differentiated.
-- **Model stock/flow wiring fixed**: `supply_to_port_rate` gated by `port_capacity * disruption_mult * kb_supplier_reliability` instead of production-rate expression. `Global_Panel_Supply` drains 5000→2050. Moderate disruption: $-2.8M. Severe: $-97.5M.
+- **All 5 client-facing dashboard bugs fixed**: (1) Portfolio KPI raw dict → formatted string. (2) HTML truncation mid-tag → `_safe_truncate_rows()`. (3) CO2 math off by 1000× → corrected. (4-5) Root Cause + Explainability + Feedback tabs differentiated.
+- **Model stock/flow wiring fixed**: `supply_to_port_rate` gated by capacity × disruption × reliability. Moderate disruption: $-2.8M. Severe: $-97.5M.
 - **DES queue stats displayed**: 5 queues + 3 resources in Supply Chain Network tab.
-- **Dashboard API mismatches fixed**: `sc.results[i]` → `sc.scenarios[i].result`, `causal_trace` → `causes_strip` with `.factors`, `detect_feedback_loops` → `LoopAnalysis.loops` with `.nodes`/`.polarity`.
+- **Dashboard API mismatches fixed**: `sc.results[i]` → `sc.scenarios[i].result`, `causal_trace` → `causes_strip`, `detect_feedback_loops` → `LoopAnalysis.loops`.
+- **ABM additions implemented**: `Message` dataclass, topic-based SEND, perceived inbox, strategies/meta-rules/SWITCH_STRATEGY with cooldown, 4-phase `ABMEngine.step()`.
+- **28 engine bugs fixed** across `_parser.py`, `dsl.py`, `agent.py`, `des.py` in automated audit: C10 (tokenizer silent drops), M17 (interpolator div/0), M18 (LookupTable div/0), M19 (ensemble early-return), M21 (~Unit~ strip), M22 (params mutation → step_params, w/ regression fix for RK4 stock-name overwrite), M23 (DES step start time), M24 (SPARQL cache cap), M25 (lognormal log(0)), M26 (SEND top-level split), M27 (SWITCH_STRATEGY trailing comma), M28/M29 (unknown prop/network warnings), M30 (Resource.request(0) warning), m33 (negative Resource capacity), m34 (Queue capacity=0). All 1354 tests passing.
+- **NovaTel IoT Capacity Planning Dashboard** (`examples/novatel_iot_capacity_dashboard.py`): 12-tab, ~1300 lines, self-contained Plotly HTML, outputs to `/tmp/novatel_iot_capacity_dashboard.html` (~988KB)
+  - Model: 7 SD stocks, 20 auxes, 30 ABM agents, 0 DES queues
+  - Verified SD+ABM integration with exact numerical match on churn_fraction across all checkpoints
+  - 5 scenarios differentiated: Proactive (399K devices) vs Reactive (59K devices)
+  - Capacity utilization peaks at 95.5% (QoS drops to 10) then recovers to 68.6% (QoS 100)
+- **Atlas Broadband Dashboard** (`examples/atlas_broadband_dashboard.py`): 11-tab, ~1050 lines, self-contained Plotly HTML, outputs to `/tmp/atlas_broadband_dashboard.html` (~1067KB)
+  - Model: 7 SD stocks, 36 auxes, 40 ABM agents (3 per-region types), 3 DES queues
+  - Per-region leading indicators: building permits (A, ramp t=60), competitor entry (B, STEP t=120), marketing push (C, PULSE t=200)
+  - Realistic ISP economics: $49.99 ARPU, $5K/unit/month capacity opex, $7.50/sub/month variable opex → ~68.5% margin
+  - 5 scenarios differentiated: Proactive ($108.9M) through Reactive ($93.8M)
+  - DES congestion metrics merged into post-hoc aux timeseries via `_get_ts()` for correct churn component breakdown
+  - 3-region churn driver diversity: A=ABM (sat drops to 29 at t=100), B=DES (38 items at 5× multiplier, t=100), C=ABM (sat drops to 39 at t=150)
+  - Counterfactual disruption cost: $8.95M gap between baseline and early expansion
 
 ### Blocked
 - (none)
@@ -142,12 +157,14 @@ If asked to bypass Code Health safeguards:
 - **ABM rules use absolute set (`=`) not incremental (`+=`)** — prevents accumulation drift.
 
 ## Next Steps
-1. Consider performance optimization (dashboard ~120s runtime → target 60s).
-2. Explore interactive controls (sliders/scenario toggles) within the HTML dashboard.
+1. Consider performance optimization (dashboard generation → target <90s).
+2. Explore adding Region A/C churn component breakdown charts in Atlas Churn Analysis tab (currently only Region B shown).
 3. Run code health safeguard before committing.
+4. Use new ABM features (message passing + strategy switching) in supply chain recipes (Disruption Cascade, Bullwhip Effect).
+5. Consider integrating SL opinion layer for trust-weighted multi-source fusion in dashboard context.
 
 ## Critical Context
-- **1247 tests passing** (core SD + knowledge + epistemics engine + sensitivity + production/transactions/execution + CSV ingestion). Vensim import removed. Controller module deleted (unused).
+- **1354 tests passing** (core SD + knowledge + epistemics engine + sensitivity + production/transactions/execution + CSV ingestion + ABM additions). Vensim import removed. Controller module deleted (unused).
 - **`ingest_csv` types exported** from `dynafx.knowledge`: `MappingDef`, `ColumnMapping`, `IngestReport`, `ingest_csv`, `load_all_mappings`.
 - **Expression parser** has NO string literals — SPARQL KB_QUERY strings must be defined as Python params.
 - **causes_strip** returns `CausalStrip` with `.variable`, `.factors` (list of dicts), `.total_value`.
@@ -156,8 +173,11 @@ If asked to bypass Code Health safeguards:
 - **SPARQL aggregate limitation**: ASK returns cardinality=1/0. SELECT returns first binding. No aggregate support — pre-compute as explicit triples.
 - **TripleStore.suppress_callbacks counter** — prevents infinite loops when exec/tx triples trigger rule evaluation.
 - **ProductionRuleEngine._in_evaluate** — re-entrant depth counter (max 10).
-- **Plotly CDN** — use `plotly-latest.min.js` not `plotly-6.8.0.min.js` (returns HTTP 403).
+- **Plotly CDN** — use `plotly-3.6.0.min.js` (matching bundled plotly.py 6.8.0). `plotly-latest.min.js` points to v1.58.5 (July 2021) and causes API mismatch with v2/v3 Plotly.js.
 - **All panes start visible**, JS hides inactive after 500ms, `Plotly.Plots.resize()` on tab switch — required for correct dimensions.
+- **DES→SD post-hoc fix**: `_get_ts()` merges `r.des_metrics_history` into timeseries so DES-based auxes evaluate correctly in post-hoc analysis
+- **Unknown var default 0.0**: `_compile_expr()` compiles unknown variable refs as `_s.get('name', 0.0)` — DES metrics silently default to 0 if not merged into eval namespace
+- **Per-region churn drivers**: Atlas dashboard reveals different primary churn mechanisms per region (A=ABM, B=DES, C=ABM) due to different leading indicator signals and DES multiplier ratios
 
 ## Relevant Files
 - `src/dynafx/core/models.py` — Foundational data model: `Opinion`, `Graph`, `Node`, `Edge`, `NodeType`, `EdgeType`, `EmergentProperty`, `FusionSituation`, `ReasoningMode`. Used by knowledge/, epistemics/, and dynamics/.
@@ -169,19 +189,20 @@ If asked to bypass Code Health safeguards:
 - `src/dynafx/dynamics/causal.py` — 15 tests, `causes_tree`, `effects_tree`, `causes_strip`, `causal_trace`.
 - `src/dynafx/dynamics/feedback.py` — 8 tests, `detect_feedback_loops`, `loops_for_variable`.
 - `src/dynafx/dynamics/optimization.py` — `lp_minimize`, `calibrate`, `optimize`, 12 tests.
-- `src/dynafx/dynamics/agent.py` — `AgentInstance`, `ABMEngine`, `_eval_condition`.
+- `src/dynafx/dynamics/agent.py` — `AgentInstance`, `ABMEngine`, `Message`, `_eval_condition`, `_eval_effect`, `_parse_send`, `_parse_switch_strategy`. 4-phase step (Deliver → Decide → Cleanup → Aggregate). Strategy-scoped rule evaluation with meta-rules.
+- `tests/test_abm_additions.py` — 64 tests for Message, strategy/meta_rule DSL parsing, Python API, perceive with mailbox, meta-rule + strategy-scoped decide, SEND parsing/execution/delivery, SWITCH_STRATEGY with cooldown, 4-phase step, default strategy initialization, DSL integration, backward compatibility.
 - `src/dynafx/dynamics/des.py` — `DESClock`, `EventQueue`, `Queue`, `Resource`, `DESEngine`, `QueueStats`, `ResourceStats`.
 - `src/dynafx/dynamics/emergent.py` — `EmergentProperty`, `Condition`, `Effect`, `run_consistency_checks`.
 - `src/dynafx/dynamics/equations.py` — `rk4_step()`, `euler_step()`.
 - `src/dynafx/dynamics/__main__.py` — CLI: simulate, validate, list.
-- `src/dynafx/dynamics/__init__.py` — SD public API: exports SysdModel, parse_sysd, causal_trace, detect_feedback_loops, etc.
+- `src/dynafx/dynamics/__init__.py` — SD public API: exports SysdModel, parse_sysd, causal_trace, detect_feedback_loops, AgentStrategy, AgentRuleDef, Message, etc.
 - `src/dynafx/dynamics/scenario.py` — `ScenarioDef`, `ScenarioResult`, `ScenarioComparison` with comparison/deviation/tornado/summary.
 
 - `src/dynafx/sl/` — SL package: `operators.py`, `validation.py`, `parameters.py`.
 - `src/dynafx/epistemics/evidence.py` — `ConsensusLevel`, `PairwiseAgreement`, `ClaimAssessment`, `EvidenceMatrix`, `EvidenceMatrixResult`. L1-distance agreement, cumulative fusion consensus classification.
 - `src/dynafx/epistemics/fusion.py` — `cumulative_fusion()`, `consensus_compromise()`, `classify_fusion_situation()`, `consensus_to_fusion_situation()`.
 - `src/dynafx/dynamics/signal_chain.py` — `SignalChain` class: factory that builds a `SysdModel` for leading-indicator → outcome pattern. Parameters: trace_expr, detection_delay (list for multi-hop), decision_lag, outcome_threshold, outcome_sensitivity, threshold_direction, has_feedback, has_tracking. `SignalChain.build(...)` is the canonical constructor.
-- `templates/signal_chain.sysd` — Reference `.sysd` template documenting the signal chain structure for DSL-side use.
+(deleted — `templates/` removed, SignalChain lives in `dynafx/patterns/`)
 - `models/saas_churn_signal.sysd` — SaaS churn signal chain, dt=0.25, 43-day lead time.
 - `models/telecom_signal_study.sysd` — Telecom SINR-based churn model with closed-loop power control, SNR/packet scaling, fade dynamics.
 - `examples/saas_churn_signal.py` — SaaS churn demo with 5 scenarios, 8-param sensitivity, signal lead time.

@@ -6,10 +6,10 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Optional
 
 from dynafx.core.config import Priors
-from dynafx.core.models import EvidenceCounts, Graph, Opinion
+from dynafx.core.models import EvidenceCounts, FusionSituation, Graph, Opinion
 from dynafx.domain import domain as _domain
 
 logger = logging.getLogger(__name__)
@@ -65,8 +65,8 @@ def _collect_edge_counts(
 @dataclass
 class CorpusResult:
     graph_count: int = 0
-    node_counts: Dict[str, EvidenceCounts] = field(default_factory=dict)
-    edge_warrants: Dict[str, list[tuple[Opinion, Opinion]]] = field(default_factory=dict)
+    node_counts: dict[str, EvidenceCounts] = field(default_factory=dict)
+    edge_warrants: dict[str, list[tuple[Opinion, Opinion]]] = field(default_factory=dict)
 
     @classmethod
     def from_corpus(
@@ -458,7 +458,7 @@ class EvidenceMatrixResult:
             if c.consensus == ConsensusLevel.STRONG_AGREEMENT
         ]
 
-    def classify_fusion_situations(self) -> dict[str, "FusionSituation"]:
+    def classify_fusion_situations(self) -> dict[str, FusionSituation]:
         """Map each claim's consensus to a FusionSituation category.
 
         Bridges EvidenceMatrix analysis (opinion-based) with the

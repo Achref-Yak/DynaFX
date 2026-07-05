@@ -15,9 +15,9 @@ Policy Optimization:
 
 from __future__ import annotations
 
-import math
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 import numpy as np
 
@@ -176,13 +176,13 @@ def calibrate(
     Returns:
         CalibrationResult with best parameters and error
     """
-    from scipy.optimize import minimize, differential_evolution
+    from scipy.optimize import differential_evolution, minimize
 
     param_names = list(param_bounds.keys())
     bounds = [param_bounds[name] for name in param_names]
 
     def objective_fn(x: np.ndarray) -> float:
-        params = {name: float(xi) for name, xi in zip(param_names, x)}
+        params = {name: float(xi) for name, xi in zip(param_names, x, strict=False)}
         total_error = 0.0
 
         for variable, observations in data.items():
@@ -234,7 +234,7 @@ def calibrate(
             seed=seed,
             tol=1e-8,
         )
-        best_params = {name: float(x) for name, x in zip(param_names, result.x)}
+        best_params = {name: float(x) for name, x in zip(param_names, result.x, strict=False)}
         best_error = float(result.fun)
         iterations = result.nit
     else:
@@ -246,7 +246,7 @@ def calibrate(
             from scipy.optimize import least_squares
 
             def residual_fn(x: np.ndarray) -> np.ndarray:
-                params = {name: float(xi) for name, xi in zip(param_names, x)}
+                params = {name: float(xi) for name, xi in zip(param_names, x, strict=False)}
                 residuals = []
                 for variable, observations in data.items():
                     result = model.simulate(params=params)
@@ -267,7 +267,7 @@ def calibrate(
 
             ls_bounds = ([lo for lo, _ in bounds], [hi for _, hi in bounds])
             result = least_squares(residual_fn, x0, bounds=ls_bounds, max_nfev=max_iterations)
-            best_params = {name: float(x) for name, x in zip(param_names, result.x)}
+            best_params = {name: float(x) for name, x in zip(param_names, result.x, strict=False)}
             best_error = float(np.sum(result.fun ** 2))
             iterations = result.nfev
         else:
@@ -280,7 +280,7 @@ def calibrate(
                 bounds=scipy_bounds if method != "nelder-mead" else None,
                 options={"maxiter": max_iterations, "xatol": 1e-8, "fatol": 1e-8},
             )
-            best_params = {name: float(x) for name, x in zip(param_names, result.x)}
+            best_params = {name: float(x) for name, x in zip(param_names, result.x, strict=False)}
             best_error = float(result.fun)
             iterations = result.nit
 
@@ -318,13 +318,13 @@ def optimize(
     Returns:
         OptimizationResult with best parameters and objective value
     """
-    from scipy.optimize import minimize, differential_evolution
+    from scipy.optimize import differential_evolution, minimize
 
     param_names = list(param_bounds.keys())
     bounds = [param_bounds[name] for name in param_names]
 
     def full_objective(x: np.ndarray, apply_penalties: bool = True) -> float:
-        params = {name: float(xi) for name, xi in zip(param_names, x)}
+        params = {name: float(xi) for name, xi in zip(param_names, x, strict=False)}
         obj = objective_fn(params)
         # Add penalty for constraint violations
         if apply_penalties and constraints:
@@ -351,7 +351,7 @@ def optimize(
             seed=seed,
             tol=1e-8,
         )
-        best_params = {name: float(x) for name, x in zip(param_names, result.x)}
+        best_params = {name: float(x) for name, x in zip(param_names, result.x, strict=False)}
         best_objective = float(result.fun)
         iterations = result.nit
     else:
@@ -361,7 +361,7 @@ def optimize(
         def clamped_objective(x):
             x_clamped = np.array([
                 max(lo, min(hi, xi))
-                for xi, (lo, hi) in zip(x, bounds)
+                for xi, (lo, hi) in zip(x, bounds, strict=False)
             ])
             return full_objective(x_clamped)
 
@@ -374,9 +374,9 @@ def optimize(
         # Clamp final result to bounds
         x_final = np.array([
             max(lo, min(hi, xi))
-            for xi, (lo, hi) in zip(result.x, bounds)
+            for xi, (lo, hi) in zip(result.x, bounds, strict=False)
         ])
-        best_params = {name: float(x) for name, x in zip(param_names, x_final)}
+        best_params = {name: float(x) for name, x in zip(param_names, x_final, strict=False)}
         best_objective = float(result.fun)
         iterations = result.nit
 

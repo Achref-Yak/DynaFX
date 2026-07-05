@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import math
-import random
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Optional
 
 from dynafx.dynamics.dsl import SysdModel, SysdModelResult
@@ -113,7 +111,7 @@ class ScenarioComparison:
             axes = [axes]
         fig.suptitle(title or f"Scenario Comparison — {self.model.name}")
 
-        for ax, stock in zip(axes, stock_names):
+        for ax, stock in zip(axes, stock_names, strict=False):
             for sc in self.scenarios:
                 ax.plot(t, sc.result.values[stock], label=sc.name)
             ax.set_ylabel(stock)
@@ -162,17 +160,17 @@ class ScenarioComparison:
         title_text = title or f"Deviation from {baseline_sc.name} ({mode})"
         fig.suptitle(title_text)
 
-        for ax, stock in zip(axes, stock_names):
+        for ax, stock in zip(axes, stock_names, strict=False):
             base_vals = baseline_sc.result.values[stock]
             for sc in self.scenarios:
                 vals = sc.result.values[stock]
                 if mode == "relative":
                     dev = [
                         (v - b) / b if abs(b) > 1e-12 else (v - b)
-                        for v, b in zip(vals, base_vals)
+                        for v, b in zip(vals, base_vals, strict=False)
                     ]
                 else:
-                    dev = [v - b for v, b in zip(vals, base_vals)]
+                    dev = [v - b for v, b in zip(vals, base_vals, strict=False)]
                 ax.plot(t, dev, label=sc.name)
             ax.axhline(0, color="gray", linestyle="--", linewidth=0.5)
             ax.set_ylabel(stock)
@@ -246,7 +244,7 @@ class ScenarioComparison:
         labels = [i[0] for i in impacts]
         low_vals = [i[1] for i in impacts]
         high_vals = [i[2] for i in impacts]
-        mids = [(lv + hv) / 2.0 for lv, hv in zip(low_vals, high_vals)]
+        mids = [(lv + hv) / 2.0 for lv, hv in zip(low_vals, high_vals, strict=False)]
 
         bar_width = 0.4
         for i, (pn, lv, hv, sp) in enumerate(impacts):

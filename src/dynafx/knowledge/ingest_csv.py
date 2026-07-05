@@ -8,8 +8,9 @@ Usage:
     >>> print(f"{report.triples_added} triples added")
 """
 
+from __future__ import annotations
+
 import csv
-import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
@@ -22,12 +23,11 @@ from dynafx.knowledge.model import (
     XSD_DOUBLE,
     XSD_INTEGER,
     XSD_STRING,
-    BlankNode,
     Literal,
     NamedNode,
     Triple,
-    TriplePattern,
 )
+from dynafx.knowledge.store import TripleStore
 
 
 @dataclass
@@ -52,7 +52,7 @@ class MappingDef:
     prefixes: dict[str, str] = field(default_factory=dict)
 
     @classmethod
-    def from_yaml(cls, path: str | Path) -> "MappingDef":
+    def from_yaml(cls, path: str | Path) -> MappingDef:
         raw = yaml.safe_load(Path(path).read_text())
         prefixes = raw.get("prefixes", {})
 
@@ -133,7 +133,7 @@ def _convert_value(col: ColumnMapping, value: str) -> Optional[Any]:
 def ingest_csv(
     mapping: str | Path | MappingDef,
     csv_source: str | Path | list[dict],
-    store: "TripleStore",
+    store: TripleStore,
     strict: bool = False,
 ) -> IngestReport:
     """Apply a YAML mapping to a CSV and write result triples into *store*.

@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 from uuid import UUID, uuid4
 
 from dynafx.core.models import (
@@ -47,7 +47,7 @@ class TraceEntry:
     proposer: str  # who/what proposed this action
     reasoning: str  # what source text or reasoning motivated it
     confidence: float  # what confidence it was proposed with
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -61,7 +61,7 @@ class RoleAssignment:
 
 # ── Read operators ──────────────────────────────────────────────
 
-def list_nodes(graph: Graph) -> List[Node]:
+def list_nodes(graph: Graph) -> list[Node]:
     """List all nodes in the graph. Query-only, never modifies state."""
     return list(graph.nodes.values())
 
@@ -76,7 +76,7 @@ def get_edge(graph: Graph, edge_id: UUID) -> Optional[Edge]:
     return graph.edges.get(edge_id)
 
 
-def query_contested(graph: Graph) -> List[RoleAssignment]:
+def query_contested(graph: Graph) -> list[RoleAssignment]:
     """Query nodes with contested roles (resolved: None). Query-only, never modifies state."""
     contested = []
     for node in graph.nodes.values():
@@ -95,7 +95,7 @@ def query_contested(graph: Graph) -> List[RoleAssignment]:
     return contested
 
 
-def query_by_role(graph: Graph, role: str) -> List[Node]:
+def query_by_role(graph: Graph, role: str) -> list[Node]:
     """Query nodes by role. Query-only, never modifies state."""
     result = []
     for node in graph.nodes.values():
@@ -106,7 +106,7 @@ def query_by_role(graph: Graph, role: str) -> List[Node]:
     return result
 
 
-def get_trace_history(graph: Graph, node_id: UUID) -> List[TraceEntry]:
+def get_trace_history(graph: Graph, node_id: UUID) -> list[TraceEntry]:
     """Get trace history for a node. Query-only, never modifies state."""
     node = graph.nodes.get(node_id)
     if node is None:
@@ -137,7 +137,7 @@ def get_trace_history(graph: Graph, node_id: UUID) -> List[TraceEntry]:
 def create_node(
     graph: Graph,
     name: str,
-    candidate_roles: Dict[str, float],
+    candidate_roles: dict[str, float],
     proposer: str = "human",
     reasoning: str = "",
     confidence: float = 0.5,

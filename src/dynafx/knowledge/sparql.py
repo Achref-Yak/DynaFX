@@ -13,8 +13,9 @@ Supported:
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
+from collections.abc import Iterator
+from dataclasses import dataclass
+from typing import Any, Optional
 
 from dynafx.core.models import Opinion
 from dynafx.knowledge.model import (
@@ -26,8 +27,6 @@ from dynafx.knowledge.model import (
     TriplePattern,
 )
 from dynafx.knowledge.store import TripleStore
-from dynafx.epistemics.fusion import cumulative_fusion
-
 
 # ── Variable representation ──────────────────────────────────────
 
@@ -191,7 +190,7 @@ class Construct(AlgebraNode):
 
 @dataclass
 class OrderBy(AlgebraNode):
-    conditions: list[Tuple[str, str]]  # (var_name, "ASC"|"DESC")
+    conditions: list[tuple[str, str]]  # (var_name, "ASC"|"DESC")
     inner: AlgebraNode
 
 
@@ -350,7 +349,7 @@ class SPARQLParser:
         if not vars_:
             vars_ = _collect_vars(inner)
         # ORDER BY
-        order_conditions: list[Tuple[str, str]] = []
+        order_conditions: list[tuple[str, str]] = []
         if self._check("ORDER"):
             self._parse_order_by(order_conditions)
         # LIMIT / OFFSET
@@ -369,7 +368,7 @@ class SPARQLParser:
             result = Slice(limit=limit, offset=offset, inner=result)
         return Project(vars_, result, distinct=distinct)
 
-    def _parse_order_by(self, conditions: list[Tuple[str, str]]) -> None:
+    def _parse_order_by(self, conditions: list[tuple[str, str]]) -> None:
         self.consume("ORDER")
         self.consume("BY")
         while not self._check("LIMIT") and not self._check("OFFSET") and not self._check("EOF"):
@@ -792,22 +791,33 @@ def _coerce_literal_value(value: str, dtype: str) -> object:
 class QueryResult:
     """Result of evaluating a SPARQL query."""
     vars: list[str]
-    bindings: list[Dict[str, RDFNode]]
-    opinions: list[Dict[str, Opinion]]
+    bindings: list[dict[str, RDFNode]]
+    opinions: list[dict[str, Opinion]]
     cardinality: int
 
 
 # ── Evaluator ────────────────────────────────────────────────────
 
 
-Binding = Dict[str, RDFNode]
-OpinionMap = Dict[str, Opinion]
+Binding = dict[str, RDFNode]
+OpinionMap = dict[str, Opinion]
 
 
-def evaluate(algebra: AlgebraNode, store: TripleStore) -> QueryResult:
-    """Evaluate a SPARQL algebra tree against a TripleStore."""
+def evaluate(
+    algebra: AlgebraNode,
+    store: TripleStore,
+    with_inference: Optional[str | dict[str, Any]] = None,
+) -> QueryResult:
+    """Evaluate a SPARQL algebra tree against a TripleStore.
+
+    Args:
+        algebra: The SPARQL algebra tree root.
+        store: The TripleStore to query.
+        with_inference: Inference config. ``"rdfs"`` or
+            ``{"mode": "rdfs", "min_belief": 0.5}``.
+    """
     if isinstance(algebra, Ask):
-        bindings = list(_eval_node(algebra.inner, store, [({}, {})]))
+        bindings = list(_eval_node(algebra.inner, store, [({}, {})], with_inference))
         return QueryResult(
             vars=[],
             bindings=[],
@@ -815,7 +825,7 @@ def evaluate(algebra: AlgebraNode, store: TripleStore) -> QueryResult:
             cardinality=1 if bindings else 0,
         )
     if isinstance(algebra, Construct):
-        bindings_list = list(_eval_node(algebra.inner, store, [({}, {})]))
+        bindings_list = list(_eval_node(algebra.inner, store, [({}, {})], with_inference))
         construct_store = TripleStore()
         for binding, _opin in bindings_list:
             for tpl in algebra.templates:
@@ -832,7 +842,7 @@ def evaluate(algebra: AlgebraNode, store: TripleStore) -> QueryResult:
             cardinality=len(result_triples),
         )
     if isinstance(algebra, Project):
-        bindings_list = list(_eval_node(algebra.inner, store, [({}, {})]))
+        bindings_list = list(_eval_node(algebra.inner, store, [({}, {})], with_inference))
         # Apply DISTINCT
         if algebra.distinct:
             bindings_list = _distinct_bindings(bindings_list, algebra.vars)
@@ -857,19 +867,19 @@ def evaluate(algebra: AlgebraNode, store: TripleStore) -> QueryResult:
 def _eval_node(
     node: AlgebraNode,
     store: TripleStore,
-    initial: list[Tuple[Binding, OpinionMap]],
-) -> Iterator[Tuple[Binding, OpinionMap]]:
+    initial: list[tuple[Binding, OpinionMap]],
+    with_inference: Optional[str | dict[str, Any]] = None,
+) -> Iterator[tuple[Binding, OpinionMap]]:
     """Evaluate an algebra node, yielding (binding, opinions) tuples."""
     if isinstance(node, BGP):
-        yield from _eval_bgp(node.patterns, store, initial)
+        yield from _eval_bgp(node.patterns, store, initial, with_inference)
     elif isinstance(node, Filter):
-        for binding, opin in _eval_node(node.inner, store, initial):
+        for binding, opin in _eval_node(node.inner, store, initial, with_inference):
             if _eval_filter(node.expr, binding):
                 yield binding, opin
     elif isinstance(node, Optional_):
-        # Left join
-        left_results = list(_eval_node(node.left, store, initial))
-        right_results = list(_eval_node(node.right, store, [({}, {})]))
+        left_results = list(_eval_node(node.left, store, initial, with_inference))
+        right_results = list(_eval_node(node.right, store, [({}, {})], with_inference))
         if not left_results:
             return
         for left_binding, left_opin in left_results:
@@ -884,10 +894,10 @@ def _eval_node(
             if not matched:
                 yield left_binding, left_opin
     elif isinstance(node, Union):
-        yield from _eval_node(node.left, store, initial)
-        yield from _eval_node(node.right, store, initial)
+        yield from _eval_node(node.left, store, initial, with_inference)
+        yield from _eval_node(node.right, store, initial, with_inference)
     elif isinstance(node, OrderBy):
-        results = list(_eval_node(node.inner, store, initial))
+        results = list(_eval_node(node.inner, store, initial, with_inference))
         if not results:
             return
         for cond_var, direction in reversed(node.conditions):
@@ -897,7 +907,7 @@ def _eval_node(
             )
         yield from results
     elif isinstance(node, Slice):
-        results = list(_eval_node(node.inner, store, initial))
+        results = list(_eval_node(node.inner, store, initial, with_inference))
         start = node.offset or 0
         end = start + node.limit if node.limit is not None else None
         yield from results[start:end]
@@ -908,15 +918,16 @@ def _eval_node(
 def _eval_bgp(
     patterns: list[SPARQLTriplePattern],
     store: TripleStore,
-    initial: list[Tuple[Binding, OpinionMap]],
-) -> Iterator[Tuple[Binding, OpinionMap]]:
+    initial: list[tuple[Binding, OpinionMap]],
+    with_inference: Optional[str | dict[str, Any]] = None,
+) -> Iterator[tuple[Binding, OpinionMap]]:
     """Evaluate a BGP (basic graph pattern) using nested-loop join."""
-    current: list[Tuple[Binding, OpinionMap]] = list(initial)
+    current: list[tuple[Binding, OpinionMap]] = list(initial)
     for pattern in patterns:
-        next_results: list[Tuple[Binding, OpinionMap]] = []
+        next_results: list[tuple[Binding, OpinionMap]] = []
         for binding, opin in current:
             resolved = _resolve_pattern(pattern, binding)
-            for triple in store.triples(resolved):
+            for triple in store.triples(resolved, with_inference=with_inference):
                 new_bindings = _extract_bindings(pattern, triple)
                 merged = _merge_bindings(binding, new_bindings)
                 if merged is not None:
@@ -1020,12 +1031,12 @@ def _rdf_equals(a: Any, b: Any) -> bool:
 
 
 def _distinct_bindings(
-    bindings_list: list[Tuple[Binding, OpinionMap]],
+    bindings_list: list[tuple[Binding, OpinionMap]],
     vars_: list[str],
-) -> list[Tuple[Binding, OpinionMap]]:
+) -> list[tuple[Binding, OpinionMap]]:
     """Remove duplicate bindings for the given variables."""
     seen: set[tuple] = set()
-    result: list[Tuple[Binding, OpinionMap]] = []
+    result: list[tuple[Binding, OpinionMap]] = []
     for binding, opin in bindings_list:
         key = tuple(binding.get(v) for v in vars_)
         if key not in seen:

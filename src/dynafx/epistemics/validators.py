@@ -1,6 +1,6 @@
 import networkx as nx
 
-from dynafx.core.models import Graph, Node, Violation, Severity
+from dynafx.core.models import Graph, Node, Severity, Violation
 from dynafx.epistemics.product_logic import validate_categories as product_logic_check
 
 
