@@ -22,6 +22,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+from dynafx.utils.dashboard_html import make_lazy
 import csv
 import json
 import sys
@@ -1062,7 +1063,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Supply Chain Intelligence Report</title>
-<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/plotly.js@3.6.0/dist/plotly.min.js"></script>
 <style>
 * {{ box-sizing: border-box; margin: 0; padding: 0; }}
 body {{ font-family: 'Segoe UI', Helvetica, Arial, sans-serif; background: {BG}; color: {TEXT}; }}
@@ -1179,7 +1180,7 @@ def main() -> Path:
         raise SystemExit(1)
     print("QA cross-check: PASSED (canonical metrics match HTML embedding)")
 
-    html = build_html(pages)
+    html = make_lazy(build_html(pages))
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(html, encoding="utf-8")
 

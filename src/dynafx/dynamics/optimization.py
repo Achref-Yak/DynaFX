@@ -19,6 +19,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+
 import numpy as np
 
 
@@ -398,6 +399,331 @@ def optimize(
         constraints_satisfied=constraints_satisfied,
         iterations=iterations,
         method=method,
+    )
+
+
+# ── Multi-Objective Pareto Optimization ────────────────────────────
+
+
+@dataclass
+class ParetoResult:
+    """Result of multi-objective Pareto optimization.
+
+    Contains a set of non-dominated solutions (Pareto frontier) plus
+    the rest of the final population with rank/crowding information.
+    """
+    solutions: list[dict[str, Any]]
+    objective_names: list[str]
+    generations: int
+    population_size: int
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "objective_names": self.objective_names,
+            "generations": self.generations,
+            "population_size": self.population_size,
+            "solutions": [
+                {
+                    "params": s["params"],
+                    "objectives": [round(o, 4) for o in s["objectives"]],
+                    "rank": s["rank"],
+                    "crowding": round(s["crowding"], 6),
+                }
+                for s in self.solutions
+            ],
+        }
+
+
+def _random_population(
+    param_bounds: dict[str, tuple[float, float]],
+    size: int,
+    rng: np.random.Generator,
+) -> list[dict[str, float]]:
+    """Generate a random population of parameter sets within bounds."""
+    pop: list[dict[str, float]] = []
+    for _ in range(size):
+        ind: dict[str, float] = {}
+        for name, (lo, hi) in param_bounds.items():
+            ind[name] = rng.uniform(lo, hi)
+        pop.append(ind)
+    return pop
+
+
+def _non_dominated_sort(
+    values: list[list[float]],
+) -> list[list[int]]:
+    """Fast non-dominated sort (NSGA-II).
+
+    Returns fronts: list of lists of indices, front[0] = Pareto front.
+    All objectives are MINIMIZED.
+    """
+    n = len(values)
+    dominates = [[False] * n for _ in range(n)]
+    for i in range(n):
+        for j in range(n):
+            if i == j:
+                continue
+            vi, vj = values[i], values[j]
+            better_any = False
+            worse_any = False
+            for a, b in zip(vi, vj, strict=False):
+                if a < b:
+                    better_any = True
+                elif a > b:
+                    worse_any = True
+            if not worse_any and better_any:
+                dominates[i][j] = True
+
+    fronts: list[list[int]] = []
+    remaining = set(range(n))
+    while remaining:
+        front: set[int] = set()
+        for i in remaining:
+            dominated = False
+            for j in remaining:
+                if i != j and dominates[j][i]:
+                    dominated = True
+                    break
+            if not dominated:
+                front.add(i)
+        if not front:
+            break
+        fronts.append(sorted(front))
+        remaining -= front
+    return fronts
+
+
+def _crowding_distance(
+    values: list[list[float]],
+    front_indices: list[int],
+) -> dict[int, float]:
+    """Compute crowding distance for individuals in a front.
+
+    Returns: {original_index: crowding_distance}
+    """
+    n = len(front_indices)
+    dists: dict[int, float] = {idx: 0.0 for idx in front_indices}
+    if n <= 2:
+        for idx in front_indices:
+            dists[idx] = float("inf")
+        return dists
+
+    n_obj = len(values[0])
+    for obj in range(n_obj):
+        sorted_idx = sorted(front_indices, key=lambda i: values[i][obj])
+        obj_min = values[sorted_idx[0]][obj]
+        obj_max = values[sorted_idx[-1]][obj]
+        span = obj_max - obj_min
+        if span < 1e-10:
+            continue
+        dists[sorted_idx[0]] = float("inf")
+        dists[sorted_idx[-1]] = float("inf")
+        for k in range(1, n - 1):
+            idx = sorted_idx[k]
+            prev_val = values[sorted_idx[k - 1]][obj]
+            next_val = values[sorted_idx[k + 1]][obj]
+            dists[idx] += (next_val - prev_val) / span
+    return dists
+
+
+def _tournament_selection(
+    rank_of: dict[int, int],
+    crowding_of: dict[int, float],
+    k: int,
+    rng: np.random.Generator,
+) -> list[int]:
+    """Binary tournament selection. Prefer lower rank, then higher crowding."""
+    indices = list(rank_of.keys())
+    selected: list[int] = []
+    for _ in range(k):
+        i, j = rng.choice(indices, 2, replace=False)
+        if rank_of[i] < rank_of[j] or (rank_of[i] == rank_of[j] and crowding_of.get(i, 0) > crowding_of.get(j, 0)):
+            selected.append(i)
+        else:
+            selected.append(j)
+    return selected
+
+
+def _blx_crossover(
+    p1: dict[str, float],
+    p2: dict[str, float],
+    bounds: dict[str, tuple[float, float]],
+    rng: np.random.Generator,
+    alpha: float = 0.5,
+) -> dict[str, float]:
+    """Blend crossover (BLX-alpha)."""
+    child: dict[str, float] = {}
+    for name, (lo, hi) in bounds.items():
+        y1, y2 = p1[name], p2[name]
+        if y1 > y2:
+            y1, y2 = y2, y1
+        spread = max(y2 - y1, 0.001) * alpha
+        c = rng.uniform(y1 - spread, y2 + spread)
+        child[name] = max(lo, min(hi, c))
+    return child
+
+
+def _gaussian_mutation(
+    ind: dict[str, float],
+    bounds: dict[str, tuple[float, float]],
+    rng: np.random.Generator,
+    prob: float = 0.2,
+    sigma_scale: float = 0.1,
+) -> dict[str, float]:
+    """Gaussian mutation with per-param probability."""
+    child = dict(ind)
+    for name, (lo, hi) in bounds.items():
+        if rng.random() < prob:
+            delta = rng.normal(0, sigma_scale * (hi - lo))
+            child[name] = max(lo, min(hi, child[name] + delta))
+    return child
+
+
+def pareto_optimize(
+    objective_fns: list[Callable[[dict[str, float]], float]],
+    objective_names: list[str],
+    param_bounds: dict[str, tuple[float, float]],
+    population_size: int = 30,
+    generations: int = 15,
+    crossover_prob: float = 0.9,
+    mutation_prob: float = 0.2,
+    seed: int = 42,
+) -> ParetoResult:
+    """Multi-objective Pareto optimization using NSGA-II-inspired algorithm.
+
+    Finds the set of non-dominated (Pareto-optimal) parameter sets that
+    represent tradeoffs across multiple objectives. All objectives are
+    MINIMIZED.
+
+    Args:
+        objective_fns: List of functions mapping params -> scalar objective (minimized)
+        objective_names: Labels for each objective (for display)
+        param_bounds: {param_name: (min, max)} for each parameter
+        population_size: Number of individuals per generation
+        generations: Number of generations to evolve
+        crossover_prob: Probability of crossover between selected parents
+        mutation_prob: Per-parameter mutation probability
+        seed: Random seed
+
+    Returns:
+        ParetoResult with ranked solutions and objective values
+    """
+    if len(objective_fns) != len(objective_names):
+        raise ValueError("objective_fns and objective_names must have same length")
+    if not objective_fns:
+        raise ValueError("At least one objective function required")
+    if len(objective_fns) < 2:
+        raise ValueError("Pareto optimization requires at least 2 objectives (use optimize() for single-objective)")
+
+    rng = np.random.default_rng(seed)
+
+    # Initialize population
+    population = _random_population(param_bounds, population_size, rng)
+
+    n_objectives = len(objective_fns)
+
+    for gen in range(generations):
+        # Evaluate all objectives
+        values: list[list[float]] = []
+        for ind in population:
+            obj_vals = [fn(ind) for fn in objective_fns]
+            values.append([max(float("-inf"), min(float("inf"), v)) for v in obj_vals])
+
+        # Non-dominated sort
+        fronts = _non_dominated_sort(values)
+
+        # Rank assignment and crowding distance
+        rank_of: dict[int, int] = {}
+        crowding_of: dict[int, float] = {}
+        for r, front in enumerate(fronts):
+            cd = _crowding_distance(values, front)
+            for idx in front:
+                rank_of[idx] = r
+                crowding_of[idx] = cd.get(idx, 0.0)
+
+        # Selection (tournament)
+        selected_indices = _tournament_selection(rank_of, crowding_of, population_size, rng)
+
+        # Generate offspring
+        offspring: list[dict[str, float]] = []
+        for i in range(0, len(selected_indices) - 1, 2):
+            p1_idx = selected_indices[i]
+            p2_idx = selected_indices[i + 1]
+            p1 = population[p1_idx]
+            p2 = population[p2_idx]
+            if rng.random() < crossover_prob:
+                c1 = _blx_crossover(p1, p2, param_bounds, rng)
+                c2 = _blx_crossover(p2, p1, param_bounds, rng)
+            else:
+                c1 = dict(p1)
+                c2 = dict(p2)
+            c1 = _gaussian_mutation(c1, param_bounds, rng, prob=mutation_prob)
+            c2 = _gaussian_mutation(c2, param_bounds, rng, prob=mutation_prob)
+            offspring.append(c1)
+            offspring.append(c2)
+
+        # Ensure we have exactly population_size offspring
+        while len(offspring) < population_size:
+            idx = rng.integers(0, population_size)
+            c = _gaussian_mutation(
+                dict(population[idx]), param_bounds, rng, prob=mutation_prob
+            )
+            offspring.append(c)
+        offspring = offspring[:population_size]
+
+        # Elitism: combine parent + offspring, sort by rank, keep top population_size
+        combined = population + offspring
+        combined_values = values + [
+            [fn(ind) for fn in objective_fns] for ind in offspring
+        ]
+        combined_values = [
+            [max(float("-inf"), min(float("inf"), v)) for v in vals]
+            for vals in combined_values
+        ]
+
+        comb_fronts = _non_dominated_sort(combined_values)
+        new_population: list[dict[str, float]] = []
+        for front in comb_fronts:
+            cd = _crowding_distance(combined_values, front)
+            # Sort front by crowding descending
+            front_sorted = sorted(front, key=lambda i: cd.get(i, 0), reverse=True)
+            for idx in front_sorted:
+                if len(new_population) >= population_size:
+                    break
+                new_population.append(combined[idx])
+            if len(new_population) >= population_size:
+                break
+        population = new_population
+
+    # Final evaluation
+    final_values: list[list[float]] = []
+    for ind in population:
+        obj_vals = [fn(ind) for fn in objective_fns]
+        final_values.append([max(float("-inf"), min(float("inf"), v)) for v in obj_vals])
+
+    final_fronts = _non_dominated_sort(final_values)
+    final_ranks: dict[int, int] = {}
+    final_crowding: dict[int, float] = {}
+    for r, front in enumerate(final_fronts):
+        cd = _crowding_distance(final_values, front)
+        for idx in front:
+            final_ranks[idx] = r
+            final_crowding[idx] = cd.get(idx, 0.0)
+
+    solutions: list[dict[str, Any]] = []
+    for i in range(population_size):
+        solutions.append({
+            "params": dict(population[i]),
+            "objectives": final_values[i],
+            "rank": final_ranks.get(i, 999),
+            "crowding": final_crowding.get(i, 0.0),
+        })
+
+    return ParetoResult(
+        solutions=solutions,
+        objective_names=list(objective_names),
+        generations=generations,
+        population_size=population_size,
     )
 
 

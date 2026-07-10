@@ -71,6 +71,7 @@ from dynafx.dynamics.optimization import (
     CalibrationResult,
     LPResult,
     OptimizationResult,
+    ParetoResult,
     calibrate,
     kb_calibrate,
     kb_lp_maximize,
@@ -79,6 +80,7 @@ from dynafx.dynamics.optimization import (
     lp_maximize,
     lp_minimize,
     optimize,
+    pareto_optimize,
 )
 from dynafx.dynamics.scenario import (
     ScenarioComparison,
@@ -165,10 +167,12 @@ __all__ = [
     "LPResult",
     "CalibrationResult",
     "OptimizationResult",
+    "ParetoResult",
     "lp_minimize",
     "lp_maximize",
     "calibrate",
     "optimize",
+    "pareto_optimize",
     # KB-constrained optimization
     "kb_lp_minimize",
     "kb_lp_maximize",

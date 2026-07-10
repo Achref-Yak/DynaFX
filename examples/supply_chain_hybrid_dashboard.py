@@ -10,6 +10,7 @@ Output: /tmp/supply_chain_hybrid_dashboard.html
 import math, random, statistics, sys
 from pathlib import Path
 from datetime import datetime
+from dynafx.utils.dashboard_html import make_lazy
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -1010,7 +1011,7 @@ def build_configuration(d):
 HTML_TEMPLATE = """<!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Supply Chain Crisis Response — Demand Surge Analysis Dashboard</title>
-<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/plotly.js@3.6.0/dist/plotly.min.js"></script>
 <style>
 *{{box-sizing:border-box;margin:0;padding:0}}
 body{{font-family:Segoe UI,Helvetica,Arial,sans-serif;background:{BG};color:{TEXT};font-size:13px}}
@@ -1101,7 +1102,7 @@ def main():
     print(f"  Built {len(pages)} pages")
 
     print("Assembling HTML...")
-    html = build_html(pages)
+    html = make_lazy(build_html(pages))
     out = "/tmp/supply_chain_hybrid_dashboard.html"
     with open(out, "w") as f:
         f.write(html)

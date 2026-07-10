@@ -30,6 +30,7 @@ from dynafx.dynamics import (
     parse_sysd_file,
 )
 from dynafx.dynamics.optimization import (
+    ParetoResult,
     calibrate,
     kb_calibrate,
     kb_lp_maximize,
@@ -38,6 +39,7 @@ from dynafx.dynamics.optimization import (
     lp_maximize,
     lp_minimize,
     optimize,
+    pareto_optimize,
 )
 from dynafx.epistemics import EvidenceMatrix, cumulative_fusion
 from dynafx.knowledge import TripleStore, parse_turtle
@@ -57,6 +59,8 @@ __all__ = [
     "lp_maximize",
     "calibrate",
     "optimize",
+    "pareto_optimize",
+    "ParetoResult",
     # KB-constrained optimization
     "kb_lp_minimize",
     "kb_lp_maximize",

@@ -19,6 +19,8 @@ import statistics
 from pathlib import Path
 from typing import Any
 
+from dynafx.utils.dashboard_html import make_lazy
+
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
@@ -445,7 +447,7 @@ class DisruptionCascade:
         html = f"""<!DOCTYPE html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Supply Chain Crisis — Disruption Cascade</title>
-<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/plotly.js@3.6.0/dist/plotly.min.js"></script>
 <style>
 * {{margin:0;padding:0;box-sizing:border-box}}
 body {{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
@@ -505,5 +507,5 @@ setTimeout(function(){{
 
         path = Path(output_path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(html)
+        path.write_text(make_lazy(html))
         return str(path)

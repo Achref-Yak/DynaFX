@@ -19,6 +19,7 @@ Output: /tmp/atlas_broadband_dashboard.html
 import math, random, statistics, sys
 from pathlib import Path
 from datetime import datetime
+from dynafx.utils.dashboard_html import make_lazy
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -1370,7 +1371,7 @@ def build_scenario_comparison(d: dict) -> dict:
 
 HTML_TEMPLATE = """<!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8">
-<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/plotly.js@3.6.0/dist/plotly.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:BGCOLOR;color:TEXTCOLOR;font-size:14px}
@@ -1461,7 +1462,7 @@ def main():
     print(f"  Built {len(pages)} pages")
 
     print("Assembling HTML...")
-    html = build_html(pages)
+    html = make_lazy(build_html(pages))
     out = Path("/tmp/atlas_broadband_dashboard.html")
     out.write_text(html)
     print(f"\nDashboard: {out} ({out.stat().st_size / 1024:.0f}KB, {len(pages)} tabs)")

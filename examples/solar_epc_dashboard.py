@@ -15,6 +15,7 @@ Usage:
 
 import sys
 from pathlib import Path
+from dynafx.utils.dashboard_html import make_lazy
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -950,7 +951,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Solar EPC Project - Intelligence Dashboard</title>
-<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/plotly.js@3.6.0/dist/plotly.min.js"></script>
 <style>
 * {{ box-sizing: border-box; margin: 0; padding: 0; }}
 body {{ font-family: 'Segoe UI', Helvetica, Arial, sans-serif; background: {BG}; color: {TEXT}; }}
@@ -1090,7 +1091,7 @@ def main():
     ]
 
     print("Assembling HTML...")
-    html = build_html(pages)
+    html = make_lazy(build_html(pages))
 
     output_path = "/tmp/solar_epc_dashboard.html"
     with open(output_path, "w") as f:

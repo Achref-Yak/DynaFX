@@ -4,6 +4,7 @@
 import sys, json, math, os
 from pathlib import Path
 from datetime import datetime
+from dynafx.utils.dashboard_html import make_lazy
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -1143,7 +1144,7 @@ def build_feedback(d):
 HTML_TEMPLATE = """<!DOCTYPE html><html lang="en"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Global Solar EPC Decision Intelligence Dashboard</title>
-<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/plotly.js@3.6.0/dist/plotly.min.js"></script>
 <style>
 *{{box-sizing:border-box;margin:0;padding:0}}
 body{{font-family:Segoe UI,Helvetica,Arial,sans-serif;background:{BG};color:{TEXT};font-size:13px}}
@@ -1231,7 +1232,7 @@ def main():
     ]
     print(f"  Built {len(pages)} pages")
     print("Assembling HTML...")
-    html = build_html(pages)
+    html = make_lazy(build_html(pages))
     out = "/tmp/solar_epc_16tab_dashboard.html"
     with open(out, "w") as f:
         f.write(html)
