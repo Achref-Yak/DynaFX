@@ -7,7 +7,7 @@
 [![Pyright](https://img.shields.io/badge/types-pyright-6A1B4D)](https://github.com/microsoft/pyright)
 [![pytest](https://img.shields.io/badge/tests-1354-passing-2ea44f)](https://github.com/Achref-Yak/reasoning_engine/actions)
 
-System dynamics, agent-based, and discrete-event simulation framework with an RDF/OWL/SPARQL cognitive reasoning layer. Write SD + ABM + DES models in a single `.sysd` file, connect them to knowledge graphs via `KB_QUERY`, and generate self-contained Plotly dashboards.
+System dynamics, agent-based, and discrete-event simulation framework with an RDF/OWL/SPARQL cognitive reasoning layer. Build SD + ABM + DES models in Python or a single `.sysd` file, connect them to knowledge graphs via `KB_QUERY`, and generate self-contained Plotly dashboards.
 
 ---
 
@@ -33,6 +33,7 @@ System dynamics, agent-based, and discrete-event simulation framework with an RD
 | CompiledSystem caching (~25x speedup via pre-compiled code objects) | Stable |
 | Stock / flow ontology (MATERIAL / INFORMATION / FINANCIAL) | Stable |
 | Model validation (name resolution, flow conservation, bounds) | Stable |
+| Python API model construction (`SysdModel`, `StockDef`, `FlowDef`, `AuxDef`) | Stable |
 | Plotting API (`.plot()`, `.plot_with_bands()`) | Stable |
 
 ### Agent-Based Modeling (ABM)
@@ -118,6 +119,26 @@ uv pip install -e ".[all]"
 ```
 
 ### System Dynamics
+
+Build models in Python (primary path):
+
+```python
+from dynafx.dynamics import SysdModel, StockDef, FlowDef, AuxDef
+
+model = SysdModel(
+    stocks=[StockDef(name="Inventory", initial=1000)],
+    flows=[FlowDef(name="production", expr="desired - Inventory / adj")],
+    auxes=[
+        AuxDef(name="desired", expr="target * demand"),
+        AuxDef(name="adj", expr="4"),
+    ],
+    dt=0.25,
+)
+result = model.simulate(params={"target": 10})
+print(result.values["Inventory"][-1])
+```
+
+Or load from a `.sysd` file:
 
 ```python
 from dynafx.dynamics import parse_sysd_file
