@@ -35,7 +35,6 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from dynafx.core.models import Opinion
 from dynafx.knowledge.model import (
     Literal,
     NamedNode,
@@ -129,19 +128,17 @@ class TransactionStore:
         sx = NamedNode(f"{NS_TX}{tx_id}")
         event_node = NamedNode(f"{NS_EVENT}{event_type}")
 
-        opin = Opinion(confidence, 1.0 - confidence, 0.0)
-
         triples: list[Triple] = [
-            Triple(sx, NamedNode(f"{NS_TX}type"), event_node, opinion=opin),
-            Triple(sx, NamedNode(f"{NS_TX}timestamp"), Literal(ts), opinion=opin),
-            Triple(sx, NamedNode(f"{NS_TX}source"), Literal(source), opinion=opin),
-            Triple(sx, NamedNode(f"{NS_TX}confidence"), Literal(confidence), opinion=opin),
+            Triple(sx, NamedNode(f"{NS_TX}type"), event_node),
+            Triple(sx, NamedNode(f"{NS_TX}timestamp"), Literal(ts)),
+            Triple(sx, NamedNode(f"{NS_TX}source"), Literal(source)),
+            Triple(sx, NamedNode(f"{NS_TX}confidence"), Literal(confidence)),
         ]
 
         for k, v in payload.items():
             val = self._to_literal(v)
             triples.append(Triple(
-                sx, NamedNode(f"{NS_PAYLOAD}{k}"), val, opinion=opin,
+                sx, NamedNode(f"{NS_PAYLOAD}{k}"), val,
             ))
 
         with self._store.suppress_callbacks():

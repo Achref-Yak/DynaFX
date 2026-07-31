@@ -2,7 +2,6 @@
 
 import pytest
 
-from dynafx.core.models import Opinion
 from dynafx.knowledge.model import (
     BlankNode,
     Literal,
@@ -152,27 +151,7 @@ class TestTriple:
         assert t.subject == s
         assert t.predicate == p
         assert t.object_ == o
-        assert t.opinion is None
-
-    def test_with_opinion(self):
-        s = NamedNode("http://example.org/s")
-        p = NamedNode("http://example.org/p")
-        o = NamedNode("http://example.org/o")
-        t = Triple(s, p, o)
-        op = Opinion(0.8, 0.1, 0.1)
-        t2 = t.with_opinion(op)
-        assert t2.opinion == op
-        assert t2.subject == s
-        assert t2.predicate == p
-        assert t2.object_ == o
-
-    def test_equality_ignores_opinion(self):
-        s = NamedNode("http://example.org/s")
-        p = NamedNode("http://example.org/p")
-        o = NamedNode("http://example.org/o")
-        t1 = Triple(s, p, o, opinion=Opinion(0.8, 0.1, 0.1))
-        t2 = Triple(s, p, o, opinion=Opinion(0.5, 0.3, 0.2))
-        assert t1 == t2
+        assert t.object_ == o
 
     def test_inequality_different_subject(self):
         t1 = Triple(NamedNode("http://example.org/a"),

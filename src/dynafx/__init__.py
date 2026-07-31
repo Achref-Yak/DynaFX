@@ -1,9 +1,9 @@
 """DynaFX — systems thinking framework with four pillars:
 
   Dynamics     System Dynamics, Agent-Based Modeling, Discrete Event Simulation
-  Knowledge    RDF/OWL/SPARQL triple store with SL confidence grading
+  Knowledge    RDF/OWL/SPARQL triple store
   Epistemics   Subjective Logic algebra, evidence matrix, argumentation, KBT
-  Core         Foundational data models (Opinion, Graph, etc.)
+  Core         Foundational data models (Graph, Node, Edge, etc.)
 
 Quick start::
 
@@ -41,7 +41,6 @@ from dynafx.dynamics.optimization import (
     optimize,
     pareto_optimize,
 )
-from dynafx.epistemics import EvidenceMatrix, cumulative_fusion
 from dynafx.knowledge import TripleStore, parse_turtle
 
 __all__ = [
@@ -69,9 +68,6 @@ __all__ = [
     # Knowledge base
     "TripleStore",
     "parse_turtle",
-    # Reasoning
-    "cumulative_fusion",
-    "EvidenceMatrix",
     # Bridge
     "KBSimBridge",
     "ClosedLoopReasoner",

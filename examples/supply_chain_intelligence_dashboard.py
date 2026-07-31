@@ -41,7 +41,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from dynafx.bridge import KBSimBridge
-from dynafx.core.models import Opinion
+
+
 from dynafx.dynamics import parse_sysd_file
 from dynafx.dynamics.causal import causal_trace
 from dynafx.dynamics.feedback import detect_feedback_loops
@@ -155,13 +156,11 @@ def load_client_data(data_dir: Path) -> dict[str, Any]:
         NamedNode(f"{NS}ActiveContract"),
         NamedNode(f"{NS}minFillRate"),
         Literal(min_fill),
-        opinion=Opinion(0.95, 0.03, 0.02),
     ), graph="sc:derived")
     store.add(Triple(
         NamedNode(f"{NS}ActiveContract"),
         NamedNode(f"{NS}penaltyPerPoint"),
         Literal(max_penalty),
-        opinion=Opinion(0.95, 0.03, 0.02),
     ), graph="sc:derived")
 
     # PO analysis — supplier reliability and disruption timing
@@ -883,9 +882,9 @@ def build_predictive(data: dict[str, Any]) -> dict[str, str]:
         paper_bgcolor="white", plot_bgcolor="white",
     )
 
-    opinion_b = min(0.95, m.fill_rate_pct / 100)
-    opinion_d = max(0.02, (m.min_fill_threshold_pct - m.fill_rate_pct) / 100)
-    opinion_u = max(0.01, 1 - opinion_b - opinion_d)
+    score_b = min(0.95, m.fill_rate_pct / 100)
+    score_d = max(0.02, (m.min_fill_threshold_pct - m.fill_rate_pct) / 100)
+    score_u = max(0.01, 1 - score_b - score_d)
 
     return {
         "title": "Predictive Analytics",
@@ -896,7 +895,7 @@ def build_predictive(data: dict[str, Any]) -> dict[str, str]:
           <thead><tr><th>Metric</th><th>Current</th><th>SL Opinion (b,d,u,a)</th><th>Trigger</th></tr></thead>
           <tbody>
             <tr><td>Fill Rate</td><td>{m.fill_rate_pct:.1f}%</td>
-                <td>({opinion_b:.2f}, {opinion_d:.2f}, {opinion_u:.2f}, 0.95)</td>
+                <td>({score_b:.2f}, {score_d:.2f}, {score_u:.2f}, 0.95)</td>
                 <td>{'<span class="high">Breach active</span>' if m.fill_rate_pct < m.min_fill_threshold_pct else '<span class="low">Within threshold</span>'}</td></tr>
             <tr><td>Penalties</td><td>${m.cumulative_penalties_k:.0f}K</td>
                 <td>({max(0.1, 1-pen_series[-1]/max(pen_series[-1],1)):.2f}, 0.05, 0.05, 0.90)</td>

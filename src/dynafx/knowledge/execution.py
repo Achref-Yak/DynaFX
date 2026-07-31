@@ -37,7 +37,6 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from dynafx.core.models import Opinion
 from dynafx.knowledge.model import (
     Literal,
     NamedNode,
@@ -137,21 +136,19 @@ class ExecutionStore:
 
         # Store as RDF
         sx = NamedNode(f"{NS_EXEC}{action_id}")
-        opin = Opinion(1.0, 0.0, 0.0)
-
         triples = [
-            Triple(sx, NamedNode(f"{NS_EXEC}type"), NamedNode(f"{NS_EXEC}Execution"), opinion=opin),
-            Triple(sx, NamedNode(f"{NS_EXEC}actionType"), Literal(action_type), opinion=opin),
-            Triple(sx, NamedNode(f"{NS_EXEC}ruleName"), Literal(rule_name), opinion=opin),
-            Triple(sx, NamedNode(f"{NS_EXEC}timestamp"), Literal(ts), opinion=opin),
-            Triple(sx, NamedNode(f"{NS_EXEC}status"), Literal(status), opinion=opin),
+            Triple(sx, NamedNode(f"{NS_EXEC}type"), NamedNode(f"{NS_EXEC}Execution")),
+            Triple(sx, NamedNode(f"{NS_EXEC}actionType"), Literal(action_type)),
+            Triple(sx, NamedNode(f"{NS_EXEC}ruleName"), Literal(rule_name)),
+            Triple(sx, NamedNode(f"{NS_EXEC}timestamp"), Literal(ts)),
+            Triple(sx, NamedNode(f"{NS_EXEC}status"), Literal(status)),
         ]
         if message:
-            triples.append(Triple(sx, NamedNode(f"{NS_EXEC}message"), Literal(message), opinion=opin))
+            triples.append(Triple(sx, NamedNode(f"{NS_EXEC}message"), Literal(message)))
 
         for k, v in output.items():
             val = self._to_literal(v)
-            triples.append(Triple(sx, NamedNode(f"{NS_EXEC}output/{k}"), val, opinion=opin))
+            triples.append(Triple(sx, NamedNode(f"{NS_EXEC}output/{k}"), val))
 
         with self._store.suppress_callbacks():
             for t in triples:

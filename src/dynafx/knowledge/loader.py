@@ -12,7 +12,14 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from dynafx.core.math import CATEGORY_LEVELS
+# Category level constants (moved from deleted core/math.py)
+CATEGORY_LEVELS: dict[str, int] = {
+    "NECESSITY": 1, "AXIOM": 1,
+    "FACT": 2, "EVIDENCE": 2, "OBSERVATION": 2, "DOCUMENT": 2,
+    "BELIEF": 3, "CLAIM": 3, "CONDITION": 3, "JUSTIFICATION": 3,
+    "COUNTERCLAIM": 3, "HYPOTHESIS": 3, "RULE": 3, "DECISION": 3, "ACTION": 3,
+    "CONCEPT": 4, "ENTITY": 4, "EVENT": 4, "FALLACY": 4,
+}
 
 logger = logging.getLogger(__name__)
 

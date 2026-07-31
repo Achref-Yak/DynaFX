@@ -13,7 +13,6 @@ import pytest
 
 from dynafx.knowledge.model import NamedNode, Literal, Triple, TriplePattern
 from dynafx.knowledge.store import TripleStore
-from dynafx.core.models import Opinion
 from dynafx.dynamics.dsl import parse_sysd
 from dynafx.bridge import (
     KBSimBridge,
@@ -32,10 +31,9 @@ O = Literal(42.0)
 
 def _store_with_triples() -> TripleStore:
     store = TripleStore()
-    store.add(Triple(S, P, O, opinion=Opinion(0.9, 0.05, 0.05)), graph="source_a")
+    store.add(Triple(S, P, O), graph="source_a")
     store.add(
-        Triple(S, NamedNode(f"{NS}other"), Literal("hello"),
-               opinion=Opinion(0.8, 0.1, 0.1)),
+        Triple(S, NamedNode(f"{NS}other"), Literal("hello")),
         graph="source_a",
     )
     return store
@@ -48,12 +46,12 @@ def _store_with_triples() -> TripleStore:
 
 class TestParamsFromKbTypeCoerce:
     def test_default_float(self):
-        """Default coerce returns belief as float."""
+        """Default coerce returns object value as float."""
         store = _store_with_triples()
         bridge = KBSimBridge(store)
         claim_map = [(S, P, O, "px")]
         params = bridge.params_from_kb(claim_map)
-        assert params["px"] == 0.9
+        assert params["px"] == 42.0
         assert isinstance(params["px"], float)
 
     def test_coerce_int(self):
@@ -93,11 +91,11 @@ class TestParamsFromKbTypeCoerce:
         assert params["px"] is True
 
     def test_coerce_bool_false(self):
-        """type_coerce='bool' returns False when belief <= 0.5."""
+        """type_coerce='bool' returns False when object is falsy."""
         store = TripleStore()
-        store.add(Triple(S, P, O, opinion=Opinion(0.3, 0.6, 0.1)), graph="g")
+        store.add(Triple(S, P, Literal(0.0)), graph="g")
         bridge = KBSimBridge(store)
-        claim_map = [(S, P, O, "px")]
+        claim_map = [(S, P, Literal(0.0), "px")]
         params = bridge.params_from_kb(claim_map, type_coerce={"px": "bool"})
         assert params["px"] is False
 
@@ -290,7 +288,7 @@ class TestClosedLoopReasoner:
         """Single closed-loop pass runs end-to-end."""
         store = TripleStore()
         claim_subj = NamedNode(f"{NS}claim")
-        store.add(Triple(claim_subj, P, Literal(0.8), opinion=Opinion(0.8, 0.1, 0.1)), graph="source")
+        store.add(Triple(claim_subj, P, Literal(0.8)), graph="source")
         bridge = KBSimBridge(store)
 
         model = parse_sysd("""
@@ -365,44 +363,6 @@ class TestClosedLoopReasoner:
         assert cl_result.final_params is not None
         assert cl_result.final_params.get("k") == 5.0
 
-    def test_argumentative_filter(self):
-        """argumentative_filter removes contradictory evidence."""
-        store = TripleStore()
-        bridge = KBSimBridge(store)
-
-        model = parse_sysd("""
-        T
-        dt 1.0
-        from 0 to 2
-        stock X: 100
-          - O: X / dt
-        """)
-
-        claim_subj = NamedNode(f"{NS}claim")
-
-        def scoring_fn(init, final):
-            return 0.9
-
-        passes = [
-            ReasoningPass(
-                name="p1",
-                claim_map=[],
-                evidence_map=[("X", claim_subj, NamedNode(f"{NS}e1"), scoring_fn)],
-            ),
-        ]
-
-        reasoner = ClosedLoopReasoner(bridge, model, passes, evidence_graph="ev")
-        reasoner.run()
-
-        # Add contradictory triple manually (same s, p but different o value)
-        store.add(Triple(claim_subj, NamedNode(f"{NS}e1"), Literal(0.1),
-                         opinion=Opinion(0.1, 0.8, 0.1)), graph="ev_contra")
-
-        reasoner.argumentative_filter(attack_graphs={"ev", "ev_contra"})
-
-        # At least one of the two contradictory triples should be removed
-        remaining = list(store.triples(TriplePattern(claim_subj, NamedNode(f"{NS}e1"), None), graph="ev"))
-        assert len(remaining) <= 1, "Argumentation should have removed at least one contradicting triple"
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -436,6 +396,40 @@ class TestKbConstrainedOptimization:
         # minimize 3*x0 + 1*x1 with x0>=0, x1>=0 → x=[0,0]
         assert abs(result.x[0]) < 1e-6
         assert abs(result.x[1]) < 1e-6
+
+    def test_kb_lp_minimize_reads_numeric_literals(self):
+        """kb_lp_minimize must use actual literal values, not zero them."""
+        store = TripleStore()
+        COEFF = NamedNode(f"{NS}coeff")
+        BOUND_LO = NamedNode(f"{NS}lo")
+        BOUND_HI = NamedNode(f"{NS}hi")
+        for i, (c, lo, hi) in enumerate([(1.0, 0.0, 10.0), (2.0, 0.0, 10.0)]):
+            s = NamedNode(f"{NS}s{i}")
+            store.add(Triple(s, COEFF, Literal(c)), graph="opt")
+            store.add(Triple(s, BOUND_LO, Literal(lo)), graph="opt")
+            store.add(Triple(s, BOUND_HI, Literal(hi)), graph="opt")
+
+        c_q = f"SELECT ?v WHERE {{ ?s <{COEFF.iri}> ?v }} ORDER BY ?s"
+        b_q = f"""
+        SELECT ?v ?v2 WHERE {{
+            ?s <{BOUND_LO.iri}> ?v .
+            ?s <{BOUND_HI.iri}> ?v2 .
+        }} ORDER BY ?s
+        """
+        eq_q = f"SELECT ?v ?v2 WHERE {{ <{NS}row> <{NS}ca> ?v . <{NS}row> <{NS}cb> ?v2 }}"
+        beq_q = f"SELECT ?v WHERE {{ <{NS}row> <{NS}total> ?v }}"
+        store.add(Triple(NamedNode(f"{NS}row"), NamedNode(f"{NS}ca"), Literal("1.0")), "opt")
+        store.add(Triple(NamedNode(f"{NS}row"), NamedNode(f"{NS}cb"), Literal("1.0")), "opt")
+        store.add(Triple(NamedNode(f"{NS}row"), NamedNode(f"{NS}total"), Literal("10.0")), "opt")
+
+        from dynafx.dynamics.optimization import kb_lp_minimize
+
+        result = kb_lp_minimize(store, c_q, b_q, A_eq_query=eq_q, b_eq_query=beq_q)
+        assert result.success, f"LP failed: {result.message}"
+        # minimize x0 + 2*x1 s.t. x0+x1=10, 0<=x<=10 → x=[10,0]
+        assert abs(result.x[0] - 10.0) < 1e-6, result.x
+        assert abs(result.x[1]) < 1e-6, result.x
+        assert abs(result.objective_value - 10.0) < 1e-6, result.objective_value
 
     def test_kb_lp_minimize_with_constraints(self):
         """kb_lp_minimize handles inequality constraints from SPARQL."""

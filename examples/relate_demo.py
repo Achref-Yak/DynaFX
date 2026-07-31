@@ -1,6 +1,6 @@
 """Standalone demo of the relate operator.  Run:  python examples/relate_demo.py"""
 import json
-from dynafx.core.models import Graph, Node, NodeType, Opinion, EdgeType
+from dynafx.core.models import Graph, Node, NodeType, EdgeType
 from dynafx.core.state import State
 from dynafx.operators.relate import RelateOperator
 

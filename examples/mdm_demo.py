@@ -61,7 +61,6 @@ def analyze_graph(graph):
     """Extract structural statistics from the weave graph."""
     node_types = defaultdict(int)
     edge_types = defaultdict(int)
-    beliefs = []
     nodes = []
     edges = []
 
@@ -70,18 +69,10 @@ def analyze_graph(graph):
     for nid, node in graph.nodes.items():
         node_lookup[nid] = node.text
         node_types[node.type.name] += 1
-        if node.opinion:
-            b = node.opinion.belief if hasattr(node.opinion, "belief") else 0.5
-            beliefs.append(b)
-        opinion = node.opinion
         nodes.append({
             "id": str(nid),
             "text": node.text,
             "type": node.type.name,
-            "belief": round(opinion.belief, 4),
-            "disbelief": round(opinion.disbelief, 4),
-            "uncertainty": round(opinion.uncertainty, 4),
-            "prior": round(opinion.prior, 4),
         })
 
     for edge in graph.edges.values():
@@ -95,11 +86,6 @@ def analyze_graph(graph):
             "weight": round(edge.weight, 4),
         })
 
-    avg_belief = sum(beliefs) / len(beliefs) if beliefs else 0.0
-
-    # Sort by belief descending
-    nodes.sort(key=lambda n: n["belief"], reverse=True)
-
     # Sort edges by type then weight descending
     edges.sort(key=lambda e: (e["type"], -e["weight"]))
 
@@ -108,8 +94,6 @@ def analyze_graph(graph):
         "edge_count": len(graph.edges),
         "node_types": dict(node_types),
         "edge_types": dict(edge_types),
-        "avg_belief": round(avg_belief, 4),
-        "belief_count": len(beliefs),
         "nodes": nodes,
         "edges": edges,
     }
@@ -188,13 +172,7 @@ def analyze_dung(graph):
     from collections import defaultdict
     from dynafx.core.math import dung_semantics
 
-    beliefs = {}
-    for nid, node in graph.nodes.items():
-        if node.opinion:
-            b = node.opinion.belief if hasattr(node.opinion, "belief") else 0.5
-        else:
-            b = 0.5
-        beliefs[nid] = b
+    beliefs = {nid: 0.5 for nid in graph.nodes}
 
     attack_graph = defaultdict(list)
     for edge in graph.edges.values():
@@ -298,17 +276,6 @@ def validate(graph, mdm_analysis, dung_analysis):
     check(
         dung_analysis["acceptable"] > 0,
         f"dung: {dung_analysis['acceptable']}/{dung_analysis['total_nodes']} acceptable, {dung_analysis['rejected']} rejected",
-    )
-
-    # --- Propagation checks ---
-    beliefs = [
-        node.opinion.belief
-        for node in graph.nodes.values()
-        if node.opinion and hasattr(node.opinion, "belief")
-    ]
-    check(
-        len(beliefs) > 0 and min(beliefs) > 0,
-        f"propagate: {len(beliefs)} beliefs, min={min(beliefs):.4f} (expected >0)",
     )
 
     return checks

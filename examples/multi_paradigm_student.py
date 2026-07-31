@@ -17,7 +17,6 @@ Each pass reveals a different layer of the student's situation:
 from datetime import datetime
 from pathlib import Path
 
-from dynafx.core.models import Opinion
 from dynafx.knowledge.model import (
     Literal,
     NamedNode,
@@ -168,7 +167,7 @@ def bridge_fused_to_params(store: TripleStore) -> dict[str, float]:
             if g in ("schema", "meta", "fused"):
                 continue
             for t in store.triples(TriplePattern(subj, pred, obj), graph=g):
-                b = t.opinion.belief if t.opinion else 0.5
+                b = 0.5
                 max_belief = max(max_belief, b)
                 has_any = True
         params[param_name] = max_belief if has_any else 0.5
@@ -224,11 +223,11 @@ def extract_evidence_from_result(
 # ── Build initial KG ─────────────────────────────────────────────
 
 SOURCE_CONFIG = [
-    ("teacher", TEACHER, Opinion(0.85, 0.05, 0.10)),
-    ("parent", PARENT, Opinion(0.55, 0.20, 0.25)),
-    ("psychologist", PSYCHOLOGIST, Opinion(0.80, 0.08, 0.12)),
-    ("student_self", STUDENT_SELF, Opinion(0.65, 0.15, 0.20)),
-    ("literature", LITERATURE, Opinion(0.95, 0.02, 0.03)),
+    ("teacher", TEACHER),
+    ("parent", PARENT),
+    ("psychologist", PSYCHOLOGIST),
+    ("student_self", STUDENT_SELF),
+    ("literature", LITERATURE),
 ]
 
 
@@ -239,11 +238,11 @@ def build_initial_store() -> TripleStore:
     for t in parse_turtle(SCHEMA).triples(TriplePattern()):
         store.add(t, graph="schema")
 
-    for g, text, opinion in SOURCE_CONFIG:
+    for g, text in SOURCE_CONFIG:
         temp = parse_turtle(text)
         for t in temp.triples(TriplePattern()):
             store.add(
-                Triple(t.subject, t.predicate, t.object_, opinion=opinion),
+                Triple(t.subject, t.predicate, t.object_),
                 graph=g,
             )
     return store
@@ -255,11 +254,10 @@ def build_evidence_matrix(store: TripleStore, source_graphs: list[str]):
     """Build an EvidenceMatrix from named graph opinions."""
     matrix = EvidenceMatrix()
     for g in source_graphs:
-        opinions: dict[str, Opinion] = {}
+        opinions: dict = {}
         for t in store.triples(TriplePattern(), graph=g):
             claim = _claim_key(t)
-            op = t.opinion or Opinion()
-            opinions[claim] = op
+            opinions[claim] = 0.5
         matrix.add_source(g, opinions)
     return matrix.compute()
 
@@ -359,7 +357,7 @@ def run_pass(
                 claim = _claim_key(t)
                 if t.predicate.iri == f"{NS}observes":
                     lit = t.object_.value if hasattr(t.object_, "value") else ""
-                    sd_params[f"KG_obs_{lit}"] = t.opinion.belief if t.opinion else 0.5
+                    sd_params[f"KG_obs_{lit}"] = 0.5
 
     if extra_params:
         sd_params.update(extra_params)
@@ -501,12 +499,12 @@ def main():
             obs_graph = f"observation_{obs_num}"
             for subj, pred, obj, belief in new_evidence:
                 store.add(
-                    Triple(subj, pred, obj, opinion=Opinion(belief, 1.0 - belief, 0.0)),
+                    Triple(subj, pred, obj),
                     graph=obs_graph,
                 )
             print(f"  → New evidence added to graph '{obs_graph}':")
             for subj, pred, obj, belief in new_evidence:
-                print(f"      ({_claim_key(Triple(subj, pred, obj, opinion=Opinion(belief, 0, 0)))}) "
+                print(f"      ({_claim_key(Triple(subj, pred, obj))}) "
                       f"b={belief:.2f}")
 
         # Print phase transition

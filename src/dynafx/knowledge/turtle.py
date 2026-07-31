@@ -365,14 +365,12 @@ def parse_turtle(text: str, base_iri: str = "",
 def serialize_turtle(
     triples: list[Triple],
     prefixes: Optional[dict[str, str]] = None,
-    comment_opinions: bool = True,
 ) -> str:
     """Serialize triples to pretty-printed Turtle.
 
     Args:
         triples: List of Triples to serialize.
         prefixes: Optional prefix map (e.g. {"ex": "http://example.org/"}).
-        comment_opinions: Whether to append opinion comments.
 
     Returns:
         Turtle-encoded string.
@@ -409,8 +407,6 @@ def serialize_turtle(
             obj_parts: list[str] = []
             for t in pred_triples:
                 obj_str = _n3_with_prefix(t.object_, prefixes)
-                if comment_opinions and t.opinion:
-                    obj_str += f"  # b={t.opinion.belief:.2f} d={t.opinion.disbelief:.2f} u={t.opinion.uncertainty:.2f}"
                 obj_parts.append(obj_str)
             objects_str = ", ".join(obj_parts)
             is_last = (i == len(pred_items) - 1)
@@ -530,8 +526,6 @@ def serialize_ntriples(triples: list[Triple]) -> str:
         p = _n3_node(t.predicate)
         o = _n3_node(t.object_)
         line = f"{s} {p} {o} ."
-        if t.opinion:
-            line += f"  # b={t.opinion.belief:.2f} d={t.opinion.disbelief:.2f} u={t.opinion.uncertainty:.2f}"
         lines.append(line)
     return "\n".join(lines) + "\n" if lines else ""
 

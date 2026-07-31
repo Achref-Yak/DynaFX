@@ -91,7 +91,8 @@ from dynafx import (
     kb_calibrate,
 )
 from dynafx.knowledge.model import NamedNode, Literal, Triple, TriplePattern
-from dynafx.core.models import Opinion
+
+
 
 # ═══════════════════════════════════════════════════════════════
 # 1.  Knowledge Base Setup
@@ -118,13 +119,13 @@ store = TripleStore()
 
 # Scenario graph: disruption parameters
 # We only add the 'actual' values to avoid dedup conflicts during the demo
-store.add(Triple(S, P_SAFE, Literal(300), opinion=Opinion(0.9, 0.0, 0.0)), graph="scenarios")
-store.add(Triple(S, P_REC, Literal("false"), opinion=Opinion(0.0, 0.0, 0.0)), graph="scenarios")
-store.add(Triple(S, P_EXP, Literal(1.0), opinion=Opinion(0.8, 0.0, 0.0)), graph="scenarios")
+store.add(Triple(S, P_SAFE, Literal(300)), graph="scenarios")
+store.add(Triple(S, P_REC, Literal("false")), graph="scenarios")
+store.add(Triple(S, P_EXP, Literal(1.0)), graph="scenarios")
 
 # Policies graph: expert recovery policies (activated via grade_update)
-store.add(Triple(S, P_SAFE, Literal(500), opinion=Opinion(0.95, 0.0, 0.0)), graph="policies")
-store.add(Triple(S, P_EXP, Literal(1.5), opinion=Opinion(0.85, 0.0, 0.0)), graph="policies")
+store.add(Triple(S, P_SAFE, Literal(500)), graph="policies")
+store.add(Triple(S, P_EXP, Literal(1.5)), graph="policies")
 
 # Disruption state for KB_QUERY in ABM rules
 STS = NamedNode(f"{NS}CurrentState")
@@ -207,8 +208,8 @@ def grade_update_fn(grades: dict[str, float], kb_store: TripleStore) -> dict:
     # Also read disruption severity from KB
     sev = 0.0
     for t in kb_store.triples_in_graph("scenarios"):
-        if t.predicate == P_SEV and hasattr(t.opinion, "belief"):
-            sev = t.opinion.belief
+        if t.predicate == P_SEV:
+            sev = float(t.object_.value) if hasattr(t.object_, "value") else 0.0
 
     if sev > 0.1 or fill_grade < 0.5:
         return {
@@ -293,7 +294,7 @@ print("  Supply Chain Bridge Demo — Closed-Loop KB ↔ Simulation")
 print("=" * 70)
 
 # Before pass 2, update the KB with disruption severity + status
-store.add(Triple(S, P_SEV, Literal(1.0), opinion=Opinion(0.6, 0.0, 0.0)), graph="scenarios")
+store.add(Triple(S, P_SEV, Literal(1.0)), graph="scenarios")
 store.add(Triple(STS, STP, Literal("disrupted")), graph="scenarios")
 
 reasoner = ClosedLoopReasoner(

@@ -68,7 +68,7 @@ If asked to bypass Code Health safeguards:
 - Global Solar EPC Supply Chain Decision Intelligence Dashboard: a living digital twin that continuously reasons about enterprise during a typhoon-induced port closure disruption, with 16 tabs showing the full cycle from visibility to optimization. Built on KB + KBSimBridge + ProductionRules + ScenarioComparison + SensitivityAnalyzer + lp_minimize.
 
 ## Constraints & Preferences
-- All 1354 existing tests must remain passing
+- All 1030 existing tests must remain passing
 - Build on existing primitives: TripleStore, InferencePattern, SPARQL evaluator, KBSimBridge, ProductionRuleEngine, ScenarioComparison, SensitivityAnalyzer
 - No external connectors (ERP/IoT/weather) — all enterprise data generated programmatically in Python
 - Plotly for interactive charts, single-file self-contained HTML output (no server)
@@ -120,7 +120,7 @@ If asked to bypass Code Health safeguards:
 - **DES queue stats displayed**: 5 queues + 3 resources in Supply Chain Network tab.
 - **Dashboard API mismatches fixed**: `sc.results[i]` → `sc.scenarios[i].result`, `causal_trace` → `causes_strip`, `detect_feedback_loops` → `LoopAnalysis.loops`.
 - **ABM additions implemented**: `Message` dataclass, topic-based SEND, perceived inbox, strategies/meta-rules/SWITCH_STRATEGY with cooldown, 4-phase `ABMEngine.step()`.
-- **28 engine bugs fixed** across `_parser.py`, `dsl.py`, `agent.py`, `des.py` in automated audit: C10 (tokenizer silent drops), M17 (interpolator div/0), M18 (LookupTable div/0), M19 (ensemble early-return), M21 (~Unit~ strip), M22 (params mutation → step_params, w/ regression fix for RK4 stock-name overwrite), M23 (DES step start time), M24 (SPARQL cache cap), M25 (lognormal log(0)), M26 (SEND top-level split), M27 (SWITCH_STRATEGY trailing comma), M28/M29 (unknown prop/network warnings), M30 (Resource.request(0) warning), m33 (negative Resource capacity), m34 (Queue capacity=0). All 1354 tests passing.
+- **28 engine bugs fixed** across `_parser.py`, `dsl.py`, `agent.py`, `des.py` in automated audit: C10 (tokenizer silent drops), M17 (interpolator div/0), M18 (LookupTable div/0), M19 (ensemble early-return), M21 (~Unit~ strip), M22 (params mutation → step_params, w/ regression fix for RK4 stock-name overwrite), M23 (DES step start time), M24 (SPARQL cache cap), M25 (lognormal log(0)), M26 (SEND top-level split), M27 (SWITCH_STRATEGY trailing comma), M28/M29 (unknown prop/network warnings), M30 (Resource.request(0) warning), m33 (negative Resource capacity), m34 (Queue capacity=0). All 1030 tests passing.
 - **NovaTel IoT Capacity Planning Dashboard** (`examples/novatel_iot_capacity_dashboard.py`): 12-tab, ~1300 lines, self-contained Plotly HTML, outputs to `/tmp/novatel_iot_capacity_dashboard.html` (~988KB)
   - Model: 7 SD stocks, 20 auxes, 30 ABM agents, 0 DES queues
   - Verified SD+ABM integration with exact numerical match on churn_fraction across all checkpoints
@@ -134,6 +134,9 @@ If asked to bypass Code Health safeguards:
   - DES congestion metrics merged into post-hoc aux timeseries via `_get_ts()` for correct churn component breakdown
   - 3-region churn driver diversity: A=ABM (sat drops to 29 at t=100), B=DES (38 items at 5× multiplier, t=100), C=ABM (sat drops to 39 at t=150)
   - Counterfactual disruption cost: $8.95M gap between baseline and early expansion
+- **FTTH Digital Twin Showcase** (`examples/ftth_digital_twin.py`): 12-section console narrative closing the full KB→Sim→Evidence loop, ~8s, exit 0. CSV→named graphs (2122 triples/8 graphs) → `params_from_kb` → SD (9 stocks) + DES (3 queues) + ABM (24 agents) → live KB mid-run (World agent KB_ASSERTs fiber cut t=60 / recovery t=90; auxes sense via KB_QUERY → service_level 0.947→0.473→0.947, churn_B 0.00245→0.00540→0.00095) → evidence round-trip → scenario grading/ranking → production rules → `kb_lp_minimize` capex → causal_trace + 6 feedback loops → PROV provenance → L1–L5 maturity map. Model fixes: zone-scoped disruption, `adopt_rate_{z}` aux shared by SD inflow + DES injector, per-zone servers (A=200/B=120/C=65), congestion feedback capped at 0.003. Section 4 runs on a fresh `_build_store()` store so KB mutations don't leak into later sections.
+- **DES metrics invisible to aux replay (library bug fixed)** — `src/dynafx/dynamics/dsl.py` (~line 900): DES metrics were merged into per-step `step_params` but never into `params`, so `params_history` (used by post-hoc aux replay) lacked them and any aux referencing `install_{z}_length`/`Orders_length` replayed as 0.0. Added `params.update(des_metrics)` mirroring the ABM merge. Regression test: `tests/test_crossparadigm.py::test_des_metrics_visible_in_aux_replay` (queue arrival_rate=10 → `aux_values["watch"] > 0`).
+- **`kb_lp_minimize`/`kb_lp_maximize` numeric-literal unwrap** — `optimization.py::_eval_q` now unwraps SPARQL results (`val = v.value if hasattr(v, "value") else v`). Regression test: `tests/test_kb_sim_bridge_ext.py::test_kb_lp_minimize_reads_numeric_literals`.
 
 ### Blocked
 - (none)
@@ -164,7 +167,7 @@ If asked to bypass Code Health safeguards:
 5. Consider integrating SL opinion layer for trust-weighted multi-source fusion in dashboard context.
 
 ## Critical Context
-- **1354 tests passing** (core SD + knowledge + epistemics engine + sensitivity + production/transactions/execution + CSV ingestion + ABM additions). Vensim import removed. Controller module deleted (unused).
+- **1030 tests passing** (core SD + knowledge + epistemics engine + sensitivity + production/transactions/execution + CSV ingestion + ABM additions). Vensim import removed. Controller module deleted (unused).
 - **`ingest_csv` types exported** from `dynafx.knowledge`: `MappingDef`, `ColumnMapping`, `IngestReport`, `ingest_csv`, `load_all_mappings`.
 - **Expression parser** has NO string literals — SPARQL KB_QUERY strings must be defined as Python params.
 - **causes_strip** returns `CausalStrip` with `.variable`, `.factors` (list of dicts), `.total_value`.
@@ -223,6 +226,7 @@ If asked to bypass Code Health safeguards:
 - `tests/test_evidence_matrix.py` — 27 tests for EvidenceMatrix.
 - `models/global_solar_epc.sysd` — 3-region multi-project SD+ABM+DES model with shared Asian supply chain. 11 stocks, 59 auxes, 5 DES queues, 3 resources, 2 agent types. KB_QUERY for disruption/supplier/project risk. STEP-based disruption gating port outflow. Model verified with 3 disruption scenarios (baseline 86.7%→$961M profit, moderate disruption 81%→$898M, severe disruption 69%→$766M). Flow expressions require aux intermediaries for cross-stock sharing.
 - `examples/global_solar_epc_dashboard.py` — 16-tab dashboard (~1200 lines). Pipeline: KB → RDFS inference → baseline sim → disruption → post-disruption → 6 scenarios → OAT → causes_strip → feedback loops → optimization. Generates `/tmp/solar_epc_16tab_dashboard.html` (615KB, 16 tabs).
+- `examples/ftth_digital_twin.py` — 12-section FTTH console showcase (~700 lines), the canonical KB→Sim→Evidence loop. Run with `python examples/ftth_digital_twin.py`.
 - `models/ev_battery_supply_chain.sysd` — 6-echelon EV battery supply chain with 10 stocks, 86 auxes, 4 DES queues, 2 resources, 120 agents.
 - `examples/ev_battery_supply_chain.py` — 8-page FPDF report generator with demand, inventory, DES, financials, bullwhip, 7 scenarios, LP optimization.
 - `hierarchy.md` — Complete feature hierarchy across all packages with file paths, test counts, and dependency relationships.

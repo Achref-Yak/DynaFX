@@ -1,292 +1,390 @@
 #!/usr/bin/env python3
-"""Knowledge Base Showcase — RDF/SPARQL/Inference/Confidence with SL grading.
+"""
+KB Showcase — 6 KB↔Simulation Integration Patterns
+====================================================
 
-Narrative: Three intelligence sources (Alpha, Beta, Gamma) report on
-Acme Corp and its relationships. Each source has different confidence.
-We fuse their reports and grade the results.
+A self-contained demonstration of every KB integration pattern in DynaFX:
+
+  1. KB seeding + RDFS inference
+  2. Pre-flight:  KBSimBridge.params_from_kb()
+  3. Mid-flight:  KB_QUERY builtins in model expressions
+  4. Post-flight: KBSimBridge.evidence_from_result()
+  5. Closed-loop: ClosedLoopReasoner (simulate → grade → nudge → re-simulate)
+  6. KB-constrained optimization: kb_lp_minimize / kb_calibrate
+
+Output: /tmp/kb_showcase_dashboard.html
 """
 
-from dynafx.knowledge import (
-    # Model
-    Literal,
-    NamedNode,
-    Triple,
-    TriplePattern,
-    # Store
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
+from dynafx import (
+    KBSimBridge,
+    ClosedLoopReasoner,
+    ReasoningPass,
     TripleStore,
-    # Turtle
-    parse_turtle,
-    serialize_turtle,
-    # SPARQL
-    QueryResult,
-    evaluate,
-    parse_sparql,
-    # Inference
-    RuleEngine,
-    rdfs_rules,
-    # Confidence
-    QueryGrade,
-    fuse_graphs,
-    grade_query,
-    # SL
-    Opinion,
-    cumulative_fusion,
+    parse_sysd_file,
+    kb_lp_minimize,
+)
+from dynafx.knowledge.model import NamedNode, Literal, Triple, TriplePattern
+from dynafx.knowledge.inference import RuleEngine, rdfs_rules
+from dynafx.knowledge.production import (
+    ProductionRule,
+    TripleCondition,
+    TripleAction,
+    ProductionRuleEngine,
 )
 
-# ── 1. Schema (RDFS ontology) ─────────────────────────────────────
+NS = "http://sc.org/"
+S = lambda n: NamedNode(f"{NS}{n}")
+P = lambda n: NamedNode(f"{NS}{n}")
 
-SCHEMA = """\
-@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix ex: <http://example.org/> .
+OUTPUT_PATH = "/tmp/kb_showcase_dashboard.html"
 
-ex:Organization rdf:type rdfs:Class .
-ex:Person rdf:type rdfs:Class .
-ex:Product rdf:type rdfs:Class .
 
-ex:hasCEO rdfs:domain ex:Organization .
-ex:hasCEO rdfs:range ex:Person .
+def _seed_kb() -> TripleStore:
+    """Seed the KB with disruption intelligence, supplier data, contracts."""
+    store = TripleStore()
 
-ex:revenue rdfs:domain ex:Organization .
-ex:revenue rdfs:range rdfs:Literal .
+    store.add(Triple(
+        S("GlobalDisruption"), P("active"), Literal("false"),
+    ), graph="disruption")
+    store.add(Triple(
+        S("GlobalDisruption"), P("severity"), Literal("0.7"),
+    ), graph="disruption")
 
-ex:subsidiary rdfs:domain ex:Organization .
-ex:subsidiary rdfs:range ex:Organization .
-"""
+    store.add(Triple(
+        S("Supplier_A"), P("reliability"), Literal("0.92"),
+    ), graph="suppliers")
+    store.add(Triple(
+        S("Supplier_B"), P("reliability"), Literal("0.65"),
+    ), graph="suppliers")
+    store.add(Triple(
+        S("Supplier_A"), P("region"), Literal("asia"),
+    ), graph="suppliers")
+    store.add(Triple(
+        S("Supplier_B"), P("region"), Literal("europe"),
+    ), graph="suppliers")
 
-# ── 2. Source graph data (Turtle strings) ─────────────────────────
+    store.add(Triple(
+        S("Contract_A"), P("supplier"), S("Supplier_A"),
+    ), graph="contracts")
+    store.add(Triple(
+        S("Contract_A"), P("safetyStock"), Literal("300"),
+    ), graph="contracts")
 
-ALPHA = """\
-@prefix ex: <http://example.org/> .
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+    store.add(Triple(
+        S("CurrentState"), P("hasStatus"), Literal("normal"),
+    ), graph="scenarios")
 
-ex:AcmeCorp ex:hasCEO ex:Alice .
-ex:AcmeCorp ex:revenue "1000000"^^xsd:integer .
-ex:AcmeCorp rdf:type ex:Organization .
-"""
+    store.add(Triple(
+        S("Portfolio"), P("type"), S("Portfolio"),
+    ), graph="meta")
+    store.add(Triple(
+        S("GlobalDisruption"), P("type"), S("Disruption"),
+    ), graph="meta")
+    store.add(Triple(
+        S("Supplier_A"), P("type"), S("Supplier"),
+    ), graph="meta")
+    store.add(Triple(
+        S("Supplier_B"), P("type"), S("Supplier"),
+    ), graph="meta")
 
-BETA = """\
-@prefix ex: <http://example.org/> .
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+    return store
 
-ex:AcmeCorp ex:hasCEO ex:Alice .
-ex:AcmeCorp ex:subsidiary ex:BobCorp .
-ex:BobCorp ex:hasCEO ex:Bob .
-ex:BobCorp rdf:type ex:Organization .
-"""
 
-GAMMA = """\
-@prefix ex: <http://example.org/> .
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+def _rdfs_hierarchy(store: TripleStore) -> None:
+    """Add RDFS class hierarchy and run inference."""
+    RDF_TYPE = NamedNode("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
+    RDFS_SUBCLASS = NamedNode("http://www.w3.org/2000/01/rdf-schema#subClassOf")
+    RDFS_DOMAIN = NamedNode("http://www.w3.org/2000/01/rdf-schema#domain")
+    RDFS_RANGE = NamedNode("http://www.w3.org/2000/01/rdf-schema#range")
 
-ex:AcmeCorp ex:revenue "1000000"^^xsd:integer .
-ex:AcmeCorp ex:subsidiary ex:CarolCorp .
-ex:CarolCorp rdf:type ex:Organization .
-"""
+    store.add(Triple(S("Entity"), RDFS_SUBCLASS, S("Thing")), graph="ontology")
+    store.add(Triple(S("Supplier"), RDFS_SUBCLASS, S("Entity")), graph="ontology")
+    store.add(Triple(S("Disruption"), RDFS_SUBCLASS, S("Event")), graph="ontology")
+    store.add(Triple(P("reliability"), RDFS_DOMAIN, S("Supplier")), graph="ontology")
+    store.add(Triple(P("reliability"), RDFS_RANGE, S("NumericRating")), graph="ontology")
+
+    RuleEngine(rdfs_rules()).apply(store)
+
+
+def _fill_rate_score(init: list[float], final: list[float]) -> float:
+    if not init or not final:
+        return 0.0
+    cum_demand = max(0.001, final[0] - init[0])
+    cum_met = max(0.0, final[-1] - init[-1])
+    return min(1.0, cum_met / cum_demand) * 0.8 + 0.1
+
+
+def _inventory_risk_score(init: list[float], final: list[float]) -> float:
+    if not init:
+        return 0.5
+    avg = sum(init + final) / len(init + final)
+    safety = 300.0
+    return 0.9 if avg >= safety else max(0.1, avg / safety * 0.8)
+
+
+def _grade_update(grades: dict[str, float], kb_store: TripleStore) -> dict:
+    sev = 0.0
+    for t in kb_store.triples(TriplePattern(S("GlobalDisruption"), P("severity"), None), graph="disruption"):
+        if hasattr(t.object_, "value"):
+            try:
+                sev = float(t.object_.value)
+            except (ValueError, TypeError):
+                sev = 0.0
+
+    fill_ok = all(v >= 0.5 for k, v in grades.items() if "fill" in k.lower())
+    if sev > 0.3 or not fill_ok:
+        return {"safety_stock": 400.0, "expedite_factor": 1.5, "recovery_active": 1.0}
+    return {}
+
+
+def build_dashboard(results, passes, ev_triples, lp_result) -> str:
+    """Build interactive Plotly dashboard showing demo results."""
+    titles = ["Pass 1: Baseline", "Pass 2: Disruption", "Pass 3: Recovery"]
+    fig = make_subplots(
+        rows=2, cols=2,
+        subplot_titles=[
+            "Retailer Inventory", "Fill Rate",
+            "KB Evidence Triples", "Optimization",
+        ],
+        specs=[[{"type": "scatter"}, {"type": "scatter"}],
+               [{"type": "table"}, {"type": "table"}]],
+    )
+    colors = ["#2ca02c", "#d62728", "#1f77b4"]
+
+    for i, res in enumerate(results):
+        t = res.times
+        inv = res.values.get("Retailer_Inventory", [])
+        dem = res.values.get("Cumulative_Demand", [1])
+        met = res.values.get("Cumulative_Met", [0])
+        fill = [m / max(d, 0.001) for m, d in zip(met, dem)] if met and dem else []
+        label = titles[i] if i < len(titles) else f"Pass {i+1}"
+
+        if inv:
+            fig.add_trace(
+                go.Scatter(x=list(t[:len(inv)]), y=inv, mode="lines",
+                           name=f"{label} — Inventory",
+                           line=dict(color=colors[i % len(colors)])),
+                row=1, col=1,
+            )
+        if fill:
+            fig.add_trace(
+                go.Scatter(x=list(t[:len(fill)]), y=fill, mode="lines",
+                           name=f"{label} — Fill Rate",
+                           line=dict(color=colors[i % len(colors)], dash="dot")),
+                row=1, col=2,
+            )
+
+    evidence_headers = ["Subject", "Predicate", "Value", "Belief"]
+    evidence_rows = []
+    for t in ev_triples:
+        subj = str(t.subject).split("/")[-1][:20]
+        pred = str(t.predicate).split("/")[-1][:20]
+        val = str(getattr(t.object_, "value", str(t.object_)))[:10]
+        bel = "1.0"
+        evidence_rows.append([subj, pred, val, bel])
+
+    fig.add_trace(
+        go.Table(
+            header=dict(values=evidence_headers, align="left"),
+            cells=dict(values=list(zip(*evidence_rows)) if evidence_rows else [[""]*4],
+                       align="left"),
+        ),
+        row=2, col=1,
+    )
+
+    opt_rows = [
+        ["Objective", "3*x0 + 1*x1"],
+        ["x0 (optimal)", f"{lp_result.x[0]:.2f}"],
+        ["x1 (optimal)", f"{lp_result.x[1]:.2f}"],
+        ["Objective Value", f"{lp_result.objective_value:.1f}"],
+        ["Success", str(lp_result.success)],
+    ] if lp_result else [["No LP result", ""]]
+    fig.add_trace(
+        go.Table(
+            header=dict(values=["Metric", "Value"], align="left"),
+            cells=dict(values=list(zip(*opt_rows)), align="left"),
+        ),
+        row=2, col=2,
+    )
+
+    fig.update_layout(
+        title_text=f"KB Showcase — {len(results)} Passes, {len(ev_triples)} Evidence Triples",
+        height=800, showlegend=True,
+    )
+
+    html = fig.to_html(include_plotlyjs=True, full_html=True)
+    return html
 
 
 def main():
     print("=" * 70)
-    print("KB SHOWCASE — Multi-source Intelligence Fusion with SL Grading")
+    print("  DynaFX KB Integration Showcase — 6 Patterns in One Script")
     print("=" * 70)
 
-    # ── 3. Build store ────────────────────────────────────────────
+    model_path = Path(__file__).resolve().parent.parent / "models" / "sc_bridge_demo.sysd"
+    if not model_path.exists():
+        print(f"ERROR: model not found at {model_path}")
+        sys.exit(1)
+    model = parse_sysd_file(str(model_path))
 
-    store = TripleStore()
+    DISRUPTION_Q = "ASK { <http://sc.org/CurrentState> <http://sc.org/hasStatus> \"disrupted\" }"
+    NORMAL_Q = "ASK { <http://sc.org/CurrentState> <http://sc.org/hasStatus> \"normal\" }"
 
-    # Parse schema into default graph
-    schema_store = parse_turtle(SCHEMA, default_graph="schema")
-    for t in list(schema_store.triples(TriplePattern())):
-        store.add(t, graph="schema")
-    print(f"\nSchema parsed: {len(list(store.triples_in_graph('schema')))} triples")
+    # ═══ PATTERN 1: Seed KB + RDFS inference ═══
+    print("\n1) Seeding TripleStore with disruption, supplier, contract data...")
+    store = _seed_kb()
+    _rdfs_hierarchy(store)
+    print(f"   → {len(list(store.all_triples()))} triples across {len(store.graphs())} named graphs")
 
-    # Parse each source into its named graph, injecting opinions
-    src_a = _parse_with_opinion(ALPHA, Opinion(0.85, 0.05, 0.10))
-    src_b = _parse_with_opinion(BETA, Opinion(0.60, 0.20, 0.20))
-    src_c = _parse_with_opinion(GAMMA, Opinion(0.40, 0.30, 0.30))
+    print("   → RDFS inference applied: Supplier, Disruption types derived")
 
-    for t in src_a:
-        store.add(t, graph="alpha")
-    for t in src_b:
-        store.add(t, graph="beta")
-    for t in src_c:
-        store.add(t, graph="gamma")
+    # ═══ PATTERN 2: Pre-flight params_from_kb ═══
+    print("\n2) Pre-flight: params_from_kb(claim_map) extracting KB beliefs...")
+    bridge = KBSimBridge(store)
 
-    print(f"Alpha: {len(list(store.triples_in_graph('alpha')))} triples (b=0.85)")
-    print(f"Beta:  {len(list(store.triples_in_graph('beta')))} triples (b=0.60)")
-    print(f"Gamma: {len(list(store.triples_in_graph('gamma')))} triples (b=0.40)")
-    print(f"Total store: {len(store)} triples")
+    claim_map = [
+        (S("GlobalDisruption"), P("severity"), None, "disruption_severity"),
+        (S("Supplier_A"), P("reliability"), None, "supplier_reliability"),
+        (S("Contract_A"), P("safetyStock"), None, "contract_safety_stock"),
+    ]
+    params_raw = bridge.params_from_kb(claim_map)
+    params_int = bridge.params_from_kb(claim_map, type_coerce={"contract_safety_stock": "int"})
+    print(f"   → Raw (belief-weighted): disruption_severity={params_raw.get('disruption_severity'):.2f}, "
+          f"supplier_reliability={params_raw.get('supplier_reliability'):.2f}, "
+          f"safety_stock={params_raw.get('contract_safety_stock'):.2f}")
+    print(f"   → type_coerce=int:       safety_stock={params_int.get('contract_safety_stock')} "
+          f"(type={type(params_int.get('contract_safety_stock')).__name__})")
 
-    # ── 4. SPARQL queries ─────────────────────────────────────────
+    # ═══ PATTERN 3+4+5: Mid-flight KB_QUERY, Post-flight evidence, Closed-loop ═══
+    print("\n3) Running ClosedLoopReasoner with 3 passes...")
+    print("   Pass 1: Baseline (no disruption)")
+    print("   Pass 2: Disruption (severity=0.7 injected into KB)")
+    print("   Pass 3: Recovery (grade_update activates KB-stored policies)")
 
-    print("\n" + "-" * 50)
-    print("SPARQL QUERIES")
-    print("-" * 50)
+    pass1 = ReasoningPass(
+        name="baseline",
+        claim_map=[],
+        evidence_map=[
+            ("Cumulative_Met", S("NormalOps"), P("fillRateObserved"), _fill_rate_score),
+            ("Retailer_Inventory", S("NormalOps"), P("inventoryRisk"), _inventory_risk_score),
+        ],
+        params_override={
+            "disruption_severity": 0.0,
+            "safety_stock": 300.0,
+            "recovery_active": 0.0,
+            "expedite_factor": 1.0,
+            "disruption_q": DISRUPTION_Q,
+            "normal_q": NORMAL_Q,
+        },
+    )
 
-    acme = NamedNode("http://example.org/AcmeCorp")
-    ex_ns = "http://example.org/"
+    pass2 = ReasoningPass(
+        name="disruption",
+        claim_map=[
+            (S("GlobalDisruption"), P("severity"), None, "disruption_severity"),
+        ],
+        evidence_map=[
+            ("Cumulative_Met", S("Disrupted"), P("fillRateObserved"), _fill_rate_score),
+            ("Retailer_Inventory", S("Disrupted"), P("inventoryRisk"), _inventory_risk_score),
+        ],
+        params_override={
+            "safety_stock": 300.0,
+            "recovery_active": 0.0,
+            "expedite_factor": 1.0,
+            "disruption_q": DISRUPTION_Q,
+            "normal_q": NORMAL_Q,
+            "escalation_threshold": 1.0,
+        },
+        grade_update=_grade_update,
+    )
 
-    # Query 1: Who is Acme's CEO?
-    q1 = f"""\
-PREFIX ex: <{ex_ns}>
-SELECT ?ceo WHERE {{
-  ex:AcmeCorp ex:hasCEO ?ceo .
-}}
-"""
-    r1 = evaluate(parse_sparql(q1), store)
-    _show_query("Acme's CEO", r1)
+    pass3 = ReasoningPass(
+        name="recovery",
+        claim_map=[],
+        evidence_map=[
+            ("Cumulative_Met", S("Recovery"), P("fillRateObserved"), _fill_rate_score),
+            ("Retailer_Inventory", S("Recovery"), P("inventoryRisk"), _inventory_risk_score),
+        ],
+        params_override={
+            "disruption_q": DISRUPTION_Q,
+            "normal_q": NORMAL_Q,
+            "escalation_threshold": 1.0,
+        },
+    )
 
-    # Query 2: What is Acme's revenue? (conflicting sources)
-    q2 = f"""\
-PREFIX ex: <{ex_ns}>
-SELECT ?rev WHERE {{
-  ex:AcmeCorp ex:revenue ?rev .
-}}
-"""
-    r2 = evaluate(parse_sparql(q2), store)
-    _show_query("Acme's revenue (all sources)", r2)
+    # Inject disruption into KB before pass 2
+    store.add(Triple(
+        S("GlobalDisruption"), P("active"), Literal("true"),
+    ), graph="disruption")
+    store.add(Triple(
+        S("CurrentState"), P("hasStatus"), Literal("disrupted"),
+    ), graph="scenarios")
 
-    # Query 3: All subsidiaries
-    q3 = f"""\
-PREFIX ex: <{ex_ns}>
-SELECT ?sub WHERE {{
-  ex:AcmeCorp ex:subsidiary ?sub .
-}}
-"""
-    r3 = evaluate(parse_sparql(q3), store)
-    _show_query("Acme's subsidiaries", r3)
+    reasoner = ClosedLoopReasoner(
+        bridge, model,
+        passes=[pass1, pass2, pass3],
+        evidence_graph="simulation",
+        provenance_graph="provenance",
+    )
+    cl_result = reasoner.run()
 
-    # Query 4: Organizations (ASK)
-    q4 = f"""\
-PREFIX ex: <{ex_ns}>
-ASK WHERE {{
-  ex:AcmeCorp rdf:type ex:Organization .
-}}
-"""
-    r4 = evaluate(parse_sparql(q4), store)
-    print(f"\n  Is Acme an Organization? (ASK): {bool(r4.cardinality)}")
+    print("\n   ── Pipeline Results ──")
+    for i, (rp, res) in enumerate(zip(cl_result.passes, cl_result.results)):
+        final_fill = res.values.get("Cumulative_Met", [0])[-1]
+        final_demand = res.values.get("Cumulative_Demand", [1])[-1]
+        fill = final_fill / max(final_demand, 0.001)
+        inv = res.values.get("Retailer_Inventory", [0])[-1]
+        n_agents = len(res.abm_engine.instances) if res.abm_engine and hasattr(res.abm_engine, 'instances') else 0
+        print(f"     Pass {i+1} ({rp.name:>10s}):  "
+              f"fill_rate={fill:.3f}  retailer_inv={inv:.0f}  agents={n_agents}")
 
-    # ── 5. RDFS Inference ─────────────────────────────────────────
+    ev_triples = list(store.triples_in_graph("simulation"))
+    print(f"\n   → Evidence triples added to KB: {len(ev_triples)}")
 
-    print("\n" + "-" * 50)
-    print("RDFS INFERENCE")
-    print("-" * 50)
+    # ═══ PATTERN 6: KB-Constrained Optimization ═══
+    print("\n4) KB-constrained optimization...")
+    opt_store = TripleStore()
+    COEFF = P("coeff")
+    BOUND = P("bound")
+    opt_store.add(Triple(S("c0"), COEFF, Literal("3.0")), graph="opt")
+    opt_store.add(Triple(S("c1"), COEFF, Literal("1.0")), graph="opt")
+    opt_store.add(Triple(S("b0"), BOUND, Literal("0.0")), graph="opt")
+    opt_store.add(Triple(S("b1"), BOUND, Literal("0.0")), graph="opt")
 
-    before = len(store)
-    engine = RuleEngine(rdfs_rules(), max_iterations=10)
-    new_count = engine.apply(store)
-    print(f"  Before: {before} triples | +{new_count} inferred | After: {len(store)}")
+    c_q = f"SELECT ?v WHERE {{ ?s <{COEFF.iri}> ?v }} ORDER BY ?s"
+    b_q = f"SELECT ?v WHERE {{ ?s <{BOUND.iri}> ?v }} ORDER BY ?s"
 
-    # Check inferred types
-    # hasCEO domain=Organization → AcmeCorp rdf:type Organization (already asserted)
-    # hasCEO range=Person → Alice rdf:type Person
-    # hasCEO domain=Organization → BobCorp rdf:type Organization (from beta)
-    # revenue domain=Organization → AcmeCorp rdf:type Organization
-    # subsidiary domain=Organization → AcmeCorp, BobCorp, CarolCorp rdf:type Organization
-    alice = NamedNode("http://example.org/Alice")
-    bob = NamedNode("http://example.org/Bob")
-    pat_type = lambda s: TriplePattern(s, NamedNode(f"{ex_ns}type"), NamedNode(f"{ex_ns}Person"))
-    print(f"  Alice rdf:type Person: {TriplePattern(alice, NamedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'), NamedNode(f'{ex_ns}Person')) in store}")
+    lp_result = kb_lp_minimize(opt_store, c_q, b_q, var_count=2)
+    print(f"   → LP minimize 3*x0 + 1*x1:  x=[{lp_result.x[0]:.2f}, {lp_result.x[1]:.2f}]  "
+          f"obj={lp_result.objective_value:.1f}  success={lp_result.success}")
 
-    # ── 6. Graph fusion ──────────────────────────────────────────
+    # ═══ Generate Dashboard ═══
+    html = build_dashboard(cl_result.results, cl_result.passes, ev_triples, lp_result)
+    Path(OUTPUT_PATH).write_text(html)
+    print(f"\nDashboard saved to: {OUTPUT_PATH}")
 
-    print("\n" + "-" * 50)
-    print("GRAPH FUSION (cumulative)")
-    print("-" * 50)
-
-    result = fuse_graphs(store, ["alpha", "beta", "gamma"],
-                         target_graph="fused", method="cumulative")
-    print(f"  Fused {result.fused_count} overlapping triples "
-          f"(agreement ratio: {result.agreement_ratio:.2f})")
-
-    # Show the fused revenue (Alpha 1M vs Gamma 1M, different opinions)
-    print("\n  Fused Acme revenue opinions per source:")
-    for g in ["alpha", "beta", "gamma", "fused"]:
-        for t in store.triples(TriplePattern(acme, NamedNode(f"{ex_ns}revenue"), None), graph=g):
-            o = t.opinion
-            print(f"    [{g:6s}]  {t.object_}  b={o.belief:.2f} d={o.disbelief:.2f} u={o.uncertainty:.2f}")
-
-    print("\n  Fused Acme CEO opinions per source:")
-    for g in ["alpha", "beta", "fused"]:
-        for t in store.triples(TriplePattern(acme, NamedNode(f"{ex_ns}hasCEO"), None), graph=g):
-            o = t.opinion
-            print(f"    [{g:6s}]  {t.object_}  b={o.belief:.2f} d={o.disbelief:.2f} u={o.uncertainty:.2f}")
-
-    # ── 7. Query grading ──────────────────────────────────────────
-
-    print("\n" + "-" * 50)
-    print("QUERY GRADING")
-    print("-" * 50)
-
-    grade = grade_query(r2)
-    print(f"\n  'Acme revenue' query grade:")
-    print(f"    Avg belief:      {grade.avg_belief:.3f}")
-    print(f"    Avg disbelief:   {grade.avg_disbelief:.3f}")
-    print(f"    Avg uncertainty: {grade.avg_uncertainty:.3f}")
-    print(f"    Consensus:       {grade.consensus.upper()}")
-    print(f"    Cardinality:     {grade.cardinality}")
-    print(f"    Label:           {grade.label()}")
-
-    # Grade a higher-confidence query
-    grade_ceo = grade_query(r1)
-    print(f"\n  'Acme CEO' query grade:")
-    print(f"    Avg belief:      {grade_ceo.avg_belief:.3f}")
-    print(f"    Consensus:       {grade_ceo.consensus.upper()}")
-    print(f"    Label:           {grade_ceo.label()}")
-
-    # ── 8. Turtle roundtrip ───────────────────────────────────────
-
-    print("\n" + "-" * 50)
-    print("TURTLE SERIALIZATION (fused graph snippet)")
-    print("-" * 50)
-
-    fused_triples = list(store.triples_in_graph("fused"))
-    ttl = serialize_turtle(fused_triples[:6],
-                           prefixes={"ex": ex_ns})
-    for line in ttl.strip().split("\n")[:12]:
-        print(f"  {line}")
-
-    # ── 9. Summary ────────────────────────────────────────────────
-
+    # ═══ Summary ═══
     print("\n" + "=" * 70)
-    print("SUMMARY")
+    print("  Patterns Demonstrated")
     print("=" * 70)
-    print(f"  Total triples:  {len(store)}")
-    print(f"  Named graphs:   {len(store.graphs())}")
-    print(f"  Inference pass: +{new_count} triples")
-    print(f"  Fused triples:  {result.fused_count}")
-    print(f"  Graphs:         {store.graphs()}")
+    print(
+        "  1. KB seeding + RDFS inference      — TripleStore with named graphs,\n"
+        "                                         RDFS class hierarchy inference\n"
+        "  2. params_from_kb (Pre-flight)       — Extract KB beliefs as sim params\n"
+        "  3. KB_QUERY (Mid-flight)             — ABM agents query KB via SPARQL\n"
+        "  4. evidence_from_result (Post-flight)— Write sim outcomes as KB triples\n"
+        "  5. ClosedLoopReasoner                — 3-pass simulate→grade→nudge cycle\n"
+        "  6. KB-constrained optimization       — lp_minimize reads from SPARQL"
+    )
     print("=" * 70)
-
-
-# ── Helpers ──────────────────────────────────────────────────────
-
-
-def _parse_with_opinion(text: str, opinion: Opinion) -> list[Triple]:
-    """Parse Turtle and override all triples with a given opinion."""
-    temp_store = parse_turtle(text)
-    result = []
-    for t in list(temp_store.triples(TriplePattern())):
-        result.append(Triple(t.subject, t.predicate, t.object_, opinion=opinion))
-    return result
-
-
-def _show_query(label: str, result: QueryResult) -> None:
-    print(f"\n  {label}:")
-    if not result.bindings:
-        print("    (no results)")
-        return
-    for i, (binding, opin_map) in enumerate(
-        zip(result.bindings, result.opinions)
-    ):
-        desc = ", ".join(f"{k}={v.n3() if hasattr(v, 'n3') else v}"
-                         for k, v in binding.items())
-        opin_strs = []
-        for var, opin in opin_map.items():
-            if opin is not None:
-                opin_strs.append(f"{var}=(b={opin.belief:.2f})")
-        opin_part = f" [{', '.join(opin_strs)}]" if opin_strs else ""
-        print(f"    [{i+1}]  {desc}{opin_part}")
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ the unified state dict.
 """
 
 import pytest
-from dynafx.dynamics.dsl import parse_sysd
+from dynafx.dynamics.dsl import SysdModel, parse_sysd
 
 
 class TestSDAndABM:
@@ -78,6 +78,19 @@ class TestSDAndDES:
         assert r.values["balance"][0] == 1000.0
         assert r.values["balance"][-1] > 1000.0
         assert r.des_engine is not None
+
+    def test_des_metrics_visible_in_aux_replay(self):
+        """Auxes referencing DES queue metrics must resolve in the post-hoc
+        aux_values replay (not silently default to 0.0)."""
+        m = SysdModel("des_aux_visible")
+        m.dt = 1
+        m.t_span = (0, 5)
+        m.aux("watch", "Orders_length")
+        m.queue("Orders", capacity=-1, service_time="1.0",
+                servers=2, arrival_rate="10")
+        r = m.simulate()
+        assert "watch" in r.aux_values
+        assert max(r.aux_values["watch"]) > 0.0
 
 
 class TestABMAndDES:

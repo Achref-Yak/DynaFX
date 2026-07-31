@@ -32,7 +32,6 @@ from dynafx.core.models import (
     Graph,
     Node,
     NodeType,
-    Opinion,
     ReasoningMode,
 )
 
@@ -168,7 +167,6 @@ class SystemDecomposer:
             target_id=tgt_id,
             type=etype,
             polarity=polarity,
-            opinion=Opinion(),
             metadata={"confidence": confidence},
         )
         self.graph.edges[edge.id] = edge

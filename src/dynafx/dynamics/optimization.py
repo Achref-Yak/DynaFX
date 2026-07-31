@@ -780,8 +780,9 @@ def kb_lp_minimize(
         for binding in qr.bindings:
             vals = []
             for k, v in binding.items():
+                val = v.value if hasattr(v, "value") else v
                 try:
-                    vals.append(float(v))
+                    vals.append(float(val))
                 except (ValueError, TypeError):
                     vals.append(0.0)
             if vals:

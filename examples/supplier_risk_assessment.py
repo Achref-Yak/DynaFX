@@ -33,7 +33,6 @@ from dynafx import (
 from dynafx.dynamics import parse_sysd
 from dynafx.knowledge.model import NamedNode, Literal, Triple
 from dynafx.knowledge.turtle import parse_turtle
-from dynafx.core.models import Opinion
 
 C = plt.cm.tab10.colors
 

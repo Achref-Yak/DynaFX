@@ -29,7 +29,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from dynafx.knowledge.model import (
     Literal,
     NamedNode,
-    Opinion,
     Triple,
 )
 from dynafx.knowledge.store import TripleStore
@@ -347,7 +346,6 @@ def process_event(
                 EX[payload.get("supplier", "Unknown")],
                 DELAYED,
                 Literal("true"),
-                opinion=Opinion(0.9, 0.05, 0.05),
             )
         )
         # Also add EPC namespace triple for model's KB_QUERY
@@ -356,7 +354,6 @@ def process_event(
                 _epc("CurrentState"),
                 _epc("hasStatus"),
                 Literal("disrupted"),
-                opinion=Opinion(0.9, 0.05, 0.05),
             )
         )
     elif event_type == "MaterialDelivered":
@@ -365,12 +362,11 @@ def process_event(
                 _epc("CurrentState"),
                 _epc("hasStatus"),
                 Literal("normal"),
-                opinion=Opinion(0.8, 0.1, 0.1),
             )
         )
     elif event_type == "SitePrepCompleted":
         store.add(
-            Triple(PROJ, STATUS, Literal("milestone"), opinion=Opinion(1.0, 0.0, 0.0))
+            Triple(PROJ, STATUS, Literal("milestone"))
         )
     elif event_type == "MilestoneReached":
         phase = payload.get("phase", "unknown")
@@ -379,11 +375,10 @@ def process_event(
                 PROJ,
                 EX["milestoneReached"],
                 Literal(phase),
-                opinion=Opinion(0.95, 0.02, 0.03),
             )
         )
         store.add(
-            Triple(PROJ, STATUS, Literal("milestone"), opinion=Opinion(1.0, 0.0, 0.0))
+            Triple(PROJ, STATUS, Literal("milestone"))
         )
     elif event_type == "QualityIssue":
         store.add(
@@ -391,7 +386,6 @@ def process_event(
                 PROJ,
                 HAS_ISSUE,
                 Literal("quality"),
-                opinion=Opinion(0.8, 0.1, 0.1),
             )
         )
         # EPC namespace for model KB_QUERY
@@ -400,12 +394,11 @@ def process_event(
                 _epc("Project"),
                 _epc("qualityIssue"),
                 Literal(1.0),
-                opinion=Opinion(0.8, 0.1, 0.1),
             )
         )
     elif event_type == "ProjectComplete":
         store.add(
-            Triple(PROJ, STATUS, Literal("complete"), opinion=Opinion(1.0, 0.0, 0.0))
+            Triple(PROJ, STATUS, Literal("complete"))
         )
 
 
@@ -448,7 +441,6 @@ def evidence_from_result(
                     PROJ,
                     EX[grade_name],
                     Literal(val),
-                    opinion=Opinion(0.9, 0.05, 0.05),
                 )
             )
 

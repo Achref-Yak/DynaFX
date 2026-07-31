@@ -33,7 +33,7 @@ from plotly.subplots import make_subplots
 import plotly
 
 # ── DynaFX imports ─────────────────────────────────────────────────────────
-from dynafx.knowledge.model import Literal, NamedNode, Opinion, Triple
+from dynafx.knowledge.model import Literal, NamedNode, Triple
 from dynafx.knowledge.store import TripleStore
 from dynafx.knowledge.turtle import parse_turtle
 from dynafx.knowledge.inference import RuleEngine, owl_rl_rules, rdfs_rules
@@ -177,21 +177,21 @@ def run_pipeline() -> dict:
         ts = day * 86400.0
         orb.ingest_event(event_type=event_type, payload=payload, source="erp", confidence=0.95, timestamp=ts)
         if event_type == "SupplierDelayed":
-            store.add(Triple(EX[payload.get("supplier", "Unknown")], DELAYED, Literal("true"), opinion=Opinion(0.9, 0.05, 0.05)))
-            store.add(Triple(_epc("CurrentState"), _epc("hasStatus"), Literal("disrupted"), opinion=Opinion(0.9, 0.05, 0.05)))
+            store.add(Triple(EX[payload.get("supplier", "Unknown")], DELAYED, Literal("true")))
+            store.add(Triple(_epc("CurrentState"), _epc("hasStatus"), Literal("disrupted")))
         elif event_type == "MaterialDelivered":
-            store.add(Triple(_epc("CurrentState"), _epc("hasStatus"), Literal("normal"), opinion=Opinion(0.8, 0.1, 0.1)))
+            store.add(Triple(_epc("CurrentState"), _epc("hasStatus"), Literal("normal")))
         elif event_type == "SitePrepCompleted":
-            store.add(Triple(PROJ, STATUS, Literal("milestone"), opinion=Opinion(1.0, 0.0, 0.0)))
+            store.add(Triple(PROJ, STATUS, Literal("milestone")))
         elif event_type == "MilestoneReached":
             phase = payload.get("phase", "unknown")
-            store.add(Triple(PROJ, EX["milestoneReached"], Literal(phase), opinion=Opinion(0.95, 0.02, 0.03)))
-            store.add(Triple(PROJ, STATUS, Literal("milestone"), opinion=Opinion(1.0, 0.0, 0.0)))
+            store.add(Triple(PROJ, EX["milestoneReached"], Literal(phase)))
+            store.add(Triple(PROJ, STATUS, Literal("milestone")))
         elif event_type == "QualityIssue":
-            store.add(Triple(PROJ, HAS_ISSUE, Literal("quality"), opinion=Opinion(0.8, 0.1, 0.1)))
-            store.add(Triple(_epc("Project"), _epc("qualityIssue"), Literal(1.0), opinion=Opinion(0.8, 0.1, 0.1)))
+            store.add(Triple(PROJ, HAS_ISSUE, Literal("quality")))
+            store.add(Triple(_epc("Project"), _epc("qualityIssue"), Literal(1.0)))
         elif event_type == "ProjectComplete":
-            store.add(Triple(PROJ, STATUS, Literal("complete"), opinion=Opinion(1.0, 0.0, 0.0)))
+            store.add(Triple(PROJ, STATUS, Literal("complete")))
 
         if event_type in ("MilestoneReached", "ProjectComplete", "SitePrepCompleted"):
             bridge_recs = [r for r in orb.exec_store.recent(50) if r.action_type == "bridge" and r.output.get("result")]
@@ -211,7 +211,7 @@ def run_pipeline() -> dict:
                         if stock_name in sim_result.values:
                             raw = sim_result.values[stock_name][-1]
                             val = min(1.0, max(0.0, raw / divisor if divisor else raw))
-                            store.add(Triple(PROJ, EX[grade_name], Literal(val), opinion=Opinion(0.9, 0.05, 0.05)))
+                            store.add(Triple(PROJ, EX[grade_name], Literal(val)))
 
     grades = {}
     for name, query_str in GRADE_QUERIES.items():

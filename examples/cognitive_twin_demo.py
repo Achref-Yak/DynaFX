@@ -27,7 +27,6 @@ from fpdf import FPDF
 
 from dynafx import KBSimBridge, TripleStore, parse_sysd_file, causal_trace
 from dynafx.knowledge.model import NamedNode, Literal, Triple
-from dynafx.core.models import Opinion
 
 # ═══════════════════════════════════════════════════════════════
 # 1. Knowledge Network
@@ -38,7 +37,7 @@ S = NamedNode(f"{NS}Scenario")
 ST = NamedNode(f"{NS}status")
 
 store = TripleStore()
-store.add(Triple(S, ST, Literal("normal"), opinion=Opinion(0.9, 0.0, 0.0)), graph="world")
+store.add(Triple(S, ST, Literal("normal")), graph="world")
 
 DISP_Q = 'ASK { <http://sc.org/Scenario> <http://sc.org/status> "disrupted" }'
 
