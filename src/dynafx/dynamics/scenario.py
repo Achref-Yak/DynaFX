@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from dynafx.dynamics.dsl import SysdModel, SysdModelResult
 
@@ -57,7 +57,7 @@ class ScenarioComparison:
             result = model.simulate(params=sd.params, method=method, **sim_kwargs)
             self.scenarios.append(ScenarioResult(sd.name, result, sd.params))
 
-    def get(self, name: str) -> Optional[ScenarioResult]:
+    def get(self, name: str) -> ScenarioResult | None:
         for s in self.scenarios:
             if s.name == name:
                 return s
@@ -85,8 +85,8 @@ class ScenarioComparison:
     def plot_comparison(
         self,
         path: str,
-        stocks: Optional[list[str]] = None,
-        title: Optional[str] = None,
+        stocks: list[str] | None = None,
+        title: str | None = None,
         return_fig: bool = False,
     ) -> None:
         """Overlay all scenarios for each specified stock.
@@ -129,10 +129,10 @@ class ScenarioComparison:
     def plot_deviation(
         self,
         path: str,
-        stocks: Optional[list[str]] = None,
+        stocks: list[str] | None = None,
         baseline: int = 0,
         mode: str = "absolute",
-        title: Optional[str] = None,
+        title: str | None = None,
         return_fig: bool = False,
     ) -> None:
         """Plot deviation of each scenario from a baseline.
@@ -190,9 +190,9 @@ class ScenarioComparison:
         path: str,
         param_ranges: dict[str, tuple[float, float]],
         output_stock: str,
-        t: Optional[float] = None,
+        t: float | None = None,
         n_steps: int = 20,
-        title: Optional[str] = None,
+        title: str | None = None,
         return_fig: bool = False,
     ) -> None:
         """Generate a tornado diagram for parameter sensitivity.
@@ -221,7 +221,6 @@ class ScenarioComparison:
 
         impacts: list[tuple[str, float, float, float]] = []
         for pname, (low, high) in param_ranges.items():
-            mid = (low + high) / 2.0
             params_low = dict(base_params)
             params_low[pname] = low
             params_high = dict(base_params)
@@ -240,14 +239,13 @@ class ScenarioComparison:
         impacts.sort(key=lambda x: x[3])
 
         fig, ax = plt.subplots(figsize=(8, max(4, 0.4 * len(impacts))))
-        y_pos = list(range(len(impacts)))
         labels = [i[0] for i in impacts]
         low_vals = [i[1] for i in impacts]
         high_vals = [i[2] for i in impacts]
         mids = [(lv + hv) / 2.0 for lv, hv in zip(low_vals, high_vals, strict=False)]
 
         bar_width = 0.4
-        for i, (pn, lv, hv, sp) in enumerate(impacts):
+        for i, (lv, hv) in enumerate(zip(low_vals, high_vals, strict=False)):
             left = min(lv, hv)
             right = max(lv, hv)
             color = "steelblue" if (hv - lv) > 0 else "coral"
@@ -279,8 +277,8 @@ class ScenarioComparison:
         self,
         grade_specs: list[tuple[str, str, float, float]],
         store: Any,
-        evidence_map: Optional[list] = None,
-        bridge: Optional[Any] = None,
+        evidence_map: list | None = None,
+        bridge: Any | None = None,
         temp_graph: str = "_ranking",
     ) -> dict[str, dict[str, float]]:
         """Grade each scenario result and return per-goal breakdown.
@@ -337,8 +335,8 @@ class ScenarioComparison:
         self,
         grade_specs: list[tuple[str, str, float, float]],
         store: Any,
-        evidence_map: Optional[list] = None,
-        bridge: Optional[Any] = None,
+        evidence_map: list | None = None,
+        bridge: Any | None = None,
         agg: str = "mean",
         temp_graph: str = "_ranking",
     ) -> list[tuple[str, float]]:
@@ -389,8 +387,8 @@ class ScenarioComparison:
         self,
         store: Any,
         constraint_queries: list[str],
-        evidence_map: Optional[list] = None,
-        bridge: Optional[Any] = None,
+        evidence_map: list | None = None,
+        bridge: Any | None = None,
         temp_graph: str = "_filter_temp",
     ) -> ScenarioComparison:
         """Remove scenarios that violate SPARQL ASK constraints.
@@ -500,9 +498,9 @@ class ScenarioComparison:
         store: Any,
         evidence_map: list[tuple[str, Any, Any, Any]],
         bridge: Any,
-        grade_specs: Optional[list[tuple[str, str, float, float]]] = None,
-        grades: Optional[dict[str, dict[str, float]]] = None,
-        ranked: Optional[list[tuple[str, float]]] = None,
+        grade_specs: list[tuple[str, str, float, float]] | None = None,
+        grades: dict[str, dict[str, float]] | None = None,
+        ranked: list[tuple[str, float]] | None = None,
         agg: str = "mean",
     ) -> dict[str, Any]:
         """Return structured explanation for one scenario.
@@ -591,7 +589,7 @@ class ScenarioComparison:
         # grade_specs are positionally aligned with evidence_map:
         #   grade_specs[i] → evidence_map[i] → grade key f"{name}_{i}"
         goals_list: list[dict[str, Any]] = []
-        for idx, (stock_name, subj, pred, scoring_fn) in enumerate(evidence_map):
+        for idx, (stock_name, _subj, pred, _scoring_fn) in enumerate(evidence_map):
             label = getattr(pred, "iri", str(pred))
             if kb_ns:
                 label = label.replace(kb_ns, "")
@@ -609,16 +607,16 @@ class ScenarioComparison:
             try:
                 seen: set[str] = {stock_name}
 
-                def _walk_refs(n: str, depth: int = 0, max_depth: int = 8) -> list[str]:
+                def _walk_refs(n: str, _seen=seen, depth: int = 0, max_depth: int = 8) -> list[str]:
                     if depth >= max_depth:
                         return []
                     _, refs = deps.get(n, ("", set()))
                     result: list[str] = []
                     for ref in sorted(refs):
-                        if ref not in seen:
-                            seen.add(ref)
+                        if ref not in _seen:
+                            _seen.add(ref)
                             result.append(ref)
-                            result.extend(_walk_refs(ref, depth + 1, max_depth))
+                            result.extend(_walk_refs(ref, _seen, depth + 1, max_depth))
                     return result
 
                 raw = _walk_refs(stock_name)

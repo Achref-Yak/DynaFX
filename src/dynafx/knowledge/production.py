@@ -28,7 +28,7 @@ import operator
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, ClassVar
 
 from dynafx.knowledge.inference import InferencePattern
 from dynafx.knowledge.model import (
@@ -108,7 +108,7 @@ class TripleCondition(Condition):
         pat: InferencePattern,
         triple: Triple,
         current: dict[str, RDFNode],
-    ) -> Optional[dict[str, RDFNode]]:
+    ) -> dict[str, RDFNode] | None:
         new = dict(current)
         for var_name, pat_val in [
             ("subject", pat.subject), ("predicate", pat.predicate),
@@ -170,7 +170,7 @@ class ComparisonCondition(Condition):
     op: str
     right: Any
 
-    _OPS = {
+    _OPS: ClassVar[dict[str, Callable[[float, float], bool]]] = {
         ">": operator.gt, ">=": operator.ge,
         "<": operator.lt, "<=": operator.le,
         "==": operator.eq, "!=": operator.ne,
@@ -196,15 +196,14 @@ class ComparisonCondition(Condition):
     def _resolve_value(val: Any, store: TripleStore, bindings: dict[str, RDFNode]) -> float:
         if isinstance(val, (int, float)):
             return float(val)
-        if isinstance(val, str):
-            if val.startswith("?"):
-                node = bindings.get(val[1:])
-                if isinstance(node, Literal):
-                    try:
-                        return float(node.value)
-                    except (ValueError, TypeError):
-                        return 0.0
-                return 0.0
+        if isinstance(val, str) and val.startswith("?"):
+            node = bindings.get(val[1:])
+            if isinstance(node, Literal):
+                try:
+                    return float(node.value)
+                except (ValueError, TypeError):
+                    return 0.0
+            return 0.0
         return 0.0
 
 
@@ -360,7 +359,7 @@ class TripleAction(Action):
         )
 
     @staticmethod
-    def _resolve(val: Any, bindings: dict[str, RDFNode]) -> Optional[RDFNode]:
+    def _resolve(val: Any, bindings: dict[str, RDFNode]) -> RDFNode | None:
         if isinstance(val, (NamedNode, BlankNode, Literal)):
             return val
         if isinstance(val, str) and val.startswith("?"):
@@ -373,7 +372,7 @@ class RetractAction(Action):
     """Remove triples matching a pattern from the store."""
 
     pattern: TriplePattern
-    graph: Optional[str] = None
+    graph: str | None = None
 
     def execute(
         self,
@@ -522,8 +521,8 @@ class ProductionRuleEngine:
         self.rules: list[ProductionRule] = []
         self._fired_count: dict[str, int] = {}
         self._fired_signatures: dict[str, set] = {}
-        self._add_listener: Optional[Callable] = None
-        self._remove_listener: Optional[Callable] = None
+        self._add_listener: Callable | None = None
+        self._remove_listener: Callable | None = None
         self._started: bool = False
         self._in_evaluate: int = 0  # re-entrant depth counter
 
@@ -538,7 +537,7 @@ class ProductionRuleEngine:
         self._fired_count.pop(name, None)
         self._fired_signatures.pop(name, None)
 
-    def get_rule(self, name: str) -> Optional[ProductionRule]:
+    def get_rule(self, name: str) -> ProductionRule | None:
         for r in self.rules:
             if r.name == name:
                 return r
@@ -559,8 +558,8 @@ class ProductionRuleEngine:
 
     def evaluate(
         self,
-        trigger_triple: Optional[Triple] = None,
-        trigger_graph: Optional[str] = None,
+        trigger_triple: Triple | None = None,
+        trigger_graph: str | None = None,
     ) -> list[ActionResult]:
         """Evaluate all enabled rules and return fired actions.
 
@@ -628,7 +627,7 @@ class ProductionRuleEngine:
     def _make_signature(
         rule: ProductionRule,
         triple: Triple,
-        graph: Optional[str],
+        graph: str | None,
     ) -> str:
         """Create a unique signature for fire_once dedup."""
         return f"{rule.name}:{triple.spo}@{graph or 'default'}"

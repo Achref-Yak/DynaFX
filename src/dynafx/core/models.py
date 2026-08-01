@@ -4,7 +4,7 @@ import json
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID, uuid4
 
 NodeId = UUID
@@ -149,7 +149,7 @@ class Severity(Enum):
 @dataclass
 class Parameter:
     """Parameter value with optional metadata."""
-    value: Optional[float] = None
+    value: float | None = None
 
     def to_dict(self) -> dict:
         return {"value": self.value}
@@ -171,7 +171,7 @@ class TimeInfo:
     """Temporal metadata for a node."""
     created: float = 0.0
     modified: float = 0.0
-    temporal_anchor: Optional[str] = None
+    temporal_anchor: str | None = None
 
 
 @dataclass
@@ -187,17 +187,17 @@ class Node:
     type: NodeType = NodeType.CLAIM
     text: str = ""
     payload: Payload = field(default_factory=lambda: Payload(text=""))
-    span: Optional[Span] = None
+    span: Span | None = None
     abstraction_level: int = 1
     salience: float = 0.5
     category: int = 2
-    embedding: Optional[list[float]] = None
+    embedding: list[float] | None = None
     timestamps: TimeInfo = field(default_factory=TimeInfo)
     attrs: dict = field(default_factory=dict)
     metadata: dict = field(default_factory=dict)
-    bfo_category: Optional[BfoCategory] = None
-    container_id: Optional[UUID] = None
-    orthogonal_partition: Optional[str] = None
+    bfo_category: BfoCategory | None = None
+    container_id: UUID | None = None
+    orthogonal_partition: str | None = None
 
 
 @dataclass
@@ -219,12 +219,12 @@ class Entity:
     id: UUID = field(default_factory=uuid4)
     kind: str = ""
     name: str = ""
-    superordinate: Optional[str] = None
-    subordinate: Optional[str] = None
+    superordinate: str | None = None
+    subordinate: str | None = None
     attributes: dict[str, Any] = field(default_factory=dict)
     spans: list[Span] = field(default_factory=list)
     metadata: dict = field(default_factory=dict)
-    bfo_category: Optional[BfoCategory] = None
+    bfo_category: BfoCategory | None = None
 
 
 @dataclass
@@ -366,11 +366,12 @@ def _strip_defaults(obj: Any, _is_top_level: bool = False) -> Any:
         for k, v in obj.items():
             if k == "embedding":
                 continue
-            if k == "timestamps" and isinstance(v, dict):
-                if (v.get("created", 0) == 0.0 and
-                    v.get("modified", 0) == 0.0 and
-                    v.get("temporal_anchor") is None):
-                    continue
+            if k == "timestamps" and isinstance(v, dict) and (
+                v.get("created", 0) == 0.0 and
+                v.get("modified", 0) == 0.0 and
+                v.get("temporal_anchor") is None
+            ):
+                continue
             if k == "abstraction_level" and v == 1:
                 continue
             if k == "salience" and v == 0.5:
@@ -378,9 +379,7 @@ def _strip_defaults(obj: Any, _is_top_level: bool = False) -> Any:
             if k == "category" and v == 2:
                 continue
             stripped = _strip_defaults(v, _is_top_level=False)
-            if _is_top_level:
-                result[k] = stripped
-            elif stripped is not None and stripped != {} and stripped != [] and stripped != "":
+            if _is_top_level or (stripped is not None and stripped != {} and stripped != [] and stripped != ""):
                 result[k] = stripped
         return result
     if isinstance(obj, list):
@@ -399,7 +398,7 @@ class Graph:
     mode: ReasoningMode = ReasoningMode.ARGUMENT
     source_text: str = ""
     metadata: dict = field(default_factory=dict)
-    cta: Optional[ConversationTree] = None
+    cta: ConversationTree | None = None
     emergent_properties: list[EmergentProperty] = field(default_factory=list)
 
     def __post_init__(self) -> None:
@@ -532,7 +531,7 @@ class Graph:
         return "\n".join(lines)
 
     @staticmethod
-    def _parse_node(node_id: UUID, nd: dict, with_role: bool = False) -> tuple[Node, Optional[str]]:
+    def _parse_node(node_id: UUID, nd: dict, with_role: bool = False) -> tuple[Node, str | None]:
         span_data = nd.get("span")
         span = Span(**span_data) if span_data else None
         node = Node(
@@ -692,7 +691,7 @@ class Graph:
         }
 
     @staticmethod
-    def _parse_cta(data: dict) -> Optional[ConversationTree]:
+    def _parse_cta(data: dict) -> ConversationTree | None:
         cta_data = data.get("cta")
         if not cta_data:
             return None
@@ -745,7 +744,7 @@ class Context:
     id: UUID
     source_id: str
     text: str
-    span: Optional[Span] = None
+    span: Span | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -845,8 +844,8 @@ class Violation:
     type: str
     severity: Severity
     description: str
-    node_id: Optional[UUID] = None
-    edge_id: Optional[UUID] = None
+    node_id: UUID | None = None
+    edge_id: UUID | None = None
 
 
 @dataclass

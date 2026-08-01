@@ -11,7 +11,7 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 # ── Expression tokenizer ─────────────────────────────────────────
 
@@ -85,10 +85,10 @@ class ExprParser:
         self.tokens = _tokenize(source)
         self.pos = 0
 
-    def peek(self) -> Optional[Token]:
+    def peek(self) -> Token | None:
         return self.tokens[self.pos] if self.pos < len(self.tokens) else None
 
-    def consume(self, expected: Optional[str] = None) -> Token:
+    def consume(self, expected: str | None = None) -> Token:
         t = self.peek()
         if t is None:
             raise SyntaxError("Unexpected end of expression")
@@ -275,25 +275,16 @@ def _replace_smooths(
         args = [_replace_smooths(a, smooth_params) for a in node.args]
         if node.name == "SMOOTH" and len(args) >= 2:
             delay_node = args[1]
-            if isinstance(delay_node, ExprLiteral):
-                delay = delay_node.value
-            else:
-                delay = delay_node
+            delay = delay_node.value if isinstance(delay_node, ExprLiteral) else delay_node
             aux_name = f"_smooth_{len(smooth_params)}"
             input_expr = _serialize_expr(args[0])
             smooth_params.append(("smooth", aux_name, input_expr, delay, 0.0))
             return ExprRef(aux_name)
         if node.name == "SMOOTHI" and len(args) >= 3:
             delay_node = args[1]
-            if isinstance(delay_node, ExprLiteral):
-                delay = delay_node.value
-            else:
-                delay = delay_node
+            delay = delay_node.value if isinstance(delay_node, ExprLiteral) else delay_node
             init_node = args[2]
-            if isinstance(init_node, ExprLiteral):
-                init_val = init_node.value
-            else:
-                init_val = init_node
+            init_val = init_node.value if isinstance(init_node, ExprLiteral) else init_node
             aux_name = f"_smooth_{len(smooth_params)}"
             input_expr = _serialize_expr(args[0])
             smooth_params.append(("smooth", aux_name, input_expr, delay, init_val))
@@ -313,15 +304,9 @@ def _replace_smooths(
             return ExprRef(current_input)
         if node.name == "DELAYN" and len(args) >= 3:
             delay_node = args[1]
-            if isinstance(delay_node, ExprLiteral):
-                total_delay = delay_node.value
-            else:
-                total_delay = delay_node
+            total_delay = delay_node.value if isinstance(delay_node, ExprLiteral) else delay_node
             n_node = args[2]
-            if isinstance(n_node, ExprLiteral):
-                n_stages = max(1, int(n_node.value))
-            else:
-                n_stages = 3
+            n_stages = max(1, int(n_node.value)) if isinstance(n_node, ExprLiteral) else 3
             if isinstance(total_delay, (int, float)):
                 stage_delay = total_delay / n_stages
             else:
@@ -334,35 +319,23 @@ def _replace_smooths(
             return ExprRef(current_input)
         if node.name == "DELAY_FIXED" and len(args) >= 2:
             delay_node = args[1]
-            if isinstance(delay_node, ExprLiteral):
-                delay = delay_node.value
-            else:
-                delay = delay_node
+            delay = delay_node.value if isinstance(delay_node, ExprLiteral) else delay_node
             aux_name = f"_delay_fixed_{len(smooth_params)}"
             input_expr = _serialize_expr(args[0])
             smooth_params.append(("delay_fixed", aux_name, input_expr, delay, 0.0))
             return ExprRef(aux_name)
         if node.name == "CONVEY" and len(args) >= 2:
             delay_node = args[1]
-            if isinstance(delay_node, ExprLiteral):
-                delay = delay_node.value
-            else:
-                delay = delay_node
+            delay = delay_node.value if isinstance(delay_node, ExprLiteral) else delay_node
             aux_name = f"_convey_{len(smooth_params)}"
             input_expr = _serialize_expr(args[0])
             smooth_params.append(("convey", aux_name, input_expr, delay, 0.0))
             return ExprRef(aux_name)
         if node.name == "CONVEY_BATCH" and len(args) >= 3:
             delay_node = args[1]
-            if isinstance(delay_node, ExprLiteral):
-                delay = delay_node.value
-            else:
-                delay = delay_node
+            delay = delay_node.value if isinstance(delay_node, ExprLiteral) else delay_node
             batch_node = args[2]
-            if isinstance(batch_node, ExprLiteral):
-                batch_size = batch_node.value
-            else:
-                batch_size = batch_node
+            batch_size = batch_node.value if isinstance(batch_node, ExprLiteral) else batch_node
             acc_name = f"_cbatch_acc_{len(smooth_params)}"
             out_name = f"_cbatch_out_{len(smooth_params)}"
             input_expr = _serialize_expr(args[0])

@@ -6,7 +6,7 @@ Forward-chaining rule engine.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from dynafx.knowledge.model import (
     BlankNode,
@@ -54,9 +54,9 @@ class Var:
 @dataclass(frozen=True)
 class InferencePattern:
     """Triple pattern where positions can be RDFNode, Var, or None."""
-    subject: Optional[Any] = None
-    predicate: Optional[Any] = None
-    object_: Optional[Any] = None
+    subject: Any | None = None
+    predicate: Any | None = None
+    object_: Any | None = None
 
 
 # ── Rule ─────────────────────────────────────────────────────────
@@ -215,7 +215,7 @@ class RuleEngine:
     Applies rules iteratively until fixpoint or max_iterations.
     """
 
-    def __init__(self, rules: Optional[list[Rule]] = None,
+    def __init__(self, rules: list[Rule] | None = None,
                  max_iterations: int = 10):
         self.rules: list[Rule] = list(rules) if rules else []
         self.max_iterations = max_iterations
@@ -232,7 +232,7 @@ class RuleEngine:
         Returns the total number of new triples inferred.
         """
         total_new = 0
-        for iteration in range(self.max_iterations):
+        for _iteration in range(self.max_iterations):
             inferred: list[Triple] = []
             for rule in self.rules:
                 bindings = self._eval_body(rule.body, store)
@@ -267,7 +267,7 @@ class RuleEngine:
         result: list[tuple[dict[str, RDFNode], list]] = [({}, [])]
         for pat in body:
             next_result: list[tuple[dict[str, RDFNode], list]] = []
-            for binding, opin_list in result:
+            for binding, _opin_list in result:
                 resolved = self._resolve_pat(pat, binding)
                 for triple in store.triples(resolved):
                     new_binding = self._extract_bindings(pat, triple, binding)
@@ -307,7 +307,7 @@ class RuleEngine:
         pat: InferencePattern,
         triple: Triple,
         current_binding: dict[str, RDFNode],
-    ) -> Optional[dict[str, RDFNode]]:
+    ) -> dict[str, RDFNode] | None:
         new_binding = dict(current_binding)
         for pos_name, pos_val in [("subject", pat.subject),
                                    ("predicate", pat.predicate),
@@ -328,7 +328,7 @@ class RuleEngine:
     def _instantiate(
         pat: InferencePattern,
         binding: dict[str, RDFNode],
-    ) -> Optional[Triple]:
+    ) -> Triple | None:
         s = pat.subject
         p = pat.predicate
         o = pat.object_

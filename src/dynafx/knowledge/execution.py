@@ -35,7 +35,7 @@ import time
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from dynafx.knowledge.model import (
     Literal,
@@ -173,7 +173,7 @@ class ExecutionStore:
             action_id=getattr(action_result, "action_id", ""),
         )
 
-    def get(self, action_id: str) -> Optional[ExecutionRecord]:
+    def get(self, action_id: str) -> ExecutionRecord | None:
         return self._records.get(action_id)
 
     def by_rule(self, rule_name: str) -> list[ExecutionRecord]:
@@ -195,7 +195,7 @@ class ExecutionStore:
         sorted_records = sorted(self._records.values(), key=lambda r: r.timestamp, reverse=True)
         return sorted_records[:n]
 
-    def last_execution(self, rule_name: str) -> Optional[ExecutionRecord]:
+    def last_execution(self, rule_name: str) -> ExecutionRecord | None:
         """Return the most recent execution for a rule."""
         records = self.by_rule(rule_name)
         return records[0] if records else None

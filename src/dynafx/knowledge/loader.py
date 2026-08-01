@@ -97,8 +97,6 @@ def load_tbox(name: str = "general") -> TBox:
 
 def validate_against_tbox(node_type: str, edge_type: str, tbox: TBox) -> bool:
     """Check if a node type and edge type are valid in the TBox."""
-    if node_type.upper() not in {k.upper() for k in tbox.node_types}:
-        return False
-    if edge_type.upper() not in {k.upper() for k in tbox.edge_types}:
-        return False
-    return True
+    node_valid = node_type.upper() in {k.upper() for k in tbox.node_types}
+    edge_valid = edge_type.upper() in {k.upper() for k in tbox.edge_types}
+    return node_valid and edge_valid

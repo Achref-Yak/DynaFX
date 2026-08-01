@@ -15,7 +15,7 @@ import heapq
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 _logger = logging.getLogger(__name__)
 
@@ -256,12 +256,12 @@ class EventQueue:
             payload={"__recurring__": True, "_interval": interval, **(payload or {})},
         ))
 
-    def next(self) -> Optional[Event]:
+    def next(self) -> Event | None:
         if self._heap:
             return heapq.heappop(self._heap)
         return None
 
-    def peek(self) -> Optional[Event]:
+    def peek(self) -> Event | None:
         return self._heap[0] if self._heap else None
 
     @property
@@ -298,10 +298,10 @@ class Queue:
         self.discipline = discipline.upper()
         self.servers = max(1, servers)
         self.event_driven = event_driven
-        self._compiled_service_time: Optional[Callable[[], float]] = None
+        self._compiled_service_time: Callable[[], float] | None = None
         self._entities: list[EntityData | Entity] = []
         self._enter_times: list[float] = []
-        self._service_records: list[Optional[ServiceRecord]] = [None] * self.servers
+        self._service_records: list[ServiceRecord | None] = [None] * self.servers
         self._in_service: set[int] = set()  # id() of entities currently being served
         self._server_overages: list[float] = [0.0] * self.servers  # M6: carry-forward overage
         self.stats = QueueStats(name=name)
@@ -378,7 +378,7 @@ class Queue:
         self._enter_times.append(t)
 
     def enqueue(self, entity: EntityData | Entity, t: float,
-                event_queue: Optional[EventQueue] = None) -> bool:
+                event_queue: EventQueue | None = None) -> bool:
         """Add entity to queue. Returns False if queue is full.
 
         Respects ordering discipline (FIFO/SPT/EDD).
@@ -406,7 +406,7 @@ class Queue:
                  success=success)
         return success
 
-    def dequeue(self, t: float) -> Optional[EntityData | Entity]:
+    def dequeue(self, t: float) -> EntityData | Entity | None:
         """Remove and return front entity. Returns None if empty.
 
         For multi-server queues this should only be called for single-server
@@ -433,7 +433,7 @@ class Queue:
             hook(self, entity=entity, t=t)
         return entity
 
-    def dequeue_completed(self, server_index: int, t: float) -> Optional[EntityData | Entity]:
+    def dequeue_completed(self, server_index: int, t: float) -> EntityData | Entity | None:
         """Remove and return the entity that completed service on server_index.
 
         Correctly handles multi-server queues by removing the specific entity
@@ -462,7 +462,7 @@ class Queue:
             hook(self, entity=entity, t=t)
         return entity
 
-    def peek(self) -> Optional[EntityData | Entity]:
+    def peek(self) -> EntityData | Entity | None:
         return self._entities[0] if self._entities else None
 
     def advance_service(self, dt: float) -> list[int]:
@@ -486,7 +486,7 @@ class Queue:
                 completed.append(i)
         return completed
 
-    def fill_servers(self, t: float, event_queue: Optional[EventQueue] = None) -> None:
+    def fill_servers(self, t: float, event_queue: EventQueue | None = None) -> None:
         """Fill any free servers from the front of the queue.
 
         For event-driven queues, schedules a departure event for each
@@ -557,7 +557,7 @@ class Queue:
             except SyntaxError:
                 self._compiled_routes.append((None, target))
 
-    def route(self, entity: EntityData | Entity, t: float, state: dict[str, Any] | None = None) -> Optional[str]:
+    def route(self, entity: EntityData | Entity, t: float, state: dict[str, Any] | None = None) -> str | None:
         """Evaluate routing rules and return target queue name.
 
         Returns None if no rule matches.
@@ -591,7 +591,7 @@ class Queue:
             hook(self, entity=entity, t=t, target_queue=target, state=state)
         return target
 
-    def dequeue_routed(self, t: float, state: dict[str, Any] | None = None) -> tuple[EntityData | Entity | None, Optional[str]]:
+    def dequeue_routed(self, t: float, state: dict[str, Any] | None = None) -> tuple[EntityData | Entity | None, str | None]:
         """Dequeue and route entity. Returns (entity, target_queue).
 
         target_queue is None if no routing rule matches.
@@ -614,7 +614,7 @@ class Resource:
         self.cost_per_unit = cost_per_unit
         self._busy: int = 0
         self._waiting: list[dict[str, Any]] = []
-        self._last_cost_time: Optional[float] = None
+        self._last_cost_time: float | None = None
         self.stats = ResourceStats(name=name, capacity=capacity, cost_per_unit=cost_per_unit)
 
     @property

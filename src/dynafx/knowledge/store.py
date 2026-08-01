@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from typing import Any, Optional
+from typing import Any
 
 from dynafx.knowledge.model import (
     NamedNode,
@@ -49,13 +49,13 @@ class TripleStore:
 
         self._graphs: dict[str, set[tuple]] = defaultdict(set)
 
-        self._rdfs_type_closure: Optional[dict[tuple, set[tuple]]] = None
-        self._rdfs_subproperty_map: Optional[dict[NamedNode, set[NamedNode]]] = None
+        self._rdfs_type_closure: dict[tuple, set[tuple]] | None = None
+        self._rdfs_subproperty_map: dict[NamedNode, set[NamedNode]] | None = None
 
     # ── Event callbacks ───────────────────────────────────────────
 
-    _on_add_callbacks: Optional[list[Callable[[Triple, str], None]]] = None
-    _on_remove_callbacks: Optional[list[Callable[[TriplePattern, Optional[str]], None]]] = None
+    _on_add_callbacks: list[Callable[[Triple, str], None]] | None = None
+    _on_remove_callbacks: list[Callable[[TriplePattern, str | None], None]] | None = None
     _suppress_callbacks: int = 0
 
     @contextmanager
@@ -71,7 +71,7 @@ class TripleStore:
             self._on_add_callbacks = []
         self._on_add_callbacks.append(fn)
 
-    def on_remove(self, fn: Callable[[TriplePattern, Optional[str]], None]) -> None:
+    def on_remove(self, fn: Callable[[TriplePattern, str | None], None]) -> None:
         if self._on_remove_callbacks is None:
             self._on_remove_callbacks = []
         self._on_remove_callbacks.append(fn)
@@ -102,7 +102,7 @@ class TripleStore:
             for fn in self._on_add_callbacks:
                 fn(triple, graph)
 
-    def remove(self, pattern: TriplePattern, graph: Optional[str] = None) -> int:
+    def remove(self, pattern: TriplePattern, graph: str | None = None) -> int:
         """Remove triples matching a pattern, optionally in a graph.
 
         Returns the number of triples removed.
@@ -155,8 +155,8 @@ class TripleStore:
     def triples(
         self,
         pattern: TriplePattern,
-        graph: Optional[str] = None,
-        with_inference: Optional[str | dict] = None,
+        graph: str | None = None,
+        with_inference: str | dict | None = None,
     ) -> Iterator[Triple]:
         """Iterate over triples matching a pattern, optionally in a graph.
 
@@ -182,8 +182,7 @@ class TripleStore:
 
     def all_triples(self) -> Iterator[Triple]:
         """Iterate over every triple in the store (across all graphs)."""
-        for t in self._triples.values():
-            yield t
+        yield from self._triples.values()
 
     def __contains__(self, pattern: TriplePattern) -> bool:
         try:
@@ -314,7 +313,7 @@ class TripleStore:
     def _resolve_inferred(
         self,
         pattern: TriplePattern,
-        graph: Optional[str] = None,
+        graph: str | None = None,
     ) -> set[tuple]:
         s, p, o = pattern.subject, pattern.predicate, pattern.object_
 
@@ -357,7 +356,7 @@ class TripleStore:
     def _resolve_pattern(
         self,
         pattern: TriplePattern,
-        graph: Optional[str] = None,
+        graph: str | None = None,
     ) -> set[tuple]:
         keys: set[tuple] = set()
         s, p, o = pattern.subject, pattern.predicate, pattern.object_

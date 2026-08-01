@@ -10,6 +10,8 @@ Submodules:
     loader     — TBox loader
 """
 
+import warnings as _warnings
+
 from dynafx.knowledge.execution import (
     ExecutionRecord,
     ExecutionStore,
@@ -73,8 +75,6 @@ from dynafx.knowledge.turtle import parse_turtle, serialize_turtle
 
 sparql_evaluate = _evaluate
 
-import warnings as _warnings
-
 
 def __getattr__(name: str):
     if name == "evaluate":
@@ -87,7 +87,7 @@ def __getattr__(name: str):
 
 parse_sparql = _parse_sparql
 
-__all__ = [
+__all__ = [  # noqa: RUF022  section-grouped, not alphabetical
     # Model
     "BlankNode",
     "Literal",

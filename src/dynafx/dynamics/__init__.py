@@ -97,7 +97,7 @@ from dynafx.dynamics.units import (
 )
 from dynafx.patterns.signal_chain import SignalChain  # re-exported for compat
 
-__all__ = [
+__all__ = [  # noqa: RUF022  section-grouped, not alphabetical
     # DSL & simulation
     "SysdModel",
     "SysdModelResult",

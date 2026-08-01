@@ -25,7 +25,7 @@ from __future__ import annotations
 import math
 import time
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -48,31 +48,31 @@ class SensitivityResult:
     n_samples: int
 
     # Sobol indices
-    first_order: Optional[dict[str, float]] = None
-    total_order: Optional[dict[str, float]] = None
-    first_order_ci: Optional[dict[str, tuple[float, float]]] = None
-    total_order_ci: Optional[dict[str, tuple[float, float]]] = None
+    first_order: dict[str, float] | None = None
+    total_order: dict[str, float] | None = None
+    first_order_ci: dict[str, tuple[float, float]] | None = None
+    total_order_ci: dict[str, tuple[float, float]] | None = None
 
     # Morris screening
-    mu: Optional[dict[str, float]] = None
-    mu_star: Optional[dict[str, float]] = None
-    sigma: Optional[dict[str, float]] = None
+    mu: dict[str, float] | None = None
+    mu_star: dict[str, float] | None = None
+    sigma: dict[str, float] | None = None
 
     # PRCC
-    prcc: Optional[dict[str, float]] = None
-    prcc_pvalue: Optional[dict[str, float]] = None
+    prcc: dict[str, float] | None = None
+    prcc_pvalue: dict[str, float] | None = None
 
     # OAT
-    oat_low: Optional[dict[str, float]] = None
-    oat_high: Optional[dict[str, float]] = None
+    oat_low: dict[str, float] | None = None
+    oat_high: dict[str, float] | None = None
 
     # SRC
-    src: Optional[dict[str, float]] = None
+    src: dict[str, float] | None = None
 
     # Metadata
     execution_time: float = 0.0
     converged: bool = True
-    _raw_outputs: Optional[dict[str, np.ndarray]] = None
+    _raw_outputs: dict[str, np.ndarray] | None = None
 
     def __post_init__(self) -> None:
         if self.first_order is not None and not self.param_names:
@@ -159,7 +159,7 @@ class SensitivityAnalyzer:
         output: str,
         n_base: int = 512,
         seed: int = 42,
-        t: Optional[float] = None,
+        t: float | None = None,
         n_bootstrap: int = 100,
         **sim_kwargs: Any,
     ) -> SensitivityResult:
@@ -203,7 +203,7 @@ class SensitivityAnalyzer:
             AB.append(ab)
 
         # Evaluate: A, B, all AB_i
-        all_matrices = [A, B] + AB
+        all_matrices = [A, B, *AB]
         y_blocks: list[np.ndarray] = []
         for mat in all_matrices:
             y_blocks.append(self._evaluate_batch(mat, param_names, output, t, **sim_kwargs))
@@ -228,8 +228,8 @@ class SensitivityAnalyzer:
             total_order[pname] = _clamp01(STi)
 
         # Bootstrap confidence intervals
-        first_order_ci: Optional[dict[str, tuple[float, float]]] = None
-        total_order_ci: Optional[dict[str, tuple[float, float]]] = None
+        first_order_ci: dict[str, tuple[float, float]] | None = None
+        total_order_ci: dict[str, tuple[float, float]] | None = None
         if n_bootstrap > 0 and n_base >= 8:
             boot_Si: dict[str, list[float]] = {p: [] for p in param_names}
             boot_STi: dict[str, list[float]] = {p: [] for p in param_names}
@@ -280,7 +280,7 @@ class SensitivityAnalyzer:
         n_trajectories: int = 20,
         n_levels: int = 4,
         seed: int = 42,
-        t: Optional[float] = None,
+        t: float | None = None,
         **sim_kwargs: Any,
     ) -> SensitivityResult:
         """Morris screening (elementary effects).
@@ -367,7 +367,7 @@ class SensitivityAnalyzer:
         output: str,
         n_samples: int = 500,
         seed: int = 42,
-        t: Optional[float] = None,
+        t: float | None = None,
         **sim_kwargs: Any,
     ) -> SensitivityResult:
         """Partial Rank Correlation Coefficient.
@@ -390,7 +390,6 @@ class SensitivityAnalyzer:
         from scipy import stats as sp_stats
 
         param_names = list(param_spec.keys())
-        k = len(param_names)
 
         X = _latin_hypercube(param_names, param_spec, n_samples, seed)
         y = self._evaluate_batch(X, param_names, output, t, **sim_kwargs)
@@ -440,7 +439,7 @@ class SensitivityAnalyzer:
         self,
         param_spec: dict[str, tuple[float, float]],
         output: str,
-        t: Optional[float] = None,
+        t: float | None = None,
         **sim_kwargs: Any,
     ) -> SensitivityResult:
         """One-at-a-time sensitivity (tornado-style).
@@ -498,7 +497,7 @@ class SensitivityAnalyzer:
         output: str,
         n_samples: int = 500,
         seed: int = 42,
-        t: Optional[float] = None,
+        t: float | None = None,
         **sim_kwargs: Any,
     ) -> SensitivityResult:
         """Standardized Regression Coefficients.
@@ -549,7 +548,7 @@ class SensitivityAnalyzer:
         result: SensitivityResult,
         path: str = "",
         figsize: tuple[float, float] = (9, 5),
-    ) -> Optional[Any]:
+    ) -> Any | None:
         """Grouped bar chart: first-order vs total-order Sobol indices.
 
         Args:
@@ -577,7 +576,7 @@ class SensitivityAnalyzer:
         Si_vals = [result.first_order[n] for n in names]
         STi_vals = [result.total_order[n] if result.total_order else 0 for n in names]
 
-        bars1 = ax.bar(x - w / 2, Si_vals, w, label="First-order S\u1d62",
+        ax.bar(x - w / 2, Si_vals, w, label="First-order S\u1d62",
                         color="steelblue", alpha=0.85)
 
         # Add CI error bars
@@ -588,7 +587,7 @@ class SensitivityAnalyzer:
                          yerr=[err_lo, err_hi],
                          fmt="none", capsize=3, color="navy")
 
-        bars2 = ax.bar(x + w / 2, STi_vals, w, label="Total-order S\u1d54\u1d62",
+        ax.bar(x + w / 2, STi_vals, w, label="Total-order S\u1d54\u1d62",
                         color="coral", alpha=0.85)
 
         if result.total_order_ci:
@@ -618,7 +617,7 @@ class SensitivityAnalyzer:
         result: SensitivityResult,
         path: str = "",
         figsize: tuple[float, float] = (7, 7),
-    ) -> Optional[Any]:
+    ) -> Any | None:
         r"""mu\ :sup:`*` -sigma scatter plot.
 
         Parameters with high ``mu_star`` are important.
@@ -673,7 +672,7 @@ class SensitivityAnalyzer:
         result: SensitivityResult,
         path: str = "",
         figsize: tuple[float, float] = (8, 5),
-    ) -> Optional[Any]:
+    ) -> Any | None:
         """Horizontal tornado plot for OAT sensitivity.
 
         Args:
@@ -727,7 +726,7 @@ class SensitivityAnalyzer:
         results: SensitivityResult | list[SensitivityResult],
         path: str = "",
         figsize: tuple[float, float] = (7, 5),
-    ) -> Optional[Any]:
+    ) -> Any | None:
         """Heatmap for PRCC values across outputs.
 
         Args:
@@ -742,10 +741,7 @@ class SensitivityAnalyzer:
         import matplotlib.pyplot as plt
         from matplotlib.colors import TwoSlopeNorm
 
-        if isinstance(results, SensitivityResult):
-            results_list = [results]
-        else:
-            results_list = results
+        results_list = [results] if isinstance(results, SensitivityResult) else results
 
         param_names = results_list[0].param_names
         output_names: list[str] = []
@@ -796,7 +792,7 @@ class SensitivityAnalyzer:
         self,
         params: dict[str, float],
         output: str,
-        t: Optional[float] = None,
+        t: float | None = None,
         **sim_kwargs: Any,
     ) -> float:
         """Run a single simulation and return the output value."""
@@ -809,7 +805,7 @@ class SensitivityAnalyzer:
         X: np.ndarray,
         param_names: list[str],
         output: str,
-        t: Optional[float] = None,
+        t: float | None = None,
         **sim_kwargs: Any,
     ) -> np.ndarray:
         """Evaluate the model for every row of X.
@@ -832,7 +828,7 @@ class SensitivityAnalyzer:
 def _extract_value(
     result: SysdModelResult,
     output: str,
-    t: Optional[float] = None,
+    t: float | None = None,
 ) -> float:
     """Extract the value of ``output`` at time ``t`` (or final).
 

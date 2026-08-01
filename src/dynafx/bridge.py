@@ -29,9 +29,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
-
-logger = logging.getLogger(__name__)
+from typing import Any
 
 from dynafx.knowledge import parse_sparql, sparql_evaluate
 from dynafx.knowledge.model import (
@@ -42,6 +40,8 @@ from dynafx.knowledge.model import (
 )
 from dynafx.knowledge.production import Action, ActionResult
 from dynafx.knowledge.store import TripleStore
+
+logger = logging.getLogger(__name__)
 
 NS_PROV = "http://www.w3.org/ns/prov#"
 NS_SIM = "http://dynafx.org/simulation#"
@@ -66,8 +66,8 @@ class KBSimBridge:
         self,
         claim_map: list[tuple[NamedNode, NamedNode, object, str]],
         default: float = 0.5,
-        exclude_graphs: Optional[set[str]] = None,
-        type_coerce: Optional[dict[str, str]] = None,
+        exclude_graphs: set[str] | None = None,
+        type_coerce: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """Map KB triples to simulation parameters.
 
@@ -161,9 +161,9 @@ class KBSimBridge:
     def params_for_class(
         self,
         class_iri: str,
-        subject_filter: Optional[dict[str, Any]] = None,
+        subject_filter: dict[str, Any] | None = None,
         naming: str = "class_prefix",
-        exclude_predicates: Optional[set[str]] = None,
+        exclude_predicates: set[str] | None = None,
         default: float = 0.5,
     ) -> dict[str, Any]:
         """Introspect KB to extract numeric params for all instances of a class.
@@ -291,10 +291,7 @@ class KBSimBridge:
                         all_finals.append(vlist[-1])
                 vmin = min(all_finals) if all_finals else 0.0
                 vmax = max(all_finals) if all_finals else 1.0
-                if vmax > vmin:
-                    score = (final_val - vmin) / (vmax - vmin)
-                else:
-                    score = 0.5
+                score = (final_val - vmin) / (vmax - vmin) if vmax > vmin else 0.5
 
         obj = Literal(score, datatype="http://www.w3.org/2001/XMLSchema#double")
         return Triple(subject=subject, predicate=predicate, object_=obj)
@@ -334,7 +331,7 @@ class KBSimBridge:
     def run_with_kb(
         self,
         model: Any,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
         **sim_kwargs: Any,
     ) -> Any:
         """Run a simulation with KB-connected builtins.
@@ -360,7 +357,7 @@ class KBSimBridge:
         model: Any,
         claim_map: list[tuple[NamedNode, NamedNode, object, str]],
         evidence_map: list[tuple[str, NamedNode, NamedNode, Callable[[list[float], list[float]], float]]],
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
         evidence_graph: str = "simulation",
         param_default: float = 0.5,
         **sim_kwargs: Any,
@@ -398,10 +395,10 @@ class KBSimBridge:
     def record_provenance(
         self,
         result: Any,
-        params: Optional[dict[str, Any]] = None,
-        run_id: Optional[str] = None,
+        params: dict[str, Any] | None = None,
+        run_id: str | None = None,
         graph: str = "provenance",
-        extra_annotations: Optional[list[Triple]] = None,
+        extra_annotations: list[Triple] | None = None,
     ) -> NamedNode:
         """Store a simulation run's provenance as RDF.
 
@@ -610,8 +607,8 @@ class ReasoningPass:
     params_override: dict[str, Any] = field(default_factory=dict)
     grade_queries: list[tuple[str, str, float, float]] = field(default_factory=list)
     param_nudges: dict[str, float] = field(default_factory=dict)
-    grade_update: Optional[Callable[[dict[str, float], TripleStore], dict[str, Any]]] = None
-    max_belief_graph: Optional[str] = None
+    grade_update: Callable[[dict[str, float], TripleStore], dict[str, Any]] | None = None
+    max_belief_graph: str | None = None
 
     def grade(
         self,
@@ -650,7 +647,7 @@ def grade_queries(
         dict mapping ``f"{prefix}{idx}"`` → float score in [0, 1].
     """
     grades: dict[str, float] = {}
-    for q_idx, (query_str, var_name, threshold, _) in enumerate(grade_specs):
+    for q_idx, (query_str, var_name, _, _) in enumerate(grade_specs):
         try:
             ast = parse_sparql(query_str)
             qr = sparql_evaluate(ast, store)
@@ -681,7 +678,7 @@ class ClosedLoopResult:
     results: list[Any] = field(default_factory=list)
     grades: list[dict[str, float]] = field(default_factory=list)
     run_nodes: list[NamedNode] = field(default_factory=list)
-    final_params: Optional[dict[str, Any]] = None
+    final_params: dict[str, Any] | None = None
     evidence_added: int = 0
 
     def summary(self) -> dict[str, Any]:
@@ -816,7 +813,7 @@ class CognitiveOrchestrator:
         })
     """
 
-    def __init__(self, store: Any, bridge: Optional[Any] = None):
+    def __init__(self, store: Any, bridge: Any | None = None):
         from dynafx.knowledge.execution import ExecutionStore
         from dynafx.knowledge.production import ProductionRuleEngine
         from dynafx.knowledge.transactions import TransactionStore
@@ -851,7 +848,7 @@ class CognitiveOrchestrator:
         payload: dict,
         source: str = "external",
         confidence: float = 1.0,
-        timestamp: Optional[float] = None,
+        timestamp: float | None = None,
     ) -> Any:
         """Ingest an external event — triggers the full pipeline.
 

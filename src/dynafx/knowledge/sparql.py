@@ -19,10 +19,31 @@ Supports:
 
 from __future__ import annotations
 
-from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
+from dynafx.knowledge._sparql_parser import (
+    BGP,
+    And,
+    Ask,
+    BoundFunc,
+    Comparison,
+    Constant,
+    Construct,
+    Filter,
+    Not,
+    Optional_,
+    Or,
+    OrderBy,
+    Project,
+    RegexFunc,
+    Slice,
+    SPARQLTriplePattern,
+    Union,
+    Variable,
+    VarRef,
+    tokenize,  # noqa: F401  re-exported for tests
+)
 from dynafx.knowledge.model import (
     BlankNode,
     Literal,
@@ -32,33 +53,6 @@ from dynafx.knowledge.model import (
     TriplePattern,
 )
 from dynafx.knowledge.store import TripleStore
-
-from dynafx.knowledge._sparql_parser import (
-    Ask,
-    BGP,
-    Filter,
-    Optional_,
-    Union,
-    Project,
-    Construct,
-    OrderBy,
-    Slice,
-    Variable,
-    SPARQLTriplePattern,
-    Comparison,
-    And,
-    Or,
-    Not,
-    VarRef,
-    Constant,
-    RegexFunc,
-    BoundFunc,
-    FilterExpr,
-    Operator,
-    Function,
-    tokenize,
-)
-
 
 # ── Extra AST types (not produced by parser) ──────────────────────
 
@@ -70,9 +64,9 @@ class Select:
     patterns: list[Any]
     filters: list[Any] = field(default_factory=list)
     distinct: bool = False
-    limit: Optional[int] = None
+    limit: int | None = None
     offset: int = 0
-    order_by: Optional[list[tuple[str, str]]] = None
+    order_by: list[tuple[str, str]] | None = None
     prefix_map: dict[str, str] = field(default_factory=dict)
 
 
@@ -174,7 +168,7 @@ Binding = dict[str, RDFNode]
 def evaluate(
     algebra: AlgebraNode,
     store: TripleStore,
-    with_inference: Optional[str | dict[str, Any]] = None,
+    with_inference: str | dict[str, Any] | None = None,
 ) -> QueryResult:
     """Evaluate a SPARQL algebra tree against a TripleStore."""
     if isinstance(algebra, Ask):
@@ -216,7 +210,7 @@ def _eval_node(
     node: AlgebraNode,
     store: TripleStore,
     initial: list[Binding],
-    with_inference: Optional[str | dict[str, Any]] = None,
+    with_inference: str | dict[str, Any] | None = None,
 ) -> list[Binding]:
     if isinstance(node, BGP):
         return list(_eval_bgp(node.patterns, store, initial, with_inference))
@@ -236,10 +230,9 @@ def _eval_node(
             matched = False
             for right_binding in right_results:
                 merged = _merge_bindings(left_binding, right_binding)
-                if merged is not None:
-                    if node.expr is None or _eval_filter(node.expr, merged):
-                        results.append(merged)
-                        matched = True
+                if merged is not None and (node.expr is None or _eval_filter(node.expr, merged)):
+                    results.append(merged)
+                    matched = True
             if not matched:
                 results.append(left_binding)
         return results
@@ -268,7 +261,7 @@ def _eval_bgp(
     patterns: list[SPARQLTriplePattern],
     store: TripleStore,
     initial: list[Binding],
-    with_inference: Optional[str | dict[str, Any]] = None,
+    with_inference: str | dict[str, Any] | None = None,
 ) -> list[Binding]:
     current: list[Binding] = list(initial)
     for pattern in patterns:
@@ -328,7 +321,7 @@ def _extract_bindings(
     return bindings
 
 
-def _merge_bindings(b1: Binding, b2: Binding) -> Optional[Binding]:
+def _merge_bindings(b1: Binding, b2: Binding) -> Binding | None:
     merged = dict(b1)
     for k, v in b2.items():
         if k in merged:
@@ -369,7 +362,7 @@ def _distinct_bindings(
     return result
 
 
-def _resolve_tpl_position(pos: Any, binding: Binding) -> Optional[RDFNode]:
+def _resolve_tpl_position(pos: Any, binding: Binding) -> RDFNode | None:
     if isinstance(pos, Variable):
         return binding.get(pos.name)
     if isinstance(pos, (NamedNode, BlankNode, Literal)):
@@ -460,7 +453,7 @@ def _eval_filter(expr: Any, binding: Binding) -> bool:
 
 def _eval_expr(expr: Any, binding: Binding) -> Any:
     """Evaluate a SPARQL expression against a binding."""
-    from dynafx.knowledge._sparql_parser import Operator, Function
+    from dynafx.knowledge._sparql_parser import Function, Operator
 
     if isinstance(expr, ExprLiteral):
         return expr.value

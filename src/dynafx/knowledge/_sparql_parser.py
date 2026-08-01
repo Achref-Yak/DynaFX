@@ -7,8 +7,8 @@ Contains parser, AST types, and filter expression types.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
-from typing import Any, Optional
+from dataclasses import dataclass
+from typing import Any
 
 from dynafx.knowledge.model import (
     BlankNode,
@@ -16,7 +16,6 @@ from dynafx.knowledge.model import (
     NamedNode,
     RDFNode,
 )
-
 
 # ── Operator / Function (used by new evaluator _eval_expr) ───────
 
@@ -51,9 +50,9 @@ class Variable:
 @dataclass(frozen=True)
 class SPARQLTriplePattern:
     """Triple pattern where positions can be RDFNode, Variable, or None."""
-    subject: Optional[Any] = None
-    predicate: Optional[Any] = None
-    object_: Optional[Any] = None
+    subject: Any | None = None
+    predicate: Any | None = None
+    object_: Any | None = None
 
 
 # ── Tokenizer ────────────────────────────────────────────────────
@@ -166,7 +165,7 @@ class Filter(AlgebraNode):
 class Optional_(AlgebraNode):
     left: AlgebraNode
     right: AlgebraNode
-    expr: Optional[Any] = None
+    expr: Any | None = None
 
 
 @dataclass
@@ -201,9 +200,9 @@ class OrderBy(AlgebraNode):
 
 @dataclass
 class Slice(AlgebraNode):
-    limit: Optional[int] = None
-    offset: Optional[int] = None
-    inner: Optional[AlgebraNode] = None
+    limit: int | None = None
+    offset: int | None = None
+    inner: AlgebraNode | None = None
 
 
 # ── Filter Expression Nodes ──────────────────────────────────────
@@ -251,7 +250,7 @@ class Constant(FilterExpr):
 class RegexFunc(FilterExpr):
     text: FilterExpr
     pattern: FilterExpr
-    flags: Optional[FilterExpr] = None
+    flags: FilterExpr | None = None
 
 
 @dataclass
@@ -290,7 +289,7 @@ class SPARQLParser:
     def peek(self) -> tuple[str, str, int]:
         return self.tokens[self.pos]
 
-    def consume(self, expected_kind: Optional[str] = None) -> tuple[str, str, int]:
+    def consume(self, expected_kind: str | None = None) -> tuple[str, str, int]:
         tok = self.tokens[self.pos]
         if expected_kind and tok[0] != expected_kind:
             raise SyntaxError(
@@ -347,8 +346,8 @@ class SPARQLParser:
         order_conditions: list[tuple[str, str]] = []
         if self._check("ORDER"):
             self._parse_order_by(order_conditions)
-        limit: Optional[int] = None
-        offset: Optional[int] = None
+        limit: int | None = None
+        offset: int | None = None
         if self._check("LIMIT"):
             self.consume("LIMIT")
             limit = int(self.consume("INTEGER")[1])
@@ -454,7 +453,7 @@ class SPARQLParser:
                 self.consume("DOT")
         return patterns
 
-    def _parse_triple_pattern(self) -> Optional[SPARQLTriplePattern]:
+    def _parse_triple_pattern(self) -> SPARQLTriplePattern | None:
         if self._check("RBRACE") or self._check("FILTER") or self._check("OPTIONAL") or self._check("UNION") or self._check("EOF"):
             return None
         subject = self._parse_subject_or_var()
@@ -631,7 +630,7 @@ class SPARQLParser:
         text = self._parse_or_expr()
         self.consume("COMMA")
         pattern = self._parse_or_expr()
-        flags: Optional[FilterExpr] = None
+        flags: FilterExpr | None = None
         if self._check("COMMA"):
             self.consume("COMMA")
             flags = self._parse_or_expr()
@@ -693,17 +692,10 @@ def _collect_vars(node: AlgebraNode) -> list[str]:
         elif isinstance(n, Filter):
             walk(n.inner)
             _collect_filter_vars(n.expr, vars_)
-        elif isinstance(n, Optional_):
+        elif isinstance(n, (Optional_, Union)):
             walk(n.left)
             walk(n.right)
-        elif isinstance(n, Union):
-            walk(n.left)
-            walk(n.right)
-        elif isinstance(n, Project):
-            walk(n.inner)
-        elif isinstance(n, OrderBy):
-            walk(n.inner)
-        elif isinstance(n, Slice) and n.inner:
+        elif isinstance(n, (Project, OrderBy)) or (isinstance(n, Slice) and n.inner):
             walk(n.inner)
 
     walk(node)
@@ -713,13 +705,7 @@ def _collect_vars(node: AlgebraNode) -> list[str]:
 def _collect_filter_vars(expr: Any, vars_: set[str]) -> None:
     if isinstance(expr, VarRef):
         vars_.add(expr.name)
-    elif isinstance(expr, Comparison):
-        _collect_filter_vars(expr.left, vars_)
-        _collect_filter_vars(expr.right, vars_)
-    elif isinstance(expr, And):
-        _collect_filter_vars(expr.left, vars_)
-        _collect_filter_vars(expr.right, vars_)
-    elif isinstance(expr, Or):
+    elif isinstance(expr, (Comparison, And, Or)):
         _collect_filter_vars(expr.left, vars_)
         _collect_filter_vars(expr.right, vars_)
     elif isinstance(expr, Not):

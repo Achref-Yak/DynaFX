@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import logging
 from enum import Enum
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +82,7 @@ ROLE_TO_BFO: dict[str, dict[str, str]] = {
 }
 
 
-def get_bfo_alignment(role: str) -> Optional[dict[str, str]]:
+def get_bfo_alignment(role: str) -> dict[str, str] | None:
     """Get BFO alignment for a role.
 
     Args:

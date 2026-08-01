@@ -9,7 +9,7 @@ Provides the core RDF data model types:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 from uuid import uuid4
 
 # ── Node types ───────────────────────────────────────────────────
@@ -55,8 +55,8 @@ class Literal(RDFNode):
         Literal(42, datatype=xsd("integer"))
     """
     value: Any
-    datatype: Optional[str] = None
-    lang_tag: Optional[str] = None
+    datatype: str | None = None
+    lang_tag: str | None = None
 
     def n3(self) -> str:
         if self.lang_tag:
@@ -157,9 +157,9 @@ class TriplePattern:
             object_=None,
         )
     """
-    subject: Optional[NamedNode | BlankNode | Literal] = None
-    predicate: Optional[NamedNode | BlankNode | Literal] = None
-    object_: Optional[NamedNode | BlankNode | Literal] = None
+    subject: NamedNode | BlankNode | Literal | None = None
+    predicate: NamedNode | BlankNode | Literal | None = None
+    object_: NamedNode | BlankNode | Literal | None = None
 
 
 # ── RDF namespace constants ──────────────────────────────────────
