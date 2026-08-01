@@ -31,30 +31,16 @@ class DomainConfig:
     """
 
     # ── Thresholds ────────────────────────────────────────────────
-    opinion_positive_threshold: float = 0.0
-    """Offset for 'b > d' classification (evidence.py, store.py)."""
-
     conflict_threshold: float = 0.3
-    """Minimum belief+disbelief for opinions to be conflicting (fusion.py)."""
 
     analogy_uncertainty_delta: float = 0.2
-    """Fraction of belief shifted to uncertainty in ANALOGY mode (mode_operators.py)."""
 
     uncertainty_pseudocount: float = 2.0
-    """Dirichlet pseudocount W (models.py, evidence.py, store.py)."""
 
     trust_weight_alpha: float = 0.5
-    """Coefficient on uncertainty in trust weight: b + alpha * u (sl_operators.py)."""
 
     # ── Numeric tolerances ────────────────────────────────────────
     clamp_epsilon: float = 1e-9
-    """Epsilon for b+d+u == 1 invariant check in _clamp (fusion.py, sl_operators.py)."""
-
-    validation_opinion_tolerance: float = 0.01
-    """Tolerance for b+d+u == 1 in validators (validators.py)."""
-
-    validation_u_tolerance: float = -0.001
-    """Lower bound for uncertainty in validators (validators.py)."""
 
     # ── Category hierarchy ────────────────────────────────────────
     category_levels: dict[int, str] = field(default_factory=lambda: {
@@ -134,7 +120,7 @@ class DomainConfig:
         "Worker": "Worker",
     })
 
-    # ── NodeType → opinion template mapping ──────────────────────
+    # ── Source type mapping ──────────────────────────────────────
     source_type_map: dict[str, str] = field(default_factory=lambda: {
         "EVIDENCE": "empirical_pattern",
         "CLAIM": "consensus_principle",
@@ -144,24 +130,6 @@ class DomainConfig:
         "FALLACY": "observational_claim",
         "JUSTIFICATION": "empirical_pattern",
     })
-
-    # ── Default opinion templates ─────────────────────────────────
-    default_opinions: dict[str, tuple[float, float, float, float]] = field(
-        default_factory=lambda: {
-            "empirical_pattern": (0.8, 0.1, 0.1, 0.5),
-            "cognitive_hypothesis": (0.5, 0.2, 0.3, 0.5),
-            "consensus_principle": (0.7, 0.1, 0.2, 0.5),
-            "observational_claim": (0.4, 0.3, 0.3, 0.5),
-            "total_ignorance": (0.0, 0.0, 1.0, 0.5),
-        }
-    )
-
-    default_warrant: tuple[
-        tuple[float, float, float, float],
-        tuple[float, float, float, float],
-    ] = ((0.9, 0.05, 0.05, 0.5), (0.0, 1.0, 0.0, 0.5))
-
-    default_template: str = "observational_claim"
     """Fallback template name when source_type_map lookup fails."""
 
     total_ignorance: tuple[float, float, float, float] = (0.0, 0.0, 1.0, 0.5)

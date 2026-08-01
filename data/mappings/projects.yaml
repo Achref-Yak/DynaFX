@@ -1,0 +1,33 @@
+prefixes:
+  epc: "http://epc.org/"
+  xsd: "http://www.w3.org/2001/XMLSchema#"
+  rdf: "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+csv: "epc_projects.csv"
+target_graph: "http://epc.org/graphs/projects"
+entity:
+  class: "epc:Project"
+  id_column: "id"
+  id_prefix: "epc:"
+columns:
+  name:
+    predicate: "epc:name"
+    type: string
+  region:
+    predicate: "epc:region"
+    type: string
+  capacity_mw:
+    predicate: "epc:capacityMW"
+    type: float
+  budget_k:
+    predicate: "epc:budgetK"
+    type: integer
+  deadline_day:
+    predicate: "epc:deadlineDay"
+    type: integer
+  status:
+    predicate: "epc:status"
+    type: string
+  partner_id:
+    predicate: "epc:partner"
+    type: iri
+    iri_prefix: "epc:"

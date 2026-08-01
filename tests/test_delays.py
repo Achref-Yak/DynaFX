@@ -546,7 +546,7 @@ model 'DFNoEarly'
         """Supply chain demo should give similar fill rates with RK4 and Euler."""
         from dynafx.dynamics.dsl import parse_sysd_file
         import os
-        model_path = os.path.join(os.path.dirname(__file__), "..", "models", "supply_chain_demo.sysd")
+        model_path = os.path.join(os.path.dirname(__file__), "..", "data", "models", "supply_chain_demo.sysd")
         model = parse_sysd_file(model_path)
         params = {'base_demand': 500, 'smoothing_time': 4, 'reorder_point': 2000, 'shipping_delay': 6, 'factory_capacity': 2000}
         rk4 = model.simulate(method="rk4", params=params)
@@ -559,7 +559,7 @@ model 'DFNoEarly'
         """Retailer inventory should never go to zero (regression: was depleting at t~101)."""
         from dynafx.dynamics.dsl import parse_sysd_file
         import os
-        model_path = os.path.join(os.path.dirname(__file__), "..", "models", "supply_chain_demo.sysd")
+        model_path = os.path.join(os.path.dirname(__file__), "..", "data", "models", "supply_chain_demo.sysd")
         model = parse_sysd_file(model_path)
         result = model.simulate(method="rk4", params={'base_demand': 500, 'smoothing_time': 4, 'reorder_point': 2000, 'shipping_delay': 6, 'factory_capacity': 2000})
         min_retail = min(result["values"]["Retailer_Inventory"])

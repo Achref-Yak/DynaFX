@@ -3,7 +3,7 @@
 ## Setup
 
 ```bash
-git clone https://github.com/Achref-Yak/reasoning_engine
+git clone https://github.com/Achref-Yak/DynaFX
 cd reasoning_engine
 uv sync --all-extras
 ```

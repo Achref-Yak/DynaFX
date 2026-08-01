@@ -1,13 +1,15 @@
 # DynaFX
 
-[![CI](https://github.com/Achref-Yak/reasoning_engine/actions/workflows/ci.yml/badge.svg)](https://github.com/Achref-Yak/reasoning_engine/actions/workflows/ci.yml)
+[![CI](https://github.com/Achref-Yak/DynaFX/actions/workflows/ci.yml/badge.svg)](https://github.com/Achref-Yak/DynaFX/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Code style](https://img.shields.io/badge/code%20style-ruff-000000)](https://docs.astral.sh/ruff/)
 [![Pyright](https://img.shields.io/badge/types-pyright-6A1B4D)](https://github.com/microsoft/pyright)
-[![pytest](https://img.shields.io/badge/tests-1354-passing-2ea44f)](https://github.com/Achref-Yak/reasoning_engine/actions)
+[![pytest](https://img.shields.io/badge/tests-1028-passing-2ea44f)](https://github.com/Achref-Yak/DynaFX/actions)
 
 System dynamics, agent-based, and discrete-event simulation framework with an RDF/OWL/SPARQL cognitive reasoning layer. Build SD + ABM + DES models in Python or a single `.sysd` file, connect them to knowledge graphs via `KB_QUERY`, and generate self-contained Plotly dashboards.
+
+The KB and the simulation are one living system: knowledge graph → parameters → multi-paradigm simulation → evidence triples → rules/optimization — closed-loop digital twins from visibility (L1) to autonomy (L5).
 
 ---
 
@@ -73,6 +75,7 @@ System dynamics, agent-based, and discrete-event simulation framework with an RD
 | CLI with `--paradigm` and `--stats` flags | Stable |
 | `KBSimBridge` — KB-to-simulation parameter extraction + mid-flight `KB_QUERY` + post-flight evidence triples | Stable |
 | `ClosedLoopReasoner` — multi-pass reasoning-simulation cycles | Stable |
+| KB→Sim→Evidence loop — live KB mutation mid-run + evidence round-trip (L1–L5) | Stable |
 
 ### Knowledge Graph Engine (KB)
 
@@ -94,16 +97,14 @@ System dynamics, agent-based, and discrete-event simulation framework with an RD
 | Feature | Status |
 |---------|--------|
 | Self-contained single-file Plotly HTML (no server) | Stable |
-| 16-tab solar EPC supply chain dashboard | Stable |
-| 12-tab IoT capacity planning dashboard | Stable |
-| 11-tab broadband ISP dashboard | Stable |
+| Supply chain digital twin dashboard (L1-L5, solar EPC) | Stable |
 | Scenario comparison, OAT sensitivity, causal strip, feedback loop charts | Stable |
 
 ### Patterns
 
 | Feature | Status |
 |---------|--------|
-| `SignalChain` — leading-indicator → outcome factory (SaaS churn, telecom SINR, 9 domains) | Stable |
+| `SignalChain` — leading-indicator → outcome factory | Stable |
 | `DisruptionCascade` — supply chain disruption modeling | Stable |
 
 ---
@@ -113,7 +114,7 @@ System dynamics, agent-based, and discrete-event simulation framework with an RD
 ### Install
 
 ```bash
-git clone https://github.com/Achref-Yak/reasoning_engine.git
+git clone https://github.com/Achref-Yak/DynaFX.git
 cd reasoning_engine
 uv pip install -e ".[all]"
 ```
@@ -138,19 +139,29 @@ result = model.simulate(params={"target": 10})
 print(result.values["Inventory"][-1])
 ```
 
-Or load from a `.sysd` file:
+Or load a `.sysd` model and connect it to a knowledge graph via `KB_QUERY`:
 
 ```python
 from dynafx.dynamics import parse_sysd_file
+from dynafx.knowledge import TripleStore
+from dynafx.knowledge.model import NamedNode, Literal, XSD_DOUBLE, XSD_BOOLEAN, Triple
 
-model = parse_sysd_file("models/student_math.sysd")
-result = model.simulate(params={
-    "KG_anxiety_belief": 0.8,
-    "KG_attention_belief": 0.85,
-})
+epc = lambda x: NamedNode("http://epc.org/" + x)
+store = TripleStore()
+store.add(Triple(epc("Portfolio"), epc("aggregateSupplierReliability"), Literal("0.82", datatype=XSD_DOUBLE)), "meta")
+store.add(Triple(epc("GlobalDisruption"), epc("active"), Literal("false", datatype=XSD_BOOLEAN)), "meta")
 
-print(f"Final performance: {result.values['Math_Performance'][-1]:.2f}")
-result.plot("math_outcome.png", stocks=["Math_Performance"])
+model = parse_sysd_file("data/models/global_solar_epc.sysd")
+result = model.simulate(
+    params={
+        "disruption_q": "PREFIX epc: <http://epc.org/> ASK { epc:GlobalDisruption epc:active true }",
+        "supplier_q":   "PREFIX epc: <http://epc.org/> SELECT ?v WHERE { epc:Portfolio epc:aggregateSupplierReliability ?v }",
+        "projects_q":   "PREFIX epc: <http://epc.org/> SELECT ?v WHERE { epc:Portfolio epc:projectsAtRisk ?v }",
+    },
+    kb=store, method="euler", dt=1.0,
+)
+profit = result.values["Portfolio_Revenue"][-1] - result.values["Portfolio_Cost"][-1]
+print(f"Baseline profit: ${profit:,.0f}K")   # $931,425K
 ```
 
 ### Knowledge Graph Pipeline
@@ -168,39 +179,25 @@ af = build_framework(store, ["source_a", "source_b"])
 accepted = af.compute_grounded()
 ```
 
-### CLI
-
-```bash
-# Simulate a model
-dynafx simulate models/student_math.sysd
-
-# Simulate with ABM and DES stats
-dynafx simulate models/pandemic_response.sysd --paradigm all --stats
-
-# Validate a model
-dynafx validate models/pandemic_seirvh.sysd
-
-# List available models
-dynafx list
-```
-
----
-
 ## Examples
 
-| Example | What it shows |
-|---------|---------------|
-| `examples/global_solar_epc_dashboard.py` | 16-tab supply chain dashboard: KB→inference→SD+ABM+DES→6 scenarios→OAT→LP optimization |
-| `examples/novatel_iot_capacity_dashboard.py` | 12-tab IoT capacity planning: SD+ABM integration, 5 scenarios, 399K devices |
-| `examples/atlas_broadband_dashboard.py` | 11-tab ISP dashboard: per-region churn drivers, 3 DES queues, 40 ABM agents |
-| `examples/ev_battery_supply_chain.py` | 8-page FPDF report: 6-echelon battery supply chain, 7 scenarios, LP optimization |
-| `examples/signal_showcase.py` | 9 leading-indicator domains built with SignalChain (18–111 day lead times) |
-| `examples/saas_churn_signal.py` | SaaS churn with 43-day leading indicator, 5 scenarios, 8-param sensitivity |
-| `examples/telecom_signal_study.py` | Telecom SINR churn study: 11-page FPDF report, 5 scenarios, causal tracing |
-| `examples/argumentation_showcase.py` | Turtle→named graphs→RDFS inference→argumentation→SL fusion→query grading |
-| `examples/multi_paradigm_student.py` | KG→KBT→Argumentation→bridge→SD+ABM+DES pipeline |
-| `examples/supply_chain_demo.py` | 3-echelon supply chain with DELAY3/SMOOTH/SIN/PULSE |
-| `examples/pandemic_response.py` | SD+ABM+DES pandemic model with cohort analysis |
+### Supply Chain Digital Twin
+
+`examples/global_solar_epc_twin.py` is a living digital twin of a solar EPC enterprise reasoning through a typhoon-induced port closure disruption. It spans the full L1→L5 decision spectrum in one runnable script:
+
+- **L1 Sense** — ingest 7 EPC enterprise CSVs into named graphs + RDFS inference
+- **L2 Assemble** — map KB facts (supplier reliability, projects at risk, capacity) to simulation params
+- **L3 Model** — the SD + ABM + DES supply chain twin (`data/models/global_solar_epc.sysd`)
+- **L4 Live** — baseline run, inject the typhoon via a KB disruption flag, ABM agents write live KB triples
+- **L5 Decide** — evidence round-trip, scenario grading/ranking/filtering, production rules, LP mitigation allocation, causal trace, feedback loops, and provenance
+
+```bash
+python examples/global_solar_epc_twin.py
+```
+
+The run verifies the closed loop end-to-end: baseline profit **$931,425K**, a 30-day typhoon port closure costs **−$2,795K** (supplier reliability 0.82, 22 projects at risk), and the LP allocates a mitigation budget over the chokepoint port.
+
+All demo resources live under `data/`: datasets (`data/epc_*.csv`), ontology (`data/epc-ontology.ttl`), ingestion mappings (`data/mappings/*.yaml`), and `.sysd` models (`data/models/*.sysd`). Data is regenerable via `scripts/generate_epc_csvs.py` (seed=42).
 
 ---
 
@@ -210,7 +207,7 @@ dynafx list
 pytest tests/ -q
 ```
 
-1354 tests covering the SD engine, ABM engine, DES engine, KB engine, epistemics (KBT, argumentation, evidence matrix), CSV ingestion, sensitivity, optimization, and production rules.
+1028 tests covering the SD engine, ABM engine, DES engine, KB engine, epistemics (KBT, argumentation, evidence matrix), CSV ingestion, sensitivity, optimization, and production rules.
 
 ---
 
@@ -218,7 +215,7 @@ pytest tests/ -q
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         dynafx (top-level)                       │
+│                         dynafx (top-level)                      │
 │  KBSimBridge, ClosedLoopReasoner, grade_queries                 │
 └──────┬──────────┬──────────────┬──────────────┬─────────────────┘
        │          │              │              │

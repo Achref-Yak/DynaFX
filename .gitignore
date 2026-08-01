@@ -17,8 +17,6 @@ build/
 site/
 
 # Generated artifacts
-data/
-models/
 output.json
 output.Txt
 *.plan
@@ -49,6 +47,3 @@ reports/
 # Plans and notes
 plans/
 *.plan
-
-# YAML variants
-*.yaml

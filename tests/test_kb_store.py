@@ -2,7 +2,6 @@
 
 import pytest
 
-from dynafx.core.models import Opinion
 from dynafx.knowledge.model import (
     BlankNode,
     Literal,
@@ -182,29 +181,26 @@ class TestLen:
         assert len(single_store) == 0
 
     def test_len_after_duplicate_spo(self, empty_store):
-        t1 = Triple(S, P, O, opinion=Opinion(0.8, 0.1, 0.1))
-        t2 = Triple(S, P, O, opinion=Opinion(0.5, 0.3, 0.2))
-        empty_store.add(t1)
-        empty_store.add(t2)
-        assert len(empty_store) == 1  # dedup
+        t = Triple(S, P, O)
+        empty_store.add(t)
+        empty_store.add(t)
+        assert len(empty_store) == 1  # idempotent
 
 
 class TestDedup:
-    def test_keeps_higher_belief(self, empty_store):
-        t_low = Triple(S, P, O, opinion=Opinion(0.5, 0.3, 0.2))
-        t_high = Triple(S, P, O, opinion=Opinion(0.9, 0.05, 0.05))
-        empty_store.add(t_low)
-        empty_store.add(t_high)
+    def test_duplicate_add_idempotent(self, empty_store):
+        t = Triple(S, P, O)
+        empty_store.add(t)
+        empty_store.add(t)
         stored = list(empty_store.triples(TriplePattern(subject=S, predicate=P, object_=O)))[0]
-        assert stored.opinion.belief == 0.9  # keeps higher belief
+        assert stored == t
 
-    def test_dedup_keeps_original_if_higher(self, empty_store):
-        t_high = Triple(S, P, O, opinion=Opinion(0.9, 0.05, 0.05))
-        t_low = Triple(S, P, O, opinion=Opinion(0.5, 0.3, 0.2))
-        empty_store.add(t_high)
-        empty_store.add(t_low)
+    def test_dedup_keeps_original(self, empty_store):
+        t = Triple(S, P, O)
+        empty_store.add(t)
+        empty_store.add(t)
         stored = list(empty_store.triples(TriplePattern(subject=S, predicate=P, object_=O)))[0]
-        assert stored.opinion.belief == 0.9  # keeps original higher
+        assert stored == t
 
     def test_dedup_no_opinion(self, empty_store):
         t = Triple(S, P, O)

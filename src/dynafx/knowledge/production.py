@@ -30,7 +30,6 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from dynafx.core.models import Opinion
 from dynafx.knowledge.inference import InferencePattern
 from dynafx.knowledge.model import (
     BlankNode,
@@ -353,8 +352,7 @@ class TripleAction(Action):
         o = self._resolve(self.object_, bindings)
         if s is None or p is None or o is None:
             return ActionResult("triple_add", success=False, message="Unresolved node")
-        opin = Opinion(self.belief, self.disbelief, self.uncertainty)
-        triple = Triple(s, p, o, opinion=opin)
+        triple = Triple(s, p, o)
         store.add(triple, graph=self.graph)
         return ActionResult(
             "triple_add", action_id=str(uuid.uuid4()),

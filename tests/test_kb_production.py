@@ -2,7 +2,6 @@
 
 import time
 
-from dynafx.core.models import Opinion
 from dynafx.knowledge.inference import InferencePattern
 from dynafx.knowledge.model import (
     BlankNode,
@@ -610,8 +609,6 @@ class TestProductionRuleEngine:
         assert result.success
         matched = list(st.triples(TriplePattern(S, P, O), graph="test"))
         assert len(matched) == 1
-        assert matched[0].opinion is not None
-        assert matched[0].opinion.belief == 0.8
 
     def test_empty_rule_no_body_no_head(self):
         st = empty_store()

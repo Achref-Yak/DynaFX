@@ -1,0 +1,32 @@
+prefixes:
+  epc: "http://epc.org/"
+  xsd: "http://www.w3.org/2001/XMLSchema#"
+  rdf: "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+csv: "epc_suppliers.csv"
+target_graph: "epc:graphs/suppliers"
+entity:
+  class: "epc:Supplier"
+  id_column: "id"
+  id_prefix: "epc:"
+columns:
+  name:
+    predicate: "epc:name"
+    type: string
+  region:
+    predicate: "epc:region"
+    type: string
+  material:
+    predicate: "epc:material"
+    type: string
+  reliability:
+    predicate: "epc:reliability"
+    type: float
+  volume_per_day:
+    predicate: "epc:volumePerDay"
+    type: float
+  cost_per_panel:
+    predicate: "epc:costPerPanel"
+    type: float
+  lead_time_days:
+    predicate: "epc:leadTimeDays"
+    type: integer

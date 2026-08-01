@@ -37,9 +37,6 @@ from dynafx.knowledge.sparql import (
     RegexFunc,
     BoundFunc,
 )
-from dynafx.core.models import Opinion
-
-
 # ── Fixtures ─────────────────────────────────────────────────────
 
 
@@ -443,19 +440,7 @@ def test_unbound_in_filter(store):
     assert len(result.bindings) == 0
 
 
-# ── 25. QueryResult.opinions populated ───────────────────────────
-
-
-def test_opinions_populated(store):
-    query = "SELECT ?x ?y WHERE { ?x <http://ex.org/p> ?y . }"
-    algebra = parse_sparql(query)
-    result = evaluate(algebra, store=store)
-    assert len(result.opinions) == len(result.bindings)
-    for opin in result.opinions:
-        assert isinstance(opin, dict)
-
-
-# ── 26. SELECT with no WHERE clause ──────────────────────────────
+# ── 25. SELECT with no WHERE clause (renumbered) ────────────────── ──────────────────────────────
 
 
 def test_select_simple(store):

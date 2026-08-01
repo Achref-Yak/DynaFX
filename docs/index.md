@@ -36,13 +36,3 @@ dynafx/
   epistemics/ # SL fusion, KBT, argumentation, evidence matrices
   patterns/   # Reusable recipes: SignalChain, DisruptionCascade
 ```
-
-## Examples
-
-All 46 examples are in `examples/` with descriptive docstrings. Key ones:
-
-- `global_solar_epc_dashboard.py` — 16-tab supply chain dashboard (KB + SD + DES + ABM)
-- `saas_churn_signal.py` — SaaS churn with signal chain detection
-- `argumentation_showcase.py` — Full epistemics pipeline (Turtle → inference → argumentation → fusion)
-- `supply_chain_hybrid.py` — Multi-paradigm supply chain with KB integration
-- `ev_battery_supply_chain.py` — 6-echelon EV battery model with report generation

@@ -2,7 +2,7 @@
 
 Provides the core RDF data model types:
     - NamedNode, BlankNode, Literal (RDF dataset nodes)
-    - Triple (subject-predicate-object statement with optional SL opinion)
+    - Triple (subject-predicate-object statement)
     - TriplePattern (query/inference pattern with wildcards via None)
 """
 
@@ -11,8 +11,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Optional
 from uuid import uuid4
-
-from dynafx.core.models import Opinion
 
 # ── Node types ───────────────────────────────────────────────────
 
@@ -116,24 +114,20 @@ XSD_DATE_TIME = xsd("dateTime")
 
 @dataclass(frozen=True)
 class Triple:
-    """An RDF triple with optional SL opinion.
+    """An RDF triple.
 
-    Equality and hashing are based on (subject, predicate, object_) only
-    — two Triples with the same s/p/o are considered the same triple
-    regardless of their opinion.
+    Equality and hashing are based on (subject, predicate, object_) only.
 
     Example:
         Triple(
             subject=NamedNode("http://example.org/jane"),
             predicate=NamedNode("http://example.org/worksAt"),
             object_=NamedNode("http://example.org/acme"),
-            opinion=Opinion(0.8, 0.1, 0.1),
         )
     """
     subject: NamedNode | BlankNode
     predicate: NamedNode
     object_: NamedNode | BlankNode | Literal
-    opinion: Optional[Opinion] = None
 
     @property
     def spo(self) -> tuple:
@@ -147,15 +141,6 @@ class Triple:
         if not isinstance(other, Triple):
             return NotImplemented
         return self.spo == other.spo
-
-    def with_opinion(self, opinion: Opinion) -> Triple:
-        """Return a new Triple with the same s/p/o but updated opinion."""
-        return Triple(
-            subject=self.subject,
-            predicate=self.predicate,
-            object_=self.object_,
-            opinion=opinion,
-        )
 
 
 # ── TriplePattern (wildcards) ────────────────────────────────────

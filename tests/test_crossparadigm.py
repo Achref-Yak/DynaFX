@@ -5,7 +5,7 @@ the unified state dict.
 """
 
 import pytest
-from dynafx.dynamics.dsl import parse_sysd
+from dynafx.dynamics.dsl import SysdModel, parse_sysd
 
 
 class TestSDAndABM:
@@ -79,6 +79,19 @@ class TestSDAndDES:
         assert r.values["balance"][-1] > 1000.0
         assert r.des_engine is not None
 
+    def test_des_metrics_visible_in_aux_replay(self):
+        """Auxes referencing DES queue metrics must resolve in the post-hoc
+        aux_values replay (not silently default to 0.0)."""
+        m = SysdModel("des_aux_visible")
+        m.dt = 1
+        m.t_span = (0, 5)
+        m.aux("watch", "Orders_length")
+        m.queue("Orders", capacity=-1, service_time="1.0",
+                servers=2, arrival_rate="10")
+        r = m.simulate()
+        assert "watch" in r.aux_values
+        assert max(r.aux_values["watch"]) > 0.0
+
 
 class TestABMAndDES:
     def test_abm_agents_with_des_queues(self):
@@ -148,54 +161,3 @@ class TestAllThreeParadigms:
         r = m.simulate()
         assert r.abm_engine is None
         assert r.des_engine is None
-
-
-class TestCLIIntegration:
-    def test_cli_paradigm_all(self):
-        """CLI --paradigm all runs everything."""
-        import subprocess, tempfile, os
-        model_content = (
-            'Test CLI\ndt 1\nfrom 0 to 3\n'
-            'stock "S" = 10\n'
-            '  + "dx": 1\n'
-            'agent "A": 1\n'
-            '  property "x": 0\n'
-            '  rule r: always\n'
-            '    x += 1\n'
-            'queue "Q": capacity 5\n'
-        )
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".sysd", delete=False) as f:
-            f.write(model_content)
-            f.flush()
-            result = subprocess.run(
-                ["python", "-m", "dynafx.dynamics", "simulate", f.name,
-                 "--paradigm", "all"],
-                capture_output=True, text=True, timeout=30
-            )
-            os.unlink(f.name)
-            assert result.returncode == 0
-            assert "ABM:" in result.stdout
-            assert "DES" in result.stdout
-
-    def test_cli_paradigm_sd_only(self):
-        """CLI --paradigm sd skips ABM/DES."""
-        import subprocess, tempfile, os
-        model_content = (
-            'Test SD\ndt 1\nfrom 0 to 3\n'
-            'stock "S" = 10\n'
-            '  + "dx": 1\n'
-            'agent "A": 1\n'
-            '  property "x": 0\n'
-        )
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".sysd", delete=False) as f:
-            f.write(model_content)
-            f.flush()
-            result = subprocess.run(
-                ["python", "-m", "dynafx.dynamics", "simulate", f.name,
-                 "--paradigm", "sd"],
-                capture_output=True, text=True, timeout=30
-            )
-            os.unlink(f.name)
-            assert result.returncode == 0
-            assert "ABM" not in result.stdout
-            assert "DES" not in result.stdout

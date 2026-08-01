@@ -1,0 +1,41 @@
+id,name,route,capacity_containers,speed_knots,current_port_id,next_port_id,transit_days
+SHIP_001,Maersk Artemis,asia_to_me,425,24.9,PORT_SHAN,PORT_HAMB,18
+SHIP_002,Maersk Aurora,asia_to_me,77,19.7,PORT_TRIP,PORT_JEDD,18
+SHIP_003,MSC Aurora,intra_europe,282,22.7,PORT_HAMB,PORT_DOHA,5
+SHIP_004,ONE Apollo,intra_europe,293,18.9,PORT_ALGI,PORT_DUBA,5
+SHIP_005,Maersk Crest,asia_to_me,307,14,PORT_SHAN,PORT_CASA,18
+SHIP_006,Evergreen Crest,asia_to_na,322,16.5,PORT_HAMB,PORT_TRIP,20
+SHIP_007,MSC Crown,intra_europe,177,26.7,PORT_TANG,PORT_ANTW,5
+SHIP_008,Yang Ming Comet,asia_to_europe,493,20.4,PORT_AQAB,PORT_TRIP,25
+SHIP_009,Evergreen Atlas,asia_to_na,245,15.9,PORT_DUBA,PORT_FELI,20
+SHIP_010,CMA CGM Crest,asia_to_europe,389,20.1,PORT_ANTW,PORT_ALGI,25
+SHIP_011,Maersk Cosmos,asia_to_me,283,21.9,PORT_DUBA,PORT_DUBA,18
+SHIP_012,COSCO Borealis,asia_to_europe,416,18.8,PORT_DAMM,PORT_DUBA,25
+SHIP_013,Hapag Apollo,asia_to_me,320,15.4,PORT_ALGI,PORT_TRIP,18
+SHIP_014,Maersk Apollo,intra_europe,306,21.9,PORT_DUBA,PORT_SHAN,5
+SHIP_015,Evergreen Atlas,asia_to_me,205,18.6,PORT_JEDD,PORT_VALE,18
+SHIP_016,COSCO Aurora,asia_to_europe,519,23.9,PORT_SHAN,PORT_CASA,25
+SHIP_017,Evergreen Crest,intra_europe,365,20.4,PORT_TRIP,PORT_DAMM,5
+SHIP_018,HMM Aurora,asia_to_me,241,17.8,PORT_CASA,PORT_DAMM,18
+SHIP_019,Evergreen Borealis,asia_to_europe,250,21.0,PORT_ALGI,PORT_TANG,25
+SHIP_020,ONE Artemis,asia_to_na,363,21.1,PORT_DUBA,PORT_JEDD,20
+SHIP_021,COSCO Crest,intra_europe,175,15.0,PORT_VALE,PORT_MUSC,5
+SHIP_022,CMA CGM Crown,asia_to_me,258,19.2,PORT_DUBA,PORT_MUSC,18
+SHIP_023,Maersk Atlas,asia_to_me,301,20.9,PORT_FELI,PORT_MUSC,18
+SHIP_024,CMA CGM Crown,asia_to_na,40,18.9,PORT_TRIP,PORT_ALEX,20
+SHIP_025,ONE Cosmos,intra_europe,249,23.1,PORT_PIRA,PORT_DAMM,5
+SHIP_026,HMM Celeste,asia_to_na,175,21.5,PORT_CASA,PORT_TRIP,20
+SHIP_027,Evergreen Cosmos,asia_to_europe,398,18.3,PORT_JEDD,PORT_VALE,25
+SHIP_028,HMM Crest,asia_to_na,107,22.9,PORT_JEDD,PORT_DAMM,20
+SHIP_029,Evergreen Borealis,intra_europe,136,17.4,PORT_DUBA,PORT_CASA,5
+SHIP_030,HMM Crown,asia_to_na,107,21.3,PORT_DOHA,PORT_ROTT,20
+SHIP_031,Yang Ming Crown,asia_to_europe,266,27,PORT_MUSC,PORT_ALEX,25
+SHIP_032,Evergreen Comet,asia_to_na,272,21.2,PORT_PIRA,PORT_FELI,20
+SHIP_033,CMA CGM Borealis,asia_to_europe,227,24.4,PORT_ALEX,PORT_DUBA,25
+SHIP_034,ZIM Atlas,intra_europe,153,19.8,PORT_JEDD,PORT_ROTT,5
+SHIP_035,COSCO Borealis,asia_to_europe,467,19.8,PORT_AQAB,PORT_DAMM,25
+SHIP_036,Yang Ming Comet,asia_to_me,216,15.2,PORT_HAMB,PORT_FELI,18
+SHIP_037,Maersk Crown,asia_to_na,448,27,PORT_HAMB,PORT_JEDD,20
+SHIP_038,HMM Atlas,asia_to_na,287,19.5,PORT_SHAN,PORT_ALEX,20
+SHIP_039,Yang Ming Atlas,asia_to_europe,267,18.8,PORT_FELI,PORT_ALGI,25
+SHIP_040,Maersk Cosmos,intra_europe,348,19.2,PORT_AQAB,PORT_TUNI,5

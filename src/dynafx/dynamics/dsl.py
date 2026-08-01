@@ -898,6 +898,9 @@ class SysdModel:
                 des_metrics = des_engine.step(max(t0, 0.0), actual_step)
                 des_metrics_history.append(dict(des_metrics))
                 step_params = {**params, **des_metrics}
+                # Mirror the ABM merge (line above) so params_history — and the
+                # post-hoc aux replay that reads it — sees current DES metrics.
+                params.update(des_metrics)
             else:
                 step_params = params
 
@@ -1700,7 +1703,6 @@ def _make_kb_builtins(kb_store: Any = None) -> dict[str, Any]:
             "KB_ASSERT": lambda s="", p="", o="", belief=1.0, graph="simulation": 0.0,
         }
 
-    from dynafx.core.models import Opinion as _Opinion
     from dynafx.knowledge.model import (
         BlankNode as _BlankNode,
     )
@@ -1761,7 +1763,7 @@ def _make_kb_builtins(kb_store: Any = None) -> dict[str, Any]:
         s_node = _resolve_kb_node(s)
         p_node = _resolve_kb_node(p)
         o_node = _resolve_kb_node(o, force_literal=True)
-        triple = _Triple(s_node, p_node, o_node, opinion=_Opinion(belief, 1.0 - belief, 0.0))
+        triple = _Triple(s_node, p_node, o_node)
         kb_store.add(triple, graph=graph)
         return 1.0
 

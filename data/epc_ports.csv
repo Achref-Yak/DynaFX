@@ -1,0 +1,20 @@
+id,name,region,country,capacity_per_day,is_chokepoint
+PORT_ROTT,Rotterdam,europe,Rotterdam,1982,0
+PORT_ANTW,Antwerp,europe,Antwerp,300,0
+PORT_HAMB,Hamburg,europe,Hamburg,455,0
+PORT_VALE,Valencia,europe,Valencia,1500,0
+PORT_PIRA,Piraeus,europe,Piraeus,1831,0
+PORT_FELI,Felixstowe,europe,Felixstowe,2010,0
+PORT_TANG,Tangier,na,Tangier,2546,0
+PORT_CASA,Casablanca,na,Casablanca,2126,0
+PORT_ALGI,Algiers,na,Algiers,3759,0
+PORT_TUNI,Tunis,na,Tunis,1689,0
+PORT_TRIP,Tripoli,na,Tripoli,1465,0
+PORT_ALEX,Alexandria,na,Alexandria,3075,0
+PORT_DUBA,Dubai,me,Dubai,657,0
+PORT_DAMM,Dammam,me,Dammam,2968,0
+PORT_MUSC,Muscat,me,Muscat,2623,0
+PORT_AQAB,Aqaba,me,Aqaba,2323,0
+PORT_JEDD,Jeddah,me,Jeddah,4406,0
+PORT_DOHA,Doha,me,Doha,1753,0
+PORT_SHAN,Shanghai (Shanghai),asia,Shanghai,4972,1

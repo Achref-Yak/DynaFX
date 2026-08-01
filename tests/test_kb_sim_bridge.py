@@ -2,7 +2,6 @@
 
 from dynafx.knowledge.model import NamedNode, Literal, Triple, TriplePattern
 from dynafx.knowledge.store import TripleStore
-from dynafx.core.models import Opinion
 from dynafx.dynamics.dsl import (
     parse_sysd, SysdModel, AgentDef, AgentPropDef, AgentRuleDef, AgentStrategy,
 )
@@ -19,10 +18,9 @@ O = Literal(42.0)
 
 def _store_with_triples() -> TripleStore:
     store = TripleStore()
-    store.add(Triple(S, P, O, opinion=Opinion(0.9, 0.05, 0.05)), graph="source_a")
+    store.add(Triple(S, P, O), graph="source_a")
     store.add(
-        Triple(S, NamedNode(f"{NS}other"), Literal("hello"),
-               opinion=Opinion(0.8, 0.1, 0.1)),
+        Triple(S, NamedNode(f"{NS}other"), Literal("hello")),
         graph="source_a",
     )
     return store
@@ -204,9 +202,6 @@ def test_kb_assert_abm_effect():
             TriplePattern(subject=subj, predicate=pred, object_=None), graph=g
         ):
             found = True
-            if t.opinion:
-                assert abs(t.opinion.belief - 0.9) < 1e-6, \
-                    f"Expected belief 0.9, got {t.opinion.belief}"
     assert found, "KB_ASSERT triple not found in store"
 
 
@@ -249,8 +244,8 @@ def test_bridge_params_from_kb():
     ]
     params = bridge.params_from_kb(claim_map)
     assert "param_x" in params
-    assert abs(params["param_x"] - 0.9) < 1e-6, \
-        f"Expected 0.9, got {params['param_x']}"
+    assert abs(params["param_x"] - 42.0) < 1e-6, \
+        f"Expected 42.0, got {params['param_x']}"
 
 
 def test_bridge_params_from_kb_default():
@@ -290,8 +285,7 @@ def test_bridge_evidence_from_result():
     t = triples[0]
     assert t.subject == S
     assert t.predicate == P
-    assert t.opinion is not None
-    assert t.opinion.belief > 0.0
+    assert t is not None
 
 
 def test_bridge_run_with_kb():
@@ -379,7 +373,6 @@ def test_kb_query_template_multiple_subjects():
     store = _store_with_triples()
     store.add(Triple(
         NamedNode(f"{NS}other_subj"), P, Literal(77.0),
-        opinion=Opinion(0.9, 0.05, 0.05),
     ), graph="source_a")
     template = f"SELECT ?v WHERE {{ <$subject> <{NS_P_IRI}> ?v }}"
 
@@ -429,11 +422,9 @@ def test_kb_query_template_in_abm_condition():
     store = TripleStore()
     store.add(Triple(
         NamedNode(f"{NS}agent_1"), NamedNode(f"{NS}status"), Literal("critical"),
-        opinion=Opinion(0.9, 0.05, 0.05),
     ), graph="g")
     store.add(Triple(
         NamedNode(f"{NS}agent_2"), NamedNode(f"{NS}status"), Literal("normal"),
-        opinion=Opinion(0.9, 0.05, 0.05),
     ), graph="g")
 
     template = f"ASK {{ <$subject> <{NS}status> \"critical\" }}"
@@ -532,8 +523,6 @@ def test_bridge_evidence_for_stock_percentile():
 
     triple = bridge.evidence_for_stock("X", S, P, result, method="percentile")
     assert triple is not None
-    assert triple.opinion is not None
-    assert 0.0 <= triple.opinion.belief <= 1.0
 
 
 def test_bridge_evidence_for_stock_delta():
@@ -552,7 +541,6 @@ def test_bridge_evidence_for_stock_delta():
 
     triple = bridge.evidence_for_stock("X", S, P, result, method="delta")
     assert triple is not None
-    assert 0.0 <= triple.opinion.belief <= 1.0
 
 
 def test_bridge_evidence_for_stock_threshold():
@@ -572,7 +560,6 @@ def test_bridge_evidence_for_stock_threshold():
     triple = bridge.evidence_for_stock("X", S, P, result, method="threshold",
                                        threshold=50)
     assert triple is not None
-    assert triple.opinion.belief in (0.0, 1.0)
 
 
 def test_bridge_load_queries(tmp_path):

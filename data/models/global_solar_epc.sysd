@@ -1,0 +1,171 @@
+// Global Solar EPC Supply Chain — Multi-Project SD+ABM+DES Model
+// 3 regions: Europe, North Africa, Middle East
+// Disruption-aware: typhoon gates Asian port outflow
+
+dt 0.25
+from 0 to 365
+
+// ── Parameters (override-able at runtime via KB) ──
+aux total_capacity: 420.0                        // MW across 47 projects
+aux base_supply_rate: 2500.0                     // panels/day global (for 420MW)
+aux panels_per_mw: 2000.0                        // panels per MW
+aux europe_allocation: 0.40                      // fraction to Europe
+aux na_allocation: 0.35                          // fraction to North Africa
+aux me_allocation: 0.25                          // fraction to Middle East
+aux panel_cost: 0.15                             // $K/panel
+aux labor_cost: 0.08                             // $K/panel
+aux penalty_per_day: 200.0                       // $K/day flat penalty
+aux revenue_per_mw: 3100.0                       // $K/MW
+aux port_capacity: 3000.0                        // containers/day Asia port
+aux shipping_days_eu: 25.0                       // Asia→Europe transit days
+aux shipping_days_na: 20.0                        // Asia→NA transit days
+aux shipping_days_me: 18.0                       // Asia→ME transit days
+aux crew_productivity: 500.0                     // panels/crew/day
+aux crews_europe: 40.0
+aux crews_na: 30.0
+aux crews_me: 20.0
+aux disruption_start_day: 999.0                  // when typhoon hits (default: never)
+aux disruption_duration: 14.0                    // how long port stays closed
+aux disruption_severity: 0.85                    // 0..1 how bad
+
+// ── KB_QUERY auxes (SPARQL strings passed as params at runtime) ──
+aux kb_disruption_active: KB_QUERY(disruption_q)
+aux kb_supplier_reliability: KB_QUERY(supplier_q)
+aux kb_projects_at_risk: KB_QUERY(projects_q)
+
+// ── Disruption logic (time-based from KB parameters) ──
+aux disruption_active: STEP(1, disruption_start_day) - STEP(1, disruption_start_day + disruption_duration)
+aux disruption_mult: 1.0 - disruption_active * disruption_severity
+
+// ── Supply chain auxes ──
+aux total_panels: total_capacity * panels_per_mw
+aux eu_target: total_panels * europe_allocation
+aux na_target: total_panels * na_allocation
+aux me_target: total_panels * me_allocation
+aux eu_inbound_raw: asia_outflow_rate * europe_allocation
+aux na_inbound_raw: asia_outflow_rate * na_allocation
+aux me_inbound_raw: asia_outflow_rate * me_allocation
+aux eu_inbound: SMOOTH(eu_inbound_raw, shipping_days_eu)
+aux na_inbound: SMOOTH(na_inbound_raw, shipping_days_na)
+aux me_inbound: SMOOTH(me_inbound_raw, shipping_days_me)
+
+// ── Regional construction auxes ──
+aux eu_install: MIN(Europe_Warehouse / dt, MAX(0, crew_productivity * crews_europe * (1.0 - disruption_active * 0.3 * disruption_severity)))
+aux na_install: MIN(NA_Warehouse / dt, MAX(0, crew_productivity * crews_na * (1.0 - disruption_active * 0.25 * disruption_severity)))
+aux me_install: MIN(ME_Warehouse / dt, MAX(0, crew_productivity * crews_me * (1.0 - disruption_active * 0.2 * disruption_severity)))
+
+// ── Financial auxes ──
+aux install_total: eu_install + na_install + me_install
+aux   revenue_rate: install_total * revenue_per_mw / panels_per_mw
+aux cost_rate: install_total * (panel_cost + labor_cost)
+aux completion_pct: (Europe_Construction + NA_Construction + ME_Construction) / MAX(1, total_panels)
+aux delay_days: MAX(0, t - 365) * IF(completion_pct < 0.99, 1.0, 0.0)
+aux penalty_rate: delay_days * penalty_per_day
+aux margin: (Portfolio_Revenue - Portfolio_Cost) / MAX(1, Portfolio_Revenue)
+
+// ── Regional KPI auxes ──
+aux eu_completion: Europe_Construction / MAX(1, eu_target)
+aux na_completion: NA_Construction / MAX(1, na_target)
+aux me_completion: ME_Construction / MAX(1, me_target)
+aux inventory_days_eu: Europe_Warehouse / MAX(1, eu_install)
+aux inventory_days_na: NA_Warehouse / MAX(1, na_install)
+aux inventory_days_me: ME_Warehouse / MAX(1, me_install)
+aux portfolio_health: completion_pct * 0.5 + (1.0 - penalty_rate / MAX(1, revenue_rate + penalty_rate)) * 0.3 + kb_supplier_reliability * 0.2
+
+// ── Flow rate auxes (shared between stocks — cross-stock refs require auxes) ──
+aux supply_to_port_rate: MIN(Global_Panel_Supply / dt, port_capacity * disruption_mult * kb_supplier_reliability)
+aux asia_outflow_rate: MIN(Asia_Shipping_Buffer / dt, port_capacity * disruption_mult * kb_supplier_reliability)
+aux production_rate: base_supply_rate * kb_supplier_reliability
+aux returned_panels_rate: 0.0
+
+// ── Stocks (11) ──
+stock Global_Panel_Supply: 5000
+  + production: production_rate
+  - supply_to_port: supply_to_port_rate
+
+stock Asia_Shipping_Buffer: 200
+  + supply_to_port: supply_to_port_rate
+  + returned_panels: returned_panels_rate
+  - asia_outflow: asia_outflow_rate
+
+stock Europe_Warehouse: 1000
+  + eu_inbound
+  - eu_install
+
+stock NA_Warehouse: 800
+  + na_inbound
+  - na_install
+
+stock ME_Warehouse: 600
+  + me_inbound
+  - me_install
+
+stock Europe_Construction: 0
+  + eu_install
+
+stock NA_Construction: 0
+  + na_install
+
+stock ME_Construction: 0
+  + me_install
+
+stock Portfolio_Revenue: 0
+  + revenue_rate
+
+stock Portfolio_Cost: 0
+  + cost_rate
+
+stock Penalty_Accrual: 0
+  + penalty_rate
+
+// ── DES Queues ──
+queue "Asia_Shipping": capacity 1000, service_time 0.5, servers 5, event_driven
+  arrival_rate MAX(0, supply_to_port_rate)
+
+queue "Europe_Receiving": capacity 500, service_time 2.0, servers 3, event_driven
+  arrival_rate MAX(0, eu_inbound_raw * 0.1)
+
+queue "NA_Receiving": capacity 400, service_time 2.0, servers 2, event_driven
+  arrival_rate MAX(0, na_inbound_raw * 0.1)
+
+queue "ME_Receiving": capacity 300, service_time 2.0, servers 2, event_driven
+  arrival_rate MAX(0, me_inbound_raw * 0.1)
+
+queue "Quality_Inspection": capacity 50, service_time 0.5, servers 4
+  arrival_rate install_total * 0.05
+
+resource "DockWorkers": capacity 50
+resource "Inspectors": capacity 10
+resource "LogisticsStaff": capacity 100
+
+// ── ABM Agents ──
+agent "Supplier": 10
+  network "small-world"
+  property "reliability": 0.90 min=0.2 max=1.0
+  property "region": 0 min=0 max=2
+  property "active": 1 min=0 max=1
+  rule "disrupted": kb_disruption_active > 0
+    reliability = MAX(0.2, reliability - 0.12 * disruption_severity)
+    active = MAX(0, active - 0.1)
+  rule "recover": kb_disruption_active == 0 and reliability < 0.85
+    reliability = MIN(0.90, reliability + 0.015)
+    active = MIN(1, active + 0.05)
+  rule "report": always
+    KB_ASSERT("http://epc.org/Supplier", "http://epc.org/reliability", reliability)
+    KB_ASSERT("http://epc.org/Supplier", "http://epc.org/active", active)
+
+agent "ProjectManager": 3
+  network "complete"
+  property "region": 0 min=0 max=2
+  property "progress": 0.0 min=0.0 max=1.0
+  property "crew_available": 1.0 min=0.5 max=1.0
+  property "penalty_risk": 0.0 min=0.0 max=1.0
+  rule "track_progress": always
+    progress = IF(region == 0, eu_completion, IF(region == 1, na_completion, me_completion))
+    penalty_risk = IF(progress < 0.5 and t > 180, 0.3, IF(progress < 0.8 and t > 300, 0.6, 0.0))
+  rule "reallocate_during_disruption": kb_disruption_active > 0 and crew_available > 0.6
+    crew_available = MAX(0.5, crew_available - 0.1)
+  rule "restore_after_disruption": kb_disruption_active == 0 and crew_available < 1.0
+    crew_available = MIN(1.0, crew_available + 0.05)
+  rule "report": always
+    KB_ASSERT("http://epc.org/ProjectManager", "http://epc.org/penaltyRisk", penalty_risk)
