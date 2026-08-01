@@ -54,9 +54,9 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Achref-Yak/reasoning_engine"
-Repository = "https://github.com/Achref-Yak/reasoning_engine"
-Documentation = "https://github.com/Achref-Yak/reasoning_engine#readme"
+Homepage = "https://github.com/Achref-Yak/DynaFX"
+Repository = "https://github.com/Achref-Yak/DynaFX"
+Documentation = "https://github.com/Achref-Yak/DynaFX#readme"
 
 [tool.setuptools.package-data]
 dynafx = ["default_priors.json"]
