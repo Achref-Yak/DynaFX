@@ -6,8 +6,9 @@
 [![Code style](https://img.shields.io/badge/code%20style-ruff-000000)](https://docs.astral.sh/ruff/)
 [![Pyright](https://img.shields.io/badge/types-pyright-6A1B4D)](https://github.com/microsoft/pyright)
 [![pytest](https://img.shields.io/badge/tests-1028-passing-2ea44f)](https://github.com/Achref-Yak/DynaFX/actions)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://achref-yak.github.io/DynaFX/)
 
-System dynamics, agent-based, and discrete-event simulation framework with an RDF/OWL/SPARQL cognitive reasoning layer. Build SD + ABM + DES models in Python or a single `.sysd` file, connect them to knowledge graphs via `KB_QUERY`, and generate self-contained Plotly dashboards.
+System dynamics, agent-based, and discrete-event simulation framework with an RDF/OWL/SPARQL knowledge engine. Build SD + ABM + DES models in Python or a single `.sysd` file, connect them to knowledge graphs via `KB_QUERY`, and close the loop when simulation results come back as evidence triples.
 
 The KB and the simulation are one living system: knowledge graph → parameters → multi-paradigm simulation → evidence triples → rules/optimization — closed-loop digital twins from visibility (L1) to autonomy (L5).
 
@@ -27,13 +28,14 @@ The KB and the simulation are one living system: knowledge graph → parameters 
 | Causal tracing (`causes_tree`, `effects_tree`, `causal_trace`, `causes_strip`) | Stable |
 | Feedback loop detection (`detect_feedback_loops`, `loops_for_variable`) | Stable |
 | Linear programming optimization (scipy.optimize.linprog) | Stable |
+| Pareto optimization (`pareto_optimize`) | Stable |
 | Sensitivity analysis (uniform / normal / lognormal ensembles) | Stable |
 | Units checking (`~Unit~` syntax) | Stable |
 | Submodels / module include system | Stable |
 | CSV import / export (interpolated lookups) | Stable |
 | Scenario comparison (tornado, deviation, summary tables) | Stable |
 | CompiledSystem caching (~25x speedup via pre-compiled code objects) | Stable |
-| Stock / flow ontology (MATERIAL / INFORMATION / FINANCIAL) | Stable |
+| BFO-based stock / flow ontology (MATERIAL / INFORMATION / FINANCIAL) | Stable |
 | Model validation (name resolution, flow conservation, bounds) | Stable |
 | Python API model construction (`SysdModel`, `StockDef`, `FlowDef`, `AuxDef`) | Stable |
 | Plotting API (`.plot()`, `.plot_with_bands()`) | Stable |
@@ -72,7 +74,6 @@ The KB and the simulation are one living system: knowledge graph → parameters 
 | Unified state dict (SD + ABM + DES write to same namespace) | Stable |
 | SD + ABM + DES in a single `.sysd` file | Stable |
 | DES queues read ABM agent properties / SD aux values | Stable |
-| CLI with `--paradigm` and `--stats` flags | Stable |
 | `KBSimBridge` — KB-to-simulation parameter extraction + mid-flight `KB_QUERY` + post-flight evidence triples | Stable |
 | `ClosedLoopReasoner` — multi-pass reasoning-simulation cycles | Stable |
 | KB→Sim→Evidence loop — live KB mutation mid-run + evidence round-trip (L1–L5) | Stable |
@@ -87,18 +88,11 @@ The KB and the simulation are one living system: knowledge graph → parameters 
 | SPARQL query parser and evaluator (SELECT, FILTER, DISTINCT, LIMIT, OFFSET) | Stable |
 | RDFS inference (7 rules: subClassOf, subPropertyOf, domain, range, etc.) | Stable |
 | OWL RL inference (4 rules: equivalentClass, equivalentProperty, inverseOf, TransitiveProperty) | Stable |
+| TBox / OWL2-style type hierarchy (`TypeHierarchy`, `load_tbox`) | Stable |
 | Production rules (5 condition types, 5 action types, fire-once, priority) | Stable |
 | CSV ingestion (`ingest_csv`) with YAML mapping files | Stable |
 | Transaction log (append-only temporal store) | Stable |
 | Execution provenance tracking | Stable |
-
-### Dashboarding
-
-| Feature | Status |
-|---------|--------|
-| Self-contained single-file Plotly HTML (no server) | Stable |
-| Supply chain digital twin dashboard (L1-L5, solar EPC) | Stable |
-| Scenario comparison, OAT sensitivity, causal strip, feedback loop charts | Stable |
 
 ### Patterns
 
@@ -167,16 +161,18 @@ print(f"Baseline profit: ${profit:,.0f}K")   # $931,425K
 ### Knowledge Graph Pipeline
 
 ```python
-from dynafx.knowledge import parse_turtle, TripleStore
-from dynafx.epistemics import compute_kbt, build_framework
+from dynafx.knowledge import parse_turtle, TripleStore, RuleEngine, rdfs_rules
 
 store = TripleStore()
 for t in parse_turtle(turtle_string).triples():
     store.add(t, graph="source_a")
 
-kbt = compute_kbt(store, ["source_a", "source_b"])
-af = build_framework(store, ["source_a", "source_b"])
-accepted = af.compute_grounded()
+# RDFS inference derives new type facts from the ontology
+RuleEngine(rdfs_rules()).apply(store)
+
+# ASK / SELECT queries
+from dynafx.knowledge import sparql_evaluate, parse_sparql
+qr = sparql_evaluate(parse_sparql("SELECT ?v WHERE { ?s <http://epc.org/reliability> ?v }"), store)
 ```
 
 ## Examples
@@ -207,7 +203,7 @@ All demo resources live under `data/`: datasets (`data/epc_*.csv`), ontology (`d
 pytest tests/ -q
 ```
 
-1028 tests covering the SD engine, ABM engine, DES engine, KB engine, epistemics (KBT, argumentation, evidence matrix), CSV ingestion, sensitivity, optimization, and production rules.
+1028 tests covering the SD engine, ABM engine, DES engine, KB engine (RDF model, TripleStore, Turtle, SPARQL, inference, TBox, production rules, transactions, CSV ingestion), sensitivity, optimization, and the cross-paradigm bridge.
 
 ---
 
@@ -221,31 +217,33 @@ pytest tests/ -q
        │          │              │              │
        ▼          ▼              ▼              ▼
 ┌────────────┐ ┌────────┐ ┌──────────┐ ┌────────────┐
-│  dynamics/ │ │knowledge│ │epistemics│ │  patterns/ │
-│  SD + ABM  │ │ RDF    │ │ SL       │ │SignalChain │
-│  + DES     │ │ SPARQL │ │ KBT      │ │Disruption  │
-│  Causal    │ │ Turtle │ │Argument  │ │Cascade     │
-│  Feedback  │ │ Inf    │ │Evidence  │ │            │
-│  Opt/LP    │ │ Prod   │ │Matrix    │ │            │
-│  Scenario  │ │ Tx/Exec│ │          │ │            │
-└──────┬─────┘ └───┬────┘ └────┬─────┘ └──────┬─────┘
-       │            │          │               │
-       └────────────┴──────────┴───────────────┘
+│  dynamics/ │ │knowledge│ │ patterns/│ │  core/     │
+│  SD + ABM  │ │ RDF    │ │SignalChain│ │ Models     │
+│  + DES     │ │ SPARQL │ │Disruption │ │ Graph      │
+│  Causal    │ │ Turtle │ │Cascade    │ │ BFO        │
+│  Feedback  │ │ Inf    │ │           │ │ Decomposer │
+│  Opt/LP    │ │ TBox   │ │           │ │            │
+│  Scenario  │ │ Prod   │ │           │ │            │
+└──────┬─────┘ └───┬────┘ └──────┬─────┘ └──────┬─────┘
+       │            │            │               │
+       └────────────┴────────────┴───────────────┘
                         │
                    ┌────▼────┐
-                   │  core/  │
-                   │ Models  │
-                   │ Graph   │
-                   │ Opinion │
+                   │ bridge/ │  (KBSimBridge ties the pillars)
                    └─────────┘
 ```
 
-- **`core/`** — foundational data models: `Opinion`, `Graph`, `Node`, `Edge`, `SystemDecomposer`
-- **`dynamics/`** — SD + ABM + DES simulation engine, causal tracing, feedback detection, sensitivity analysis, LP optimization, scenario comparison, units checking, equation compiler with `CompiledSystem` caching
-- **`knowledge/`** — RDF triple store, Turtle parser, SPARQL evaluator, RDFS/OWL RL inference, production rules, CSV ingestion via YAML mappings, transaction log, execution provenance
-- **`epistemics/`** — Subjective Logic operators, KBT source reliability (EM), Dung argumentation (grounded/preferred), evidence matrix
+- **`core/`** — foundational data models: `Graph`, `Node`, `Edge`, `Entity`, `WorldRelation`, BFO categories, `SystemDecomposer`
+- **`dynamics/`** — SD + ABM + DES simulation engine, causal tracing, feedback detection, sensitivity analysis, LP/Pareto optimization, scenario comparison, units checking, equation compiler with `CompiledSystem` caching
+- **`knowledge/`** — RDF triple store, Turtle parser, SPARQL evaluator, RDFS/OWL RL inference, TBox/type hierarchy, production rules, CSV ingestion via YAML mappings, transaction log, execution provenance
 - **`patterns/`** — reusable model factories: `SignalChain`, `DisruptionCascade`
-- **`bridge.py`** — `KBSimBridge` connects all pillars: KB→param extraction, mid-flight `KB_QUERY`, post-flight evidence triples
+- **`bridge.py`** — `KBSimBridge` connects the pillars: KB→param extraction, mid-flight `KB_QUERY`, post-flight evidence triples
+
+---
+
+## Documentation
+
+Full documentation is hosted on GitHub Pages: [achref-yak.github.io/DynaFX](https://achref-yak.github.io/DynaFX/)
 
 ---
 

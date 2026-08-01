@@ -1,16 +1,13 @@
 PYTHON = python3.12
 PYTHONPATH = src
 
-.PHONY: test test-v run clean
+.PHONY: test test-v clean
 
 test:
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m pytest tests/ -q --tb=short
 
 test-v:
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m pytest tests/ -v
-
-run:
-	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m cognitive_engine.system $(FILE)
 
 clean:
 	rm -rf .pytest_cache __pycache__

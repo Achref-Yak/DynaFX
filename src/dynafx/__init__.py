@@ -1,8 +1,9 @@
-"""DynaFX — systems thinking framework with four pillars:
+"""DynaFX — systems thinking framework:
 
   Dynamics     System Dynamics, Agent-Based Modeling, Discrete Event Simulation
   Knowledge    RDF/OWL/SPARQL triple store
-  Epistemics   Subjective Logic algebra, evidence matrix, argumentation, KBT
+  Bridge       KB <-> simulation glue (params, KB_QUERY, evidence, rules)
+  Patterns     Reusable cross-paradigm model factories
   Core         Foundational data models (Graph, Node, Edge, etc.)
 
 Quick start::
@@ -44,34 +45,29 @@ from dynafx.dynamics.optimization import (
 from dynafx.knowledge import TripleStore, parse_turtle
 
 __all__ = [
-    # SD / multi-paradigm
-    "SysdModel",
-    "SysdModelResult",
-    "parse_sysd",
-    "parse_sysd_file",
-    "causal_trace",
-    "detect_feedback_loops",
+    "ClosedLoopReasoner",
+    "ClosedLoopResult",
+    "KBSimBridge",
+    "ParetoResult",
+    "ReasoningPass",
     "ScenarioComparison",
     "ScenarioDef",
-    # Optimization
-    "lp_minimize",
-    "lp_maximize",
+    "SysdModel",
+    "SysdModelResult",
+    "TripleStore",
     "calibrate",
+    "causal_trace",
+    "detect_feedback_loops",
+    "grade_queries",
+    "kb_calibrate",
+    "kb_lp_maximize",
+    "kb_lp_minimize",
+    "kb_optimize",
+    "lp_maximize",
+    "lp_minimize",
     "optimize",
     "pareto_optimize",
-    "ParetoResult",
-    # KB-constrained optimization
-    "kb_lp_minimize",
-    "kb_lp_maximize",
-    "kb_calibrate",
-    "kb_optimize",
-    # Knowledge base
-    "TripleStore",
+    "parse_sysd",
+    "parse_sysd_file",
     "parse_turtle",
-    # Bridge
-    "KBSimBridge",
-    "ClosedLoopReasoner",
-    "ReasoningPass",
-    "ClosedLoopResult",
-    "grade_queries",
 ]
