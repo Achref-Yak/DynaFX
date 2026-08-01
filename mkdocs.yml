@@ -19,6 +19,18 @@ nav:
   - Architecture: architecture.md
   - Scientific Foundations: foundations.md
   - Open Research Problems: open-problems.md
+  - Tutorials:
+      - Tutorials: tutorials/index.md
+      - 1. Hello World: tutorials/01-hello-world.md
+      - 2. System Dynamics: tutorials/02-system-dynamics.md
+      - 3. Agent-Based Modeling: tutorials/03-agent-based-modeling.md
+      - 4. Discrete-Event Simulation: tutorials/04-discrete-event-simulation.md
+      - 5. Knowledge Graphs: tutorials/05-knowledge-graph.md
+      - 6. Semantic Queries: tutorials/06-semantic-queries.md
+      - 7. Closed-Loop Twin: tutorials/07-closed-loop-twin.md
+      - 8. Scenarios & Sensitivity: tutorials/08-scenarios-and-sensitivity.md
+      - 9. Custom Ontology: tutorials/09-custom-ontology.md
+      - 10. Publishing Results: tutorials/10-publishing-results.md
   - Knowledge Base: knowledge.md
   - Digital Twin: digital-twin.md
   - Examples: examples.md
