@@ -2,7 +2,7 @@
 import os
 import pytest
 
-MODELS_DIR = os.path.join(os.path.dirname(__file__), "..", "models")
+MODELS_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "models")
 
 
 @pytest.fixture

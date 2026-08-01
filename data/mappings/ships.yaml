@@ -1,0 +1,34 @@
+prefixes:
+  epc: "http://epc.org/"
+  xsd: "http://www.w3.org/2001/XMLSchema#"
+  rdf: "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+csv: "epc_ships.csv"
+target_graph: "http://epc.org/graphs/logistics"
+entity:
+  class: "epc:Ship"
+  id_column: "id"
+  id_prefix: "epc:"
+columns:
+  name:
+    predicate: "epc:name"
+    type: string
+  route:
+    predicate: "epc:route"
+    type: string
+  capacity_containers:
+    predicate: "epc:capacityContainers"
+    type: integer
+  speed_knots:
+    predicate: "epc:speedKnots"
+    type: float
+  current_port_id:
+    predicate: "epc:currentPort"
+    type: iri
+    iri_prefix: "epc:"
+  next_port_id:
+    predicate: "epc:nextPort"
+    type: iri
+    iri_prefix: "epc:"
+  transit_days:
+    predicate: "epc:transitDays"
+    type: integer

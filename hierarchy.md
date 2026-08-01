@@ -13,30 +13,18 @@
 │   ├── cumulative_fusion, EvidenceMatrix
 │   └── ScenarioComparison, causalcross_trace, detect_feedback_loops
 │
-├── 0.2  CLI (__main__.py)
-│   ├── simulate  — run model and print final stock values
-│   ├── validate  — name resolution / conservation / bounds checks
-│   └── list      — enumerate library models
-│
-├── 0.3  Domain Configuration (domain.py)
+├── 0.2  Domain Configuration (domain.py)
 │   └── reasoning parameter tuning via contextvars
 │
-├── 0.4  Plugin Registry (registry.py)
+├── 0.3  Plugin Registry (registry.py)
 │   └── custom builtins and DES hook registration
 │
-├── 0.5  Example Scripts (31 scripts)
-│   ├── Multi-paradigm: ev_battery_supply_chain, pandemic_response, food_delivery
-│   ├── Supply chain: supply_chain_demo, supply_chain_paradigm, logistics
-│   ├── Signal models: saas_churn_signal, signal_showcase, telecom_signal_study
-│   ├── KB reasoning: kb_showcase, argumentation_showcase, knowledge_fusion
-│   ├── SD demos: epidemic, seasonal_epidemic, harmonic_oscillator, full_showcase
-│   └── Emergence: higraph_and_emergence, adaptive_detection
+├── 0.4  Example Scripts (1 script)
+│   └── Supply chain twin: global_solar_epc_twin (L1-L5, SD+ABM+DES+KB)
 │
-└── 0.6  Model Library (29 .sysd models)
-    ├── SD-only: bass_diffusion, sir, epidemic_seir, climate_carbon, world3
-    ├── SD+ABM+DES: pandemic_response, call_center_abm_des, ev_battery_supply_chain
-    ├── Signal chains: saas_churn_signal, telecom_signal_study, student_math
-    └── Supply chain: supply_chain, vmi, reverse_logistics, cold_chain
+└── 0.5  Model Library (5 .sysd models)
+    ├── Supply chain twin: global_solar_epc
+    └── Library fixtures: vmi, reverse_logistics, cold_chain, supply_chain_demo
 ```
 
 ---
@@ -481,8 +469,7 @@
 │
 └── Makefile
     ├── test — pytest
-    ├── typecheck — pyright
-    └── run — CLI entrypoint
+    └── typecheck — pyright
 ```
 
 ---

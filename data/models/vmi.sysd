@@ -1,0 +1,27 @@
+model 'VMI_SupplyChain'
+  dt 1
+  from 0 to 200
+
+  aux base_demand: 500
+  aux safety_stock: 500
+  aux reorder_point: 2000
+  aux target_inventory: 2500
+  aux smoothing_time: 4
+  aux shipping_delay: 3
+
+  aux supplier_production_rate: 800
+
+  aux retailer_demand_smoothed: SMOOTH(base_demand, smoothing_time)
+
+  aux supplier_order: MAX(0, (target_inventory - Supplier_Inventory) / smoothing_time + retailer_demand_smoothed)
+  aux supplier_shipment: CONVEY_BATCH(supplier_order, shipping_delay, 200)
+
+  aux retail_replenishment: CONVEY_BATCH(MAX(0, target_inventory - Retailer_Inventory), shipping_delay, 200)
+
+  stock 'Supplier_Inventory': 3000
+    + 'production': MIN(supplier_production_rate, 5000)
+    - 'to_retailer': MIN(Supplier_Inventory, retail_replenishment)
+
+  stock 'Retailer_Inventory': 2000
+    + 'from_supplier': supplier_shipment
+    - 'sales': MIN(Retailer_Inventory, base_demand)

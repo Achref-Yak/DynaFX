@@ -4,7 +4,7 @@
 
 ```bash
 # Clone and enter the repo
-git clone https://github.com/Achref-Yak/reasoning_engine.git
+git clone https://github.com/Achref-Yak/DynaFX.git
 cd reasoning_engine
 
 # Create virtual environment

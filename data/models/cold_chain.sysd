@@ -1,0 +1,21 @@
+model 'ColdChain'
+  dt 0.25
+  from 0 to 100
+
+  aux inbound_rate: 200
+  aux spoilage_rate: 0.05
+  aux temp_deviation: 0
+  aux quality_decay: 0.02 + temp_deviation * 0.01
+  aux spoilage_flow: Cold_Inventory * spoilage_rate * (1 - Quality_Index)
+  aux outflow_rate: 180
+
+  aux effective_quality: MAX(0, MIN(1, 1 - spoilage_flow * 0.001 - quality_decay * dt))
+  'Quality_Index': SMOOTH(effective_quality, 2)
+
+  stock 'Cold_Inventory': 5000
+    + 'inbound': inbound_rate
+    - 'spoilage': spoilage_flow
+    - 'outbound': MIN(Cold_Inventory, outflow_rate)
+
+  stock 'Spoilage': 0
+    + 'spoiled': spoilage_flow

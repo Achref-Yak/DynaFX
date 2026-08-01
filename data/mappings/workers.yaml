@@ -1,0 +1,27 @@
+prefixes:
+  epc: "http://epc.org/"
+  xsd: "http://www.w3.org/2001/XMLSchema#"
+  rdf: "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+csv: "epc_workers.csv"
+target_graph: "http://epc.org/graphs/workforce"
+entity:
+  class: "epc:Worker"
+  id_column: "id"
+  id_prefix: "epc:"
+columns:
+  name:
+    predicate: "epc:name"
+    type: string
+  role:
+    predicate: "epc:role"
+    type: string
+  region:
+    predicate: "epc:region"
+    type: string
+  skill_level:
+    predicate: "epc:skillLevel"
+    type: integer
+  project_id:
+    predicate: "epc:assignedTo"
+    type: iri
+    iri_prefix: "epc:"

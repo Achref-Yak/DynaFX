@@ -1,0 +1,22 @@
+model 'ReverseLogistics'
+  dt 1
+  from 0 to 200
+
+  aux return_rate: 100
+  aux inspection_delay: 3
+  aux refurbish_fraction: 0.7
+  aux scrap_fraction: 0.3
+
+  aux inspection_flow: CONVEY(return_rate, inspection_delay)
+  aux refurbish_flow: inspection_flow * refurbish_fraction
+  aux scrap_flow: inspection_flow * scrap_fraction
+
+  stock 'Returned_Products': 0
+    + 'returns': return_rate
+    - 'inspected': inspection_flow
+
+  stock 'Refurbished_Goods': 0
+    + 'refurbished': refurbish_flow
+
+  stock 'Scrap': 0
+    + 'scrapped': scrap_flow

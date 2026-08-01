@@ -1,0 +1,35 @@
+prefixes:
+  epc: "http://epc.org/"
+  xsd: "http://www.w3.org/2001/XMLSchema#"
+  rdf: "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+csv: "epc_containers.csv"
+target_graph: "http://epc.org/graphs/logistics"
+entity:
+  class: "epc:Container"
+  id_column: "id"
+  id_prefix: "epc:"
+columns:
+  contents:
+    predicate: "epc:contents"
+    type: string
+  quantity:
+    predicate: "epc:quantity"
+    type: integer
+  eta_day:
+    predicate: "epc:etaDay"
+    type: integer
+  status:
+    predicate: "epc:status"
+    type: string
+  ship_id:
+    predicate: "epc:onShip"
+    type: iri
+    iri_prefix: "epc:"
+  origin_port_id:
+    predicate: "epc:originPort"
+    type: iri
+    iri_prefix: "epc:"
+  dest_port_id:
+    predicate: "epc:destPort"
+    type: iri
+    iri_prefix: "epc:"
