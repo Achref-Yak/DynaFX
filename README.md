@@ -8,7 +8,11 @@
 [![pytest](https://img.shields.io/badge/tests-1028-passing-2ea44f)](https://github.com/Achref-Yak/DynaFX/actions)
 [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://achref-yak.github.io/DynaFX/)
 
-System dynamics, agent-based, and discrete-event simulation framework with an RDF/OWL/SPARQL knowledge engine. Build SD + ABM + DES models in Python or a single `.sysd` file, connect them to knowledge graphs via `KB_QUERY`, and close the loop when simulation results come back as evidence triples.
+DynaFX is a semantic simulation platform for building cognitive digital twins.
+
+It unifies multi-paradigm simulation (System Dynamics, Agent-Based Modeling, and Discrete Event Simulation) with symbolic knowledge representation (RDF/OWL/SPARQL). Build SD + ABM + DES models in Python or a single `.sysd` file, connect them to knowledge graphs via `KB_QUERY`, and close the loop when simulation results come back as evidence triples.
+
+Enabling digital twins that reason over knowledge and continuously adapt through feedback.
 
 The KB and the simulation are one living system: knowledge graph → parameters → multi-paradigm simulation → evidence triples → rules/optimization — closed-loop digital twins from visibility (L1) to autonomy (L5).
 
