@@ -1,5 +1,5 @@
 site_name: DynaFX
-site_description: Multi-paradigm system dynamics framework (SD + ABM + DES) with an RDF/OWL/SPARQL knowledge engine and a KB-simulation bridge
+site_description: A semantic simulation platform for building cognitive digital twins — multi-paradigm simulation (SD + ABM + DES) unified with symbolic knowledge representation (RDF/OWL/SPARQL)
 repo_url: https://github.com/Achref-Yak/DynaFX
 edit_uri: edit/main/docs/
 theme:
@@ -15,7 +15,10 @@ theme:
     - toc.integrate
 nav:
   - Home: index.md
+  - Concepts: concepts.md
   - Architecture: architecture.md
+  - Scientific Foundations: foundations.md
+  - Open Research Problems: open-problems.md
   - Knowledge Base: knowledge.md
   - Digital Twin: digital-twin.md
   - Examples: examples.md
