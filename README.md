@@ -177,6 +177,12 @@ from dynafx.knowledge import sparql_evaluate, parse_sparql
 qr = sparql_evaluate(parse_sparql("SELECT ?v WHERE { ?s <http://epc.org/reliability> ?v }"), store)
 ```
 
+## Tutorials
+
+Ten verified, runnable walkthroughs — every code block executed against the installed package. Start with [Tutorial 1: Hello World](https://achref-yak.github.io/DynaFX/tutorials/01-hello-world/).
+
+[Tutorials](https://achref-yak.github.io/DynaFX/tutorials/) · [System Dynamics](https://achref-yak.github.io/DynaFX/tutorials/02-system-dynamics/) · [Closed-Loop Twin](https://achref-yak.github.io/DynaFX/tutorials/07-closed-loop-twin/) · [Publishing Results](https://achref-yak.github.io/DynaFX/tutorials/10-publishing-results/)
+
 ## Examples
 
 ### Supply Chain Digital Twin
@@ -224,6 +230,12 @@ The `dynafx` package is organized as a shared `core/` substrate, two pillars (`d
 ## Documentation
 
 Full documentation is hosted on GitHub Pages: [achref-yak.github.io/DynaFX](https://achref-yak.github.io/DynaFX/)
+
+- **Tutorials** — 10 verified walkthroughs
+- **Concepts** — the mental model, no code
+- **Scientific Foundations** — design rationale
+- **Open Research Problems** — collaboration opportunities
+- **Digital Twin** — flagship closed-loop twin walkthrough
 
 ---
 
