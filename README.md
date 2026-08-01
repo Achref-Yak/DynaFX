@@ -109,7 +109,7 @@ The KB and the simulation are one living system: knowledge graph → parameters 
 
 ```bash
 git clone https://github.com/Achref-Yak/DynaFX.git
-cd reasoning_engine
+cd DynaFX
 uv pip install -e ".[all]"
 ```
 
@@ -121,9 +121,12 @@ Build models in Python (primary path):
 from dynafx.dynamics import SysdModel, StockDef, FlowDef, AuxDef
 
 model = SysdModel(
-    stocks=[StockDef(name="Inventory", initial=1000)],
-    flows=[FlowDef(name="production", expr="desired - Inventory / adj")],
-    auxes=[
+    stocks=[
+        StockDef(name="Inventory", initial=1000, flows=[
+            FlowDef(name="production", direction="+", expr="desired - Inventory / adj"),
+        ]),
+    ],
+    aux_vars=[
         AuxDef(name="desired", expr="target * demand"),
         AuxDef(name="adj", expr="4"),
     ],
@@ -161,11 +164,10 @@ print(f"Baseline profit: ${profit:,.0f}K")   # $931,425K
 ### Knowledge Graph Pipeline
 
 ```python
-from dynafx.knowledge import parse_turtle, TripleStore, RuleEngine, rdfs_rules
+from dynafx.knowledge import parse_turtle, RuleEngine, rdfs_rules
 
-store = TripleStore()
-for t in parse_turtle(turtle_string).triples():
-    store.add(t, graph="source_a")
+# parse_turtle returns a populated TripleStore directly
+store = parse_turtle(turtle_string, base_iri="http://example.org/")
 
 # RDFS inference derives new type facts from the ontology
 RuleEngine(rdfs_rules()).apply(store)
@@ -209,29 +211,7 @@ pytest tests/ -q
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         dynafx (top-level)                      │
-│  KBSimBridge, ClosedLoopReasoner, grade_queries                 │
-└──────┬──────────┬──────────────┬──────────────┬─────────────────┘
-       │          │              │              │
-       ▼          ▼              ▼              ▼
-┌────────────┐ ┌────────┐ ┌──────────┐ ┌────────────┐
-│  dynamics/ │ │knowledge│ │ patterns/│ │  core/     │
-│  SD + ABM  │ │ RDF    │ │SignalChain│ │ Models     │
-│  + DES     │ │ SPARQL │ │Disruption │ │ Graph      │
-│  Causal    │ │ Turtle │ │Cascade    │ │ BFO        │
-│  Feedback  │ │ Inf    │ │           │ │ Decomposer │
-│  Opt/LP    │ │ TBox   │ │           │ │            │
-│  Scenario  │ │ Prod   │ │           │ │            │
-└──────┬─────┘ └───┬────┘ └──────┬─────┘ └──────┬─────┘
-       │            │            │               │
-       └────────────┴────────────┴───────────────┘
-                        │
-                   ┌────▼────┐
-                   │ bridge/ │  (KBSimBridge ties the pillars)
-                   └─────────┘
-```
+The `dynafx` package is organized as a shared `core/` substrate, two pillars (`dynamics/`, `knowledge/`), a `bridge.py` connecting them, and `patterns/` on top:
 
 - **`core/`** — foundational data models: `Graph`, `Node`, `Edge`, `Entity`, `WorldRelation`, BFO categories, `SystemDecomposer`
 - **`dynamics/`** — SD + ABM + DES simulation engine, causal tracing, feedback detection, sensitivity analysis, LP/Pareto optimization, scenario comparison, units checking, equation compiler with `CompiledSystem` caching

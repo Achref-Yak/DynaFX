@@ -39,7 +39,9 @@ store.add(Triple(s, NamedNode("http://epc.org/reliability"),
 ```python
 from dynafx.knowledge import parse_turtle, serialize_turtle
 
-triples = parse_turtle(turtle_text).triples()
+# parse_turtle returns a populated TripleStore
+store = parse_turtle(turtle_text)
+all_triples = list(store.all_triples())
 ```
 
 ## SPARQL

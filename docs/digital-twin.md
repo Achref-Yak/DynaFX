@@ -40,5 +40,5 @@ The KB values multiply into the flow equations (`supply_to_port_rate`, `asia_out
 - Baseline profit **$931,425K**, completion 84.0%
 - 30-day typhoon port closure: **−$2,795K** (supplier reliability 0.82, 22 projects at risk)
 - Scenario grades: Baseline 0.956 … Extended Recovery 0.854
-- LP: `port_capacity x=1.67`, objective $1.00K under a $2.0K budget
+- LP: `port_capacity x=1.67`, objective $1.67K under a $2.0K budget
 - 5 feedback loops (2 reinforcing, 3 balancing); 20 PROV provenance triples

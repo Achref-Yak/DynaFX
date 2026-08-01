@@ -11,8 +11,7 @@ requires-python = ">=3.12"
 license = {text = "MIT"}
 keywords = [
     "system-dynamics", "agent-based-modeling", "discrete-event-simulation",
-    "vensim", "rdf", "owl", "sparql", "subjective-logic",
-    "knowledge-graph", "argumentation", "multi-paradigm",
+    "vensim", "rdf", "owl", "sparql", "knowledge-graph", "multi-paradigm",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -58,8 +57,8 @@ Homepage = "https://github.com/Achref-Yak/DynaFX"
 Repository = "https://github.com/Achref-Yak/DynaFX"
 Documentation = "https://github.com/Achref-Yak/DynaFX#readme"
 
-[tool.setuptools.package-data]
-dynafx = ["default_priors.json"]
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -96,9 +95,9 @@ include = ["src/dynafx"]
 exclude = ["**/__pycache__", "**/.venv"]
 
 # Suppress noisy-but-safe patterns in this dynamic/eval-heavy codebase.
-# All are false positives at runtime — Opinion is a tuple alias, patterns
-# like `.get()` returning None are safe, and dynamic attributes on dataclasses
-# are resolved at runtime.
+# All are false positives at runtime — patterns like `.get()` returning
+# None are safe, and dynamic attributes on dataclasses are resolved at
+# runtime.
 reportOptionalMemberAccess = false
 reportOptionalSubscript = false
 reportOptionalOperand = false

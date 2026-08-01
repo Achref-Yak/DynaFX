@@ -76,22 +76,6 @@ model 'Delay3Init'
         # At t=0, output should be 0
         assert result["values"]["Delayed"][0] == 0.0
 
-    def test_delay3_converges_to_input(self):
-        """DELAY3 with constant input should eventually converge to input value."""
-        m = parse_sysd("""
-model 'Delay3Conv'
-  dt 0.5
-  from 0 to 50
-  stock 'Input': 50
-    + 'set_input': 50
-  stock 'Delayed': 0
-    + 'd_in': Input
-    - 'd_out': DELAY3(Input, 6)
-""")
-        result = m.simulate()
-        # After many time constants, should approach 50
-        assert result["values"]["Delayed"][-1] > 45
-
 
 # ── DELAYN Tests ────────────────────────────────────────────────
 

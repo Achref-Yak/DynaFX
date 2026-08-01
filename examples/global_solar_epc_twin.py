@@ -418,6 +418,7 @@ def optimize(store: TripleStore) -> None:
     levers = [("port_capacity", 1.0, 3), ("crew_boost", 0.8, 4), ("buffer_stock", 0.6, 5)]
     for i, (name, cost, hi) in enumerate(levers):
         store.add(Triple(_lp(f"obj_{name}"), _lp("coeff"), _lit_num(cost)), g)
+        store.add(Triple(_lp(f"obj_{name}"), _lp("rowIndex"), _lit_num(i, XSD_INTEGER)), g)
         store.add(Triple(_lp(f"b_{name}"), _lp("rowIndex"), _lit_num(i, XSD_INTEGER)), g)
         store.add(Triple(_lp(f"b_{name}"), _lp("lo"), _lit_num(0)), g)
         store.add(Triple(_lp(f"b_{name}"), _lp("hi"), _lit_num(hi)), g)
@@ -434,7 +435,8 @@ def optimize(store: TripleStore) -> None:
         store.add(Triple(_lp("gain"), _lp(f"c{j}"), _lit_num(-gr)), g)
     store.add(Triple(_lp("gain"), _lp("rhs"), _lit_num(-1.0)), g)
 
-    c_q = f"SELECT ?v WHERE {{ ?o <{LP_NS}coeff> ?v . }}"
+    c_q = (f"SELECT ?v WHERE {{ ?o <{LP_NS}coeff> ?v . ?o <{LP_NS}rowIndex> ?i . }} "
+           f"ORDER BY ?i")
     bounds_q = (f"SELECT ?lo ?hi WHERE {{ ?b <{LP_NS}rowIndex> ?i . "
                 f"?b <{LP_NS}lo> ?lo . ?b <{LP_NS}hi> ?hi . }} ORDER BY ?i")
     a_q = (f"SELECT ?v0 ?v1 ?v2 WHERE {{ ?r <{LP_NS}rowIndex> ?i . "

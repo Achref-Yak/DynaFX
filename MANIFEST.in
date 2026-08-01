@@ -1,0 +1,7 @@
+prune tests
+prune examples
+prune docs
+prune data
+prune scripts
+prune .github
+prune site

@@ -4,7 +4,7 @@
 
 ```bash
 git clone https://github.com/Achref-Yak/DynaFX
-cd reasoning_engine
+cd DynaFX
 uv sync --all-extras
 ```
 
@@ -23,14 +23,6 @@ uv run pytest -k "inference"      # inference-related tests
 uv run ruff check src/            # lint
 uv run ruff check src/ --fix      # lint + auto-fix
 uv run pyright src/dynafx         # type check
-uv run mypy src/dynafx            # strict type check (baseline)
-```
-
-## Pre-commit
-
-```bash
-uv run pre-commit install
-uv run pre-commit run --all-files
 ```
 
 ## CI

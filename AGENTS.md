@@ -67,6 +67,7 @@
 - **DES metrics invisible to aux replay (library bug fixed)** — `src/dynafx/dynamics/dsl.py` (~line 900): DES metrics were merged into per-step `step_params` but never into `params`, so `params_history` (used by post-hoc aux replay) lacked them and any aux referencing `install_{z}_length`/`Orders_length` replayed as 0.0. Added `params.update(des_metrics)` mirroring the ABM merge. Regression test: `tests/test_crossparadigm.py::test_des_metrics_visible_in_aux_replay` (queue arrival_rate=10 → `aux_values["watch"] > 0`).
 - **`kb_lp_minimize`/`kb_lp_maximize` numeric-literal unwrap** — `optimization.py::_eval_q` now unwraps SPARQL results (`val = v.value if hasattr(v, "value") else v`). Regression test: `tests/test_kb_sim_bridge_ext.py::test_kb_lp_minimize_reads_numeric_literals`.
 - **SL / epistemics removed from codebase** — `dynafx/epistemics/`, `dynafx/sl/`, `knowledge/confidence.py`, `Opinion`/`FusionSituation`, and all epistemics tests deleted. Docs rewritten project-wide (README, docs/, AGENTS.md, hierarchy.md, CHANGELOG.md) to remove every reference.
+- **Dead SL-era code removed** — `core/config.py` + `domain.py` (mutually-referencing, zero consumers/tests) deleted; `dynafx/epistemics/` bytecode purged (so `import dynafx.epistemics` now fails); `default_priors.json` package-data entry dropped. `[tool.setuptools.packages.find] where=["src"]` added (stops `tests/` leaking into sdist). Docs fixed: git install URL, `cd DynaFX`, working quick-start/`parse_turtle`/KB_QUERY samples, duplicate `test_delay3_converges_to_input` removed, mypy/pre-commit doc claims dropped, twin LP made deterministic via `rowIndex` + `ORDER BY ?i` (objective $1.67K stable across runs).
 - **CLI removed** — `src/dynafx/__main__.py`, `src/dynafx/dynamics/__main__.py`, `[project.scripts]` entrypoint, `TestCLIIntegration` (2 tests), Makefile `run` target, and all doc references deleted.
 - **Docs rewrite** — README + docs/ (index, architecture, development, knowledge, digital-twin, examples) rewritten from scratch; GitHub Pages deploy workflow added; `mkdocs.yml` description/nav updated.
 
@@ -111,8 +112,6 @@
 ## Relevant Files
 - `src/dynafx/core/models.py` — Foundational data model: `Graph`, `Node`, `Edge`, `NodeType`, `EdgeType`, `Entity`, `WorldRelation`, BFO categories, `EmergentProperty`, `ReasoningMode`. Used by knowledge/, dynamics/, and core/.
 - `src/dynafx/core/decomposer.py` — `SystemDecomposer`: manual node/edge graph construction API.
-- `src/dynafx/core/config.py` — `Priors` config (source_type_map) + `load_priors` from bundled `default_priors.json`.
-- `src/dynafx/domain.py` — Domain config contextvars for reasoning parameter tuning.
 - `src/dynafx/registry.py` — Plugin registry for custom builtins and DES hooks.
 - `src/dynafx/dynamics/dsl.py` — main DSL: parser, expression AST, `_replace_smooths()` with ExprNode, `_build_system()` with `CompiledSystem` cache, `_compile_system()`, `SysdModel`, `SysdModelResult`. Submodel support: `SubmodelDef`, `IncludeDef`, `_expand_includes()`. KB_QUERY/KB_ASSERT builtins via `_make_kb_builtins`.
 - `src/dynafx/dynamics/units.py` — `Unit`, `UnitRegistry`, `UnitChecker`, 40 tests.

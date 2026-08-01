@@ -5,7 +5,7 @@
 ```bash
 # Clone and enter the repo
 git clone https://github.com/Achref-Yak/DynaFX.git
-cd reasoning_engine
+cd DynaFX
 
 # Create virtual environment
 uv venv

@@ -14,13 +14,10 @@
 │   ├── ScenarioComparison, causal_trace, detect_feedback_loops
 │   └── lp_minimize / pareto_optimize / kb_lp_minimize
 │
-├── 0.2  Domain Configuration (domain.py)
-│   └── reasoning parameter tuning via contextvars
-│
-├── 0.3  Plugin Registry (registry.py)
+├── 0.2  Plugin Registry (registry.py)
 │   └── custom builtins and DES hook registration
 │
-├── 0.4  Example Scripts (1 script)
+├── 0.3  Example Scripts (1 script)
 │   └── Supply chain twin: global_solar_epc_twin (L1-L5, SD+ABM+DES+KB)
 │
 └── 0.5  Model Library (5 .sysd models)
@@ -204,15 +201,10 @@
 │   ├── Graph — node/edge container with lookup
 │   └── Context / Annotation / Trace / EvidenceCounts / Violation / ReviewResult
 │
-├── 3.2  SystemDecomposer (decomposer.py)
+└── 3.2  SystemDecomposer (decomposer.py)
 │   ├── add_node / add_edge — manual graph construction
 │   └── detect — structural EmergentProperty detection
-│
-└── 3.3  Priors Config (config.py)
-    ├── Priors — source_type_map
-    └── load_priors — bundled default_priors.json
 ```
-
 ---
 
 ### LEVEL 4: BRIDGE (bridge.py) + PATTERNS (patterns/)
@@ -272,7 +264,7 @@
 | KB — TripleStore | test_kb_store.py | 40 |
 | KB — RDF model | test_kb_model.py | 39 |
 | KB — Turtle | test_kb_turtle.py | 38 |
-| Delays | test_delays.py | 38 |
+| Delays | test_delays.py | 37 |
 | KB — SPARQL | test_kb_sparql.py | 36 |
 | Graph / core | test_graph.py | 32 |
 | Emergent properties | test_emergent.py | 31 |

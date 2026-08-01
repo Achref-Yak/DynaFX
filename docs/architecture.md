@@ -2,58 +2,32 @@
 
 ## Pillars
 
-```mermaid
-graph TB
-    subgraph Core
-        A[Graph / Node / Edge]
-        B[Entity / WorldRelation]
-        C[SystemDecomposer]
-        D[BFO Categories]
-    end
+The framework is organized as a shared substrate with two pillars, connected by a bridge, with reusable patterns on top.
 
-    subgraph Dynamics
-        E[SD Simulation]
-        F[ABM Engine]
-        G[DES Engine]
-        H[Causal / Feedback Analysis]
-        I[Optimization / Scenario / Sensitivity]
-    end
+The **`core/`** package is the common data-model substrate (`Graph`, `Node`, `Edge`, `Entity`, `WorldRelation`, BFO categories, `SystemDecomposer`). Both pillars are built directly on it.
 
-    subgraph Knowledge
-        J[TripleStore]
-        K[SPARQL Evaluator]
-        L[RDFS/OWL Inference]
-        M[TBox / Type Hierarchy]
-        N[Production Rules]
-    end
+The **`dynamics/`** pillar is the simulation engine: SD (stocks/flows/DSL, RK4/Euler), ABM (agents, rules, messages, strategies), DES (queues, resources), plus causal tracing, feedback-loop detection, scenario comparison, sensitivity analysis, and LP/Pareto optimization. During simulation it can read from and write to the knowledge base via the `KB_QUERY`/`KB_ASSERT` builtins and the `kb_lp_*`/`kb_calibrate` optimizers.
 
-    subgraph Patterns
-        O[SignalChain]
-        P[DisruptionCascade]
-    end
+The **`knowledge/`** pillar is the RDF engine: `TripleStore` with named graphs, Turtle parsing/serialization, a SPARQL evaluator, RDFS/OWL RL inference, a TBox/type hierarchy, production rules, CSV ingestion via YAML mappings, transactions, and execution provenance. It exposes `params_from_kb` extraction and evidence write-back to the bridge.
 
-    subgraph Bridge
-        Q[KBSimBridge]
-        R[ClosedLoopReasoner]
-    end
+The **`bridge.py`** (`KBSimBridge`, `ClosedLoopReasoner`, `grade_queries`) connects the two pillars: it extracts KB facts into simulation params, lets the simulation query/assert triples mid-flight, and writes simulation results back as evidence triples.
 
-    Core --> Dynamics
-    Core --> Knowledge
-    Knowledge --> Bridge
-    Dynamics --> Bridge
-    Dynamics --> Patterns
-    Knowledge --> Patterns
-    Bridge --> Dynamics
-```
+The **`patterns/`** package sits on top: reusable model factories (`SignalChain`, `DisruptionCascade`) that build `SysdModel` instances from dynamics primitives.
+
+Dependency direction:
+
+- **Core → Dynamics, Knowledge** — both pillars are built on the `core/` data model.
+- **Dynamics → Knowledge** — `KB_QUERY`/`KB_ASSERT` builtins and `kb_lp_*`/`kb_calibrate` read the triple store during simulation.
+- **Knowledge → Bridge** — `KBSimBridge` extracts facts (`params_from_kb`) and writes evidence back.
+- **Bridge → Dynamics** — resolved params feed the simulation.
+- **Dynamics → Patterns** — pattern factories build `SysdModel` from dynamics primitives.
 
 ## Module Dependency Flow
 
-```
-core/  →  dynamics/   (models → SD/ABM/DES)
-core/  →  knowledge/  (models → RDF triple store)
-dynamics/ + knowledge/  →  bridge/   (KB↔simulation glue)
-dynamics/ + knowledge/  →  patterns/ (reusable model factories)
-```
+- `core/` → `dynamics/` — core models underpin the SD/ABM/DES engines.
+- `core/` → `knowledge/` — core models underpin the RDF triple store.
+- `dynamics/` + `knowledge/` → `bridge/` — the bridge glues the two pillars (KB↔simulation).
+- `dynamics/` + `knowledge/` → `patterns/` — pattern factories compose the pillars into reusable models.
 
 ## Dynamics Pillar (`dynafx/dynamics`)
 
