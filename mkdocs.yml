@@ -1,6 +1,6 @@
 site_name: DynaFX
 site_description: Multi-paradigm system dynamics framework (SD + ABM + DES) with RDF/OWL/SPARQL cognitive reasoning engine and SL confidence grading
-repo_url: https://github.com/Achref-Yak/DynaFX
+repo_url: https://github.com/Achref-Yak/reasoning_engine
 edit_uri: edit/main/docs/
 theme:
   name: material
