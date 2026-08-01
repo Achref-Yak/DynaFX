@@ -29,58 +29,14 @@ The result is a digital twin that does not merely mirror an asset. It **senses**
 ## Architecture at a Glance
 
 ```mermaid
-graph TD
-    subgraph Knowledge Layer
-        KB[RDF/OWL TripleStore + named graphs]
-        INF[Inference: RDFS / OWL-RL forward chaining]
-        TBOX[TBox / type hierarchy]
-        PR[Production rules]
-    end
-
-    subgraph Reasoning Layer
-        QA[SPARQL evaluator]
-        SC[Scenario comparison & ranking]
-        SA[Sensitivity analysis]
-        OPT[LP / Pareto / KB-constrained optimization]
-        CAU[Causal tracing & feedback loops]
-    end
-
-    subgraph Bridge
-        B[KBSimBridge]
-        CL[ClosedLoopReasoner]
-    end
-
-    subgraph Simulation Layer
-        SD[System Dynamics]
-        ABM[Agent-Based Modeling]
-        DES[Discrete Event Simulation]
-    end
-
-    subgraph Evidence
-        EV[Evidence triples]
-        PROV[PROV provenance]
-    end
-
-    KB --> INF --> TBOX --> PR
-    PR --> QA
-    KB --> B
-    B --> SD
-    B --> ABM
-    B --> DES
-    SD --> EV
-    ABM --> EV
-    DES --> EV
-    EV --> B
-    EV --> SC
-    SC --> OPT
-    OPT --> B
-    CAU --> EV
-    KB --> CAU
-    SA --> OPT
-    CL --> B
+graph LR
+    KB[Knowledge Graph<br/>RDF/OWL + SPARQL + rules] --> B[KBSimBridge]
+    B --> SIM[Simulation<br/>SD · ABM · DES]
+    SIM --> EV[Evidence triples]
+    EV --> KB
 ```
 
-The same loop, in words: **Knowledge Layer → Reasoning Layer → Bridge → Simulation Layer → Evidence Generation → Knowledge Update.**
+The same loop, in words: **Knowledge Graph → Bridge → Simulation → Evidence → Knowledge Update.**
 
 ---
 
