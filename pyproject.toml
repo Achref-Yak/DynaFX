@@ -9,6 +9,9 @@ description = "Multi-paradigm system dynamics framework (SD + ABM + DES) with an
 readme = "README.md"
 requires-python = ">=3.12"
 license = {text = "MIT"}
+authors = [
+    {name = "Achref Yak"},
+]
 keywords = [
     "system-dynamics", "agent-based-modeling", "discrete-event-simulation",
     "vensim", "rdf", "owl", "sparql", "knowledge-graph", "multi-paradigm",
@@ -55,7 +58,10 @@ all = [
 [project.urls]
 Homepage = "https://github.com/Achref-Yak/DynaFX"
 Repository = "https://github.com/Achref-Yak/DynaFX"
+"Source Code" = "https://github.com/Achref-Yak/DynaFX"
 Documentation = "https://github.com/Achref-Yak/DynaFX#readme"
+Issues = "https://github.com/Achref-Yak/DynaFX/issues"
+Changelog = "https://github.com/Achref-Yak/DynaFX/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["src"]

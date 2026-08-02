@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+message: "If you use DynaFX in your research, please cite it as follows."
+title: "DynaFX"
+abstract: >-
+  A semantic simulation platform for building cognitive digital twins. It
+  unifies multi-paradigm simulation (System Dynamics, Agent-Based Modeling,
+  Discrete Event Simulation) with symbolic knowledge representation
+  (RDF/OWL/SPARQL), enabling digital twins that reason over knowledge and
+  continuously adapt through feedback. The KB and simulation form one living
+  system: knowledge graph to parameters, multi-paradigm simulation, evidence
+  triples back into the graph, then rules and optimization.
+keywords:
+  - system dynamics
+  - agent-based modeling
+  - discrete-event simulation
+  - digital twin
+  - knowledge graph
+  - RDF
+  - OWL
+  - SPARQL
+  - semantic simulation
+license: MIT
+type: software
+version: 0.2.0
+date-released: "2026-08-02"
+authors:
+  - family-names: Yakdhane
+    given-names: Achref
+repository-code: https://github.com/Achref-Yak/DynaFX

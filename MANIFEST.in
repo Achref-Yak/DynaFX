@@ -5,3 +5,5 @@ prune data
 prune scripts
 prune .github
 prune site
+include CITATION.cff
+include SECURITY.md

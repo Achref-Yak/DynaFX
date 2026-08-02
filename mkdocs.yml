@@ -19,6 +19,8 @@ nav:
   - Architecture: architecture.md
   - Scientific Foundations: foundations.md
   - Open Research Problems: open-problems.md
+  - Citation: citation.md
+  - API Reference: api.md
   - Tutorials:
       - Tutorials: tutorials/index.md
       - 1. Hello World: tutorials/01-hello-world.md

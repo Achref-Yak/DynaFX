@@ -191,15 +191,13 @@
 
 ```
 ├── 3.1  Foundational Models (models.py)
-│   ├── BfoCategory — BFO top-level categories
 │   ├── NodeType / EdgeType — typed graph elements
-│   ├── ReasoningMode / Severity enums
+│   ├── ReasoningMode enum
 │   ├── Node / Edge / Entity / WorldRelation / TypedEdge
-│   ├── Parameter / Payload / TimeInfo / Span
+│   ├── Payload / TimeInfo / Span
 │   ├── Interpretation / ConversationTree
 │   ├── EmergentProperty / FeedbackLoop
-│   ├── Graph — node/edge container with lookup
-│   └── Context / Annotation / Trace / EvidenceCounts / Violation / ReviewResult
+│   └── Graph — node/edge container with lookup
 │
 └── 3.2  SystemDecomposer (decomposer.py)
 │   ├── add_node / add_edge — manual graph construction

@@ -125,6 +125,8 @@ Python 3.12+. Full documentation is hosted on GitHub Pages: <https://achref-yak.
 
 - **New here?** Read [Concepts](concepts.md) — the mental model, no code.
 - **Researcher?** Read [Scientific Foundations](foundations.md) and [Open Research Problems](open-problems.md).
+- **Citing the project?** See [Citation](citation.md).
+- **Looking for a symbol?** Browse the [API Reference](api.md).
 - **Builder?** Run the flagship [Digital Twin](digital-twin.md) and study the [Examples](examples.md).
 - **Architect?** Read [Architecture](architecture.md).
 - **Contributor?** See [Development](development.md) for setup, tests, and contribution paths.

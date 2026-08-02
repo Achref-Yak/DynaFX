@@ -111,7 +111,7 @@
 - **Unknown var default 0.0**: `_compile_expr()` compiles unknown variable refs as `_s.get('name', 0.0)` — DES metrics silently default to 0 if not merged into eval namespace
 
 ## Relevant Files
-- `src/dynafx/core/models.py` — Foundational data model: `Graph`, `Node`, `Edge`, `NodeType`, `EdgeType`, `Entity`, `WorldRelation`, BFO categories, `EmergentProperty`, `ReasoningMode`. Used by knowledge/, dynamics/, and core/.
+- `src/dynafx/core/models.py` — Foundational data model: `Graph`, `Node`, `Edge`, `NodeType`, `EdgeType`, `Entity`, `WorldRelation`, `EmergentProperty`, `ReasoningMode`. Used by knowledge/, dynamics/, and core/.
 - `src/dynafx/core/decomposer.py` — `SystemDecomposer`: manual node/edge graph construction API.
 - `src/dynafx/registry.py` — Plugin registry for custom builtins and DES hooks.
 - `src/dynafx/dynamics/dsl.py` — main DSL: parser, expression AST, `_replace_smooths()` with ExprNode, `_build_system()` with `CompiledSystem` cache, `_compile_system()`, `SysdModel`, `SysdModelResult`. Submodel support: `SubmodelDef`, `IncludeDef`, `_expand_includes()`. KB_QUERY/KB_ASSERT builtins via `_make_kb_builtins`.

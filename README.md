@@ -231,6 +231,27 @@ The `dynafx` package is organized as a shared `core/` substrate, two pillars (`d
 
 ---
 
+## Citation
+
+If DynaFX contributes to your research, please cite it:
+
+```bibtex
+@software{Yak_DynaFX,
+  author       = {Achref Yak},
+  title        = {DynaFX: {A} semantic simulation platform for cognitive digital twins},
+  year         = {2026},
+  url          = {https://github.com/Achref-Yak/DynaFX},
+  version      = {0.2.0},
+  license      = {MIT},
+}
+```
+
+Plain text: *Achref Yak. (2026). DynaFX: A semantic simulation platform for cognitive digital twins (Version 0.2.0). https://github.com/Achref-Yak/DynaFX*
+
+A persistent DOI (via Zenodo) will be added here once a release is published. See [citation](docs/citation.md) for details.
+
+---
+
 ## Documentation
 
 Full documentation is hosted on GitHub Pages: [achref-yak.github.io/DynaFX](https://achref-yak.github.io/DynaFX/)

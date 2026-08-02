@@ -11,152 +11,26 @@ NodeId = UUID
 EdgeId = UUID
 
 
-class BfoCategory(Enum):
-    MATERIAL_ENTITY = auto()
-    IMMATERIAL_ENTITY = auto()
-    QUALITY = auto()
-    REALIZABLE_ENTITY = auto()
-    PROCESS = auto()
-    TEMPORAL_REGION = auto()
-    INFORMATION_CONTENT_ENTITY = auto()
-
-
 class NodeType(Enum):
     AXIOM = auto()
     EVIDENCE = auto()
-    CONDITION = auto()
     CLAIM = auto()
-    COUNTERCLAIM = auto()
-    FALLACY = auto()
-    JUSTIFICATION = auto()
     ENTITY = auto()
-    EVENT = auto()
     CONCEPT = auto()
-    RULE = auto()
-    HYPOTHESIS = auto()
-    OBSERVATION = auto()
-    DECISION = auto()
-    ACTION = auto()
-    AGENT = auto()
-    PROCESS = auto()
-    STATE = auto()
-    PROPERTY = auto()
-    RESOURCE = auto()
-    CONSTRAINT = auto()
-    GOAL = auto()
-    BELIEF = auto()
-    KNOWLEDGE = auto()
-    INFORMATION = auto()
-    DOCUMENT = auto()
     STOCK = auto()
     FLOW = auto()
-    VARIABLE = auto()
 
 
 class EdgeType(Enum):
     INFERS = auto()
     SUPPORTS = auto()
-    ATTACKS = auto()
-    REBUTS = auto()
-    QUALIFIES = auto()
     JUSTIFIES = auto()
-    CONTRADICTS = auto()
-    DIRECT = auto()
-    CIRCUMSTANTIAL = auto()
-    HEARSAY = auto()
     CAUSES = auto()
-    SUPPORT = auto()
-    ENABLES = auto()
-    DEPENDS = auto()
-    TEMPORAL = auto()
-    SIMILAR = auto()
-    EVIDENCE = auto()
-    PART_OF = auto()
-    CITES = auto()
-    FLOWS_TO = auto()
-    HAS_ATTRIBUTE = auto()
-    LOCATED_AT = auto()
-    EMPLOYED_BY = auto()
-    ASSOCIATED_WITH = auto()
-    CONTACT_OF = auto()
-    HAS_GOAL = auto()
-    INTENDS = auto()
-    KNOWS = auto()
-    COMMUNICATED = auto()
-    PREFERS = auto()
-    USES = auto()
-    PRODUCES = auto()
-    CONSUMES = auto()
-    TRANSFORMS = auto()
-
-
-_ICE = frozenset({BfoCategory.INFORMATION_CONTENT_ENTITY})
-_PROC_AND_ICE = frozenset({BfoCategory.PROCESS, BfoCategory.INFORMATION_CONTENT_ENTITY})
-_MAT_AND_IMMAT = frozenset({BfoCategory.MATERIAL_ENTITY, BfoCategory.IMMATERIAL_ENTITY})
-_ALL_BFO = frozenset(BfoCategory)
-
-EDGE_BFO_CONSTRAINTS: dict[EdgeType, tuple[frozenset[BfoCategory], frozenset[BfoCategory]]] = {
-    EdgeType.INFERS: (_ICE, _ICE),
-    EdgeType.SUPPORTS: (_ICE, _ICE),
-    EdgeType.REBUTS: (_ICE, _ICE),
-    EdgeType.ATTACKS: (_ICE, _ICE),
-    EdgeType.CONTRADICTS: (_ICE, _ICE),
-    EdgeType.JUSTIFIES: (_ICE, _ICE),
-    EdgeType.EVIDENCE: (_ICE, _ICE),
-    EdgeType.CITES: (_ICE, _ICE),
-    EdgeType.CAUSES: (_PROC_AND_ICE, _PROC_AND_ICE),
-    EdgeType.TEMPORAL: (_PROC_AND_ICE, _PROC_AND_ICE),
-    EdgeType.FLOWS_TO: (_PROC_AND_ICE, _PROC_AND_ICE),
-    EdgeType.PART_OF: (_MAT_AND_IMMAT, _MAT_AND_IMMAT),
-    EdgeType.QUALIFIES: (frozenset({BfoCategory.REALIZABLE_ENTITY, BfoCategory.INFORMATION_CONTENT_ENTITY}), _ICE),
-    EdgeType.ENABLES: (_ALL_BFO, _ALL_BFO),
-    EdgeType.DEPENDS: (_ALL_BFO, _ALL_BFO),
-    EdgeType.SIMILAR: (_ALL_BFO, _ALL_BFO),
-    EdgeType.DIRECT: (_ICE, _ICE),
-    EdgeType.CIRCUMSTANTIAL: (_ICE, _ICE),
-    EdgeType.HEARSAY: (_ICE, _ICE),
-    EdgeType.SUPPORT: (_ALL_BFO, _ALL_BFO),
-    EdgeType.HAS_ATTRIBUTE: (_ALL_BFO, _ICE),
-    EdgeType.LOCATED_AT: (_MAT_AND_IMMAT, _MAT_AND_IMMAT),
-    EdgeType.EMPLOYED_BY: (_ALL_BFO, _ALL_BFO),
-    EdgeType.ASSOCIATED_WITH: (_ALL_BFO, _ALL_BFO),
-    EdgeType.CONTACT_OF: (_ALL_BFO, _ALL_BFO),
-    EdgeType.HAS_GOAL: (_ALL_BFO, _ICE),
-    EdgeType.INTENDS: (_ALL_BFO, _PROC_AND_ICE),
-    EdgeType.KNOWS: (_ALL_BFO, _ICE),
-    EdgeType.COMMUNICATED: (_ALL_BFO, _ICE),
-    EdgeType.PREFERS: (_ALL_BFO, _ICE),
-    EdgeType.USES: (_PROC_AND_ICE, _MAT_AND_IMMAT | _ICE),
-    EdgeType.PRODUCES: (_PROC_AND_ICE, _MAT_AND_IMMAT | _ICE),
-    EdgeType.CONSUMES: (_PROC_AND_ICE, _MAT_AND_IMMAT | _ICE),
-    EdgeType.TRANSFORMS: (_PROC_AND_ICE, _PROC_AND_ICE),
-}
 
 
 class ReasoningMode(Enum):
     CAUSAL = auto()
-    CONDITIONAL = auto()
     ARGUMENT = auto()
-    ANALOGY = auto()
-
-
-class Severity(Enum):
-    ERROR = auto()
-    WARNING = auto()
-    INFO = auto()
-
-
-@dataclass
-class Parameter:
-    """Parameter value with optional metadata."""
-    value: float | None = None
-
-    def to_dict(self) -> dict:
-        return {"value": self.value}
-
-    @classmethod
-    def from_dict(cls, d: dict) -> Parameter:
-        return cls(value=d.get("value"))
 
 
 @dataclass
@@ -195,7 +69,6 @@ class Node:
     timestamps: TimeInfo = field(default_factory=TimeInfo)
     attrs: dict = field(default_factory=dict)
     metadata: dict = field(default_factory=dict)
-    bfo_category: BfoCategory | None = None
     container_id: UUID | None = None
     orthogonal_partition: str | None = None
 
@@ -207,7 +80,6 @@ class Edge:
     target_id: UUID = field(default_factory=uuid4)
     type: EdgeType = EdgeType.SUPPORTS
     weight: float = 0.5
-    confidence: float = 0.5
     polarity: int = 1
     attrs: dict = field(default_factory=dict)
     metadata: dict = field(default_factory=dict)
@@ -224,7 +96,6 @@ class Entity:
     attributes: dict[str, Any] = field(default_factory=dict)
     spans: list[Span] = field(default_factory=list)
     metadata: dict = field(default_factory=dict)
-    bfo_category: BfoCategory | None = None
 
 
 @dataclass
@@ -422,14 +293,6 @@ class Graph:
         return obj
 
     @staticmethod
-    def _collect_roles(interpretations: dict[str, Interpretation]) -> dict[UUID, str]:
-        roles: dict[UUID, str] = {}
-        for interp in interpretations.values():
-            for eid, role in interp.roles.items():
-                roles[eid] = role
-        return roles
-
-    @staticmethod
     def _build_outgoing_map(edges: dict[UUID, Edge]) -> dict[UUID, list[Edge]]:
         outgoing: dict[UUID, list[Edge]] = defaultdict(list)
         for edge in edges.values():
@@ -439,7 +302,6 @@ class Graph:
     @staticmethod
     def _serialize_nodes(
         nodes: dict[UUID, Node],
-        roles: dict[UUID, str],
         outgoing: dict[UUID, list[Edge]],
     ) -> list[dict]:
         sorted_nodes = sorted(
@@ -449,7 +311,6 @@ class Graph:
         propositions: list[dict] = []
         for nid, node in sorted_nodes:
             nd = Graph._convert_value(node)
-            nd["argumentation_role"] = roles.get(nid, node.type.name)
             nd["outgoing_edges"] = [Graph._convert_value(e) for e in outgoing.get(nid, [])]
             propositions.append(nd)
         return propositions
@@ -471,9 +332,8 @@ class Graph:
         return [Graph._convert_value(r) for r in sorted_wr]
 
     def to_dict(self) -> dict:
-        roles = Graph._collect_roles(self.interpretations)
         outgoing = Graph._build_outgoing_map(self.edges)
-        propositions = Graph._serialize_nodes(self.nodes, roles, outgoing)
+        propositions = Graph._serialize_nodes(self.nodes, outgoing)
         entities_list = Graph._serialize_entities(self.entities)
         wr_list = Graph._serialize_world_relations(self.world_relations)
 
@@ -531,20 +391,22 @@ class Graph:
         return "\n".join(lines)
 
     @staticmethod
-    def _parse_node(node_id: UUID, nd: dict, with_role: bool = False) -> tuple[Node, str | None]:
+    def _parse_node(node_id: UUID, nd: dict) -> Node:
         span_data = nd.get("span")
         span = Span(**span_data) if span_data else None
-        node = Node(
+        try:
+            node_type = NodeType[nd.get("type", "CLAIM")]
+        except KeyError:
+            node_type = NodeType.CLAIM
+        return Node(
             id=node_id,
-            type=NodeType[nd.get("type", "CLAIM")],
+            type=node_type,
             text=nd.get("text", ""),
             payload=Payload(text=nd.get("text", "")),
             span=span,
             category=nd.get("category", 2),
             embedding=nd.get("embedding"),
         )
-        role = nd.get("argumentation_role") if with_role else None
-        return node, role
 
     @staticmethod
     def _parse_entity(entity_id: UUID, ed: dict) -> Entity:
@@ -560,9 +422,8 @@ class Graph:
         )
 
     @staticmethod
-    def _parse_nodes(data: dict) -> tuple[dict[UUID, Node], dict[UUID, str]]:
+    def _parse_nodes(data: dict) -> dict[UUID, Node]:
         nodes: dict[UUID, Node] = {}
-        roles: dict[UUID, str] = {}
 
         old_nodes = data.get("nodes")
         new_propositions = data.get("propositions")
@@ -570,17 +431,13 @@ class Graph:
         if old_nodes is not None:
             for nid_hex, nd in old_nodes.items():
                 node_id = UUID(nid_hex)
-                node, _ = Graph._parse_node(node_id, nd)
-                nodes[node_id] = node
+                nodes[node_id] = Graph._parse_node(node_id, nd)
         elif new_propositions is not None:
             for pd in new_propositions:
                 node_id = UUID(pd["id"])
-                node, role = Graph._parse_node(node_id, pd, with_role=True)
-                nodes[node_id] = node
-                if role:
-                    roles[node_id] = role
+                nodes[node_id] = Graph._parse_node(node_id, pd)
 
-        return nodes, roles
+        return nodes
 
     @staticmethod
     def _parse_edges(data: dict, nodes: dict[UUID, Node]) -> dict[UUID, Edge]:
@@ -588,13 +445,19 @@ class Graph:
         old_edges = data.get("edges")
         new_propositions = data.get("propositions")
 
+        def _edge_type(name: str) -> EdgeType:
+            try:
+                return EdgeType[name]
+            except KeyError:
+                return EdgeType.SUPPORTS
+
         if old_edges is not None:
             for ed in old_edges:
                 e = Edge(
                     id=UUID(ed["id"]),
                     source_id=UUID(ed["source_id"]),
                     target_id=UUID(ed["target_id"]),
-                    type=EdgeType[ed.get("type", "SUPPORTS")],
+                    type=_edge_type(ed.get("type", "SUPPORTS")),
                 )
                 edges[e.id] = e
         elif new_propositions is not None:
@@ -605,7 +468,7 @@ class Graph:
                         id=UUID(ed["id"]),
                         source_id=src_id,
                         target_id=UUID(ed["target_id"]),
-                        type=EdgeType[ed.get("type", "SUPPORTS")],
+                        type=_edge_type(ed.get("type", "SUPPORTS")),
                     )
                     edges[e.id] = e
 
@@ -642,13 +505,11 @@ class Graph:
 
     @staticmethod
     def _parse_interpretations(
-        data: dict, edges: dict[UUID, Edge], roles: dict[UUID, str],
+        data: dict,
     ) -> dict[str, Interpretation]:
         old_interps = data.get("interpretations")
         if old_interps:
             return Graph._parse_interpretations_v1(old_interps)
-        if roles and data.get("propositions") is not None:
-            return Graph._parse_interpretations_v2(edges, roles)
         return {}
 
     @staticmethod
@@ -669,26 +530,6 @@ class Graph:
                 ))
             result[name] = Interpretation(name=name, roles=interp_roles, edges=interp_edges)
         return result
-
-    @staticmethod
-    def _parse_interpretations_v2(
-        edges: dict[UUID, Edge], roles: dict[UUID, str],
-    ) -> dict[str, Interpretation]:
-        arg_edges: list[TypedEdge] = []
-        for e in edges.values():
-            arg_edges.append(TypedEdge(
-                id=e.id,
-                source_id=e.source_id,
-                target_id=e.target_id,
-                type=e.type.name,
-            ))
-        return {
-            "argumentation": Interpretation(
-                name="argumentation",
-                roles=roles,
-                edges=arg_edges,
-            ),
-        }
 
     @staticmethod
     def _parse_cta(data: dict) -> ConversationTree | None:
@@ -717,11 +558,11 @@ class Graph:
 
     @staticmethod
     def from_dict(data: dict) -> Graph:
-        nodes, roles = Graph._parse_nodes(data)
+        nodes = Graph._parse_nodes(data)
         edges = Graph._parse_edges(data, nodes)
         entities = Graph._parse_entities(data)
         world_relations = Graph._parse_world_relations(data)
-        interpretations = Graph._parse_interpretations(data, edges, roles)
+        interpretations = Graph._parse_interpretations(data)
         cta = Graph._parse_cta(data)
         emergent_properties = Graph._parse_emergent(data)
 
@@ -737,119 +578,3 @@ class Graph:
             cta=cta,
             emergent_properties=emergent_properties,
         )
-
-
-@dataclass
-class Context:
-    id: UUID
-    source_id: str
-    text: str
-    span: Span | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-    def to_dict(self) -> dict:
-        d: dict = {
-            "id": self.id.hex,
-            "source_id": self.source_id,
-            "text": self.text,
-        }
-        if self.span:
-            d["span"] = {"start": self.span.start, "end": self.span.end}
-        if self.metadata:
-            d["metadata"] = self.metadata
-        return d
-
-    @staticmethod
-    def from_dict(data: dict) -> Context:
-        span_data = data.get("span")
-        return Context(
-            id=UUID(data["id"]),
-            source_id=data.get("source_id", ""),
-            text=data.get("text", ""),
-            span=Span(**span_data) if span_data else None,
-            metadata=data.get("metadata", {}),
-        )
-
-
-@dataclass
-class Annotation:
-    id: UUID
-    target_id: UUID
-    annotator: str
-    label: str
-    confidence: float = 1.0
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-    def to_dict(self) -> dict:
-        d: dict = {
-            "id": self.id.hex,
-            "target_id": self.target_id.hex,
-            "annotator": self.annotator,
-            "label": self.label,
-            "confidence": self.confidence,
-        }
-        if self.metadata:
-            d["metadata"] = self.metadata
-        return d
-
-    @staticmethod
-    def from_dict(data: dict) -> Annotation:
-        return Annotation(
-            id=UUID(data["id"]),
-            target_id=UUID(data["target_id"]),
-            annotator=data.get("annotator", ""),
-            label=data.get("label", ""),
-            confidence=data.get("confidence", 1.0),
-            metadata=data.get("metadata", {}),
-        )
-
-
-@dataclass
-class Trace:
-    id: UUID
-    trace_type: str
-    timestamp: float
-    data: dict[str, Any] = field(default_factory=dict)
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-    def to_dict(self) -> dict:
-        return {
-            "id": self.id.hex,
-            "trace_type": self.trace_type,
-            "timestamp": self.timestamp,
-            "data": self.data,
-            "metadata": self.metadata,
-        }
-
-    @staticmethod
-    def from_dict(data: dict) -> Trace:
-        return Trace(
-            id=UUID(data["id"]),
-            trace_type=data.get("trace_type", ""),
-            timestamp=data.get("timestamp", 0.0),
-            data=data.get("data", {}),
-            metadata=data.get("metadata", {}),
-        )
-
-
-@dataclass
-class EvidenceCounts:
-    positive: int = 0
-    negative: int = 0
-    uncertainty_pseudocount: float = 2.0
-
-
-@dataclass
-class Violation:
-    type: str
-    severity: Severity
-    description: str
-    node_id: UUID | None = None
-    edge_id: UUID | None = None
-
-
-@dataclass
-class ReviewResult:
-    status: str
-    violations: list[Violation] = field(default_factory=list)
-    feedback: str = ""

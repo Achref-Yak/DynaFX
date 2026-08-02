@@ -1,0 +1,62 @@
+name: Bug report
+description: Report a bug in the simulation engine, knowledge base, or docs
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report. Please include
+        a minimal reproduction so the issue can be investigated quickly.
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: Package version (`uv run python -c "import dynafx; print(dynafx.__version__ if hasattr(dynafx,'__version__') else 'n/a')"`) or commit SHA.
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which layer is involved?
+      options:
+        - System Dynamics (dynamics)
+        - Agent-Based Modeling
+        - Discrete Event Simulation
+        - Knowledge base / SPARQL / Turtle
+        - Bridge (KBSimBridge)
+        - Patterns
+        - Docs / tutorials
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happened? Include error output.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: A self-contained `.sysd` model or Python snippet that triggers the bug.
+      render: python
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Python version, OS, and how the package was installed.
+      value: |
+        - Python: 
+        - OS: 
+        - Install: `uv sync --all-extras`

@@ -1,5 +1,9 @@
 # Development
 
+See [CONTRIBUTING.md](https://github.com/Achref-Yak/DynaFX/blob/main/CONTRIBUTING.md)
+for the contribution overview, Code of Conduct, and quick links. This page is
+the detailed developer reference.
+
 ## Setup
 
 ```bash
@@ -7,6 +11,8 @@ git clone https://github.com/Achref-Yak/DynaFX
 cd DynaFX
 uv sync --all-extras
 ```
+
+Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
 
 ## Running Tests
 
@@ -48,6 +54,8 @@ The GitHub Pages source is set to **GitHub Actions** (repo → Settings → Page
 
 - [ ] `ruff check src/` passes
 - [ ] `pyright src/dynafx` passes
-- [ ] All tests pass
+- [ ] All tests pass (`pytest`)
 - [ ] New code has tests
+- [ ] `mkdocs build --strict` passes (if docs changed)
+- [ ] `CHANGELOG.md` updated for user-facing changes
 - [ ] No `print()` statements (use `logger`)

@@ -1,5 +1,20 @@
 # Contributing
 
+Thanks for your interest in DynaFX! Contributions of all kinds are welcome —
+code, models, docs, tutorials, issues, and research collaborations. DynaFX is
+a research platform first: if you're here to explore an idea, see
+[Open Research Problems](docs/open-problems.md) for concrete questions we'd
+love help with.
+
+This project is governed by the [Contributor Covenant](CODE_OF_CONDUCT.md).
+By participating you agree to abide by its terms.
+
+## Quick Links
+
+- **Full development reference:** [Development](docs/development.md)
+- **Research directions:** [Open Research Problems](docs/open-problems.md)
+- **Security issues:** see [SECURITY.md](SECURITY.md) — do **not** open a public issue
+
 ## Development Setup
 
 ```bash
@@ -7,42 +22,45 @@
 git clone https://github.com/Achref-Yak/DynaFX.git
 cd DynaFX
 
-# Create virtual environment
-uv venv
-source .venv/bin/activate
-
-# Install with all extras
-uv pip install -e ".[all]"
+# Create a virtual environment and install all extras
+uv sync --all-extras
 ```
 
-## Running Tests
+Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
+
+## Running Checks
 
 ```bash
-# Run all tests
-pytest
+# All tests
+uv run pytest
 
-# Run with coverage
-pytest --cov=dynafx --cov-report=term-missing
-
-# Run a specific test file
-pytest tests/test_dsl.py
-```
-
-## Code Quality
-
-```bash
 # Lint
-ruff check src/
+uv run ruff check src/
 
 # Type check
-pyright src/dynafx
+uv run pyright src/dynafx
+
+# Docs build (strict — fails on broken links/warnings)
+uv run mkdocs build --strict
 ```
+
+These four checks run in CI on every push and pull request
+([`.github/workflows/ci.yml`](.github/workflows/ci.yml)), so passing them
+locally is the fastest way to get a green CI run.
+
+## Where to Start
+
+- **Good first issues** — browse the [issue tracker](https://github.com/Achref-Yak/DynaFX/issues) for `good first issue` labels.
+- **Models & recipes** — add a `.sysd` model or a new `dynafx/patterns/` factory; every model ships with a test.
+- **Docs & tutorials** — the tutorial code blocks are *executed* against the package before publishing; keep that contract.
+- **Research collaborations** — open an issue describing the problem and how DynaFX could support it.
 
 ## Pull Request Checklist
 
-- [ ] Tests pass (`pytest`)
-- [ ] New tests added for new functionality
-- [ ] Ruff lint passes (`ruff check src/`)
-- [ ] Pyright type-check passes (`pyright src/dynafx`)
-- [ ] For model changes: verify with `pytest tests/ -x`
-- [ ] Update `CHANGELOG.md` if introducing user-facing changes
+- [ ] `uv run pytest` passes
+- [ ] New functionality has tests
+- [ ] `uv run ruff check src/` passes
+- [ ] `uv run pyright src/dynafx` passes
+- [ ] `uv run mkdocs build --strict` passes (if docs changed)
+- [ ] `CHANGELOG.md` updated for user-facing changes
+- [ ] Commit message describes the *why*, not just the *what*

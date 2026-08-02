@@ -66,7 +66,17 @@ If you are a researcher, pick a problem, open an issue or a discussion, and we w
 
 ---
 
-## 7. How should federated digital twins preserve provenance across trust boundaries?
+## 7. How should learned models be integrated into a symbolic twin?
+
+**Why it matters.** DynaFX reasons symbolically by design — explicit triples, rules, and equations you can audit. Yet real twin components are naturally learned: demand forecasts, anomaly detection, RUL, policies. Problem 6 asks *where the seam goes*; this asks the architectural question beneath it: given the platform's existing seams — `params_from_kb` (KB→parameter), `KB_ASSERT` (mid-run evidence), `registry.register_builtin` (expression-level functions), and `calibrate`/surrogates (sim-consumption) — what is the canonical, reproducible pattern for composing a learner in and out?
+
+**What a solution might involve.** A `LearnerParamSource` wrapping any predictor and emitting KB facts through the existing bridge; a registered `FORECAST`-style builtin evaluated per timestep; a surrogate-training path that learns an emulator of a heavy simulation to accelerate sensitivity/Pareto search; and an RL environment wrapping `SysdModel` + KB with evidence-triple rewards (cross-ref Problem 3). The unifying constraint: the symbolic layer stays the audit backbone — the learned component emits parameters/evidence/actions but never replaces the reasoning layer. Ingestion-side ML (entity resolution, extraction) is explicitly out of scope — the import path is declarative CSV→RDF by design.
+
+**How to contribute.** A minimal `LearnerParamSource` proving the composition pattern on the supply-chain twin (learned demand forecast → params → twin → evidence); an evaluation of a registered ML builtin vs. precomputed inputs; or a surrogate that accelerates `SensitivityAnalyzer` by an order of magnitude while preserving conclusion ranking.
+
+---
+
+## 8. How should federated digital twins preserve provenance across trust boundaries?
 
 **Why it matters.** Provenance today is recorded per-run in the twin's own graph. In a federation, evidence crosses organizational boundaries, and each partner's provenance must be trusted by the others.
 
