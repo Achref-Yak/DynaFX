@@ -57,7 +57,7 @@ The **memory and semantics** of the twin.
 - **`TripleStore`** — in-memory RDF store with SPO/POS/OSP indices, named graphs, and all 8 triple patterns. Facts are stored per source graph, preserving provenance.
 - **Ontology / TBox** — class and property hierarchies (`TypeHierarchy`, `TBox`, `load_tbox`).
 - **Inference** — forward-chaining `RuleEngine` with `rdfs_rules()` (7 rules) and `owl_rl_rules()` (4 rules), applied to a fixpoint.
-- **Production Rules** — condition→action engine over the store (`ProductionRuleEngine`), with 5 condition and 5 action types.
+- **Production Rules** — condition→action engine over the store (`ProductionRuleEngine`), with 7 condition and 5 action types.
 
 **Extension points:** new ontologies via Turtle + TBox definitions; new inference via `Rule` declarations; new behavior via production rules; new data sources via YAML ingestion mappings (`ingest_csv`).
 

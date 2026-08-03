@@ -90,7 +90,7 @@ engine.apply(store)
 
 `dynafx.knowledge.production` provides a rule engine for KB-driven actions:
 
-- 5 condition types: `TripleCondition`, `ComparisonCondition`, `AndCondition`, `OrCondition`, `SparqlCondition`
+- 7 condition types: `TripleCondition`, `ComparisonCondition`, `AndCondition`, `OrCondition`, `NotCondition`, `SparqlCondition`, `AggregationCondition`
 - 5 action types: `LogAction`, `TripleAction`, `RetractAction`, `SimulateAction`, `BridgeAction`
 - Fire-once, max-fires, priority ordering
 

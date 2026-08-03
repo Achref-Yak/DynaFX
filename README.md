@@ -93,7 +93,7 @@ The KB and the simulation are one living system: knowledge graph → parameters 
 | RDFS inference (7 rules: subClassOf, subPropertyOf, domain, range, etc.) | Stable |
 | OWL RL inference (4 rules: equivalentClass, equivalentProperty, inverseOf, TransitiveProperty) | Stable |
 | TBox / OWL2-style type hierarchy (`TypeHierarchy`, `load_tbox`) | Stable |
-| Production rules (5 condition types, 5 action types, fire-once, priority) | Stable |
+| Production rules (7 condition types, 5 action types, fire-once, priority) | Stable |
 | CSV ingestion (`ingest_csv`) with YAML mapping files | Stable |
 | Transaction log (append-only temporal store) | Stable |
 | Execution provenance tracking | Stable |

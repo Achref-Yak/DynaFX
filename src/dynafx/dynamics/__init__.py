@@ -13,6 +13,7 @@ Subpackages: dsl, causal, feedback, scenario, units, agent, des
 from dynafx.dynamics.agent import (
     ABMEngine,
     AgentInstance,
+    Message,
 )
 from dynafx.dynamics.causal import (
     causal_trace,
@@ -30,6 +31,8 @@ from dynafx.dynamics.des import (
 )
 from dynafx.dynamics.dsl import (
     AgentDef,
+    AgentRuleDef,
+    AgentStrategy,
     AuxDef,
     EventDef,
     FlowDef,
@@ -111,8 +114,11 @@ __all__ = [  # noqa: RUF022  section-grouped, not alphabetical
     "TableDef",
     # ABM
     "AgentDef",
+    "AgentRuleDef",
+    "AgentStrategy",
     "AgentInstance",
     "ABMEngine",
+    "Message",
     # DES
     "QueueDef",
     "ResourceDef",

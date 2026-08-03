@@ -35,7 +35,7 @@ ex:child ex:age 5 .
 
 engine = RuleEngine([adult_rule])
 added = engine.apply(store)
-print(added)   # 1 — only alice matches (child has age too, hmm...)
+print(added)   # 2 — both alice and child match
 ```
 
 !!! note "Simple rules, real machinery"

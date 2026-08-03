@@ -81,7 +81,7 @@ aux "headroom": MAX(0, 100 - Level)
 """)
 
 result = model.simulate()
-print(result.aux_values["ramp"][-1])        # 8.0
+print(result.aux_values["ramp"][-1])        # 10.0
 print(result.aux_values["headroom"][-1])    # 50.0
 ```
 

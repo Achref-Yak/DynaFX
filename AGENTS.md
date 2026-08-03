@@ -135,7 +135,7 @@
 - `src/dynafx/knowledge/turtle.py` — Turtle/N-Triples tokenizer, recursive descent parser, serializer. Supports @prefix/@base, a, all literal types, blank nodes, ; and , grouping, comments, base IRI resolution, empty-prefix PNAME_LN. 38 tests in `tests/test_kb_turtle.py`.
 - `src/dynafx/knowledge/inference.py` — `Rule`, `Var`, `InferencePattern`, `RuleEngine` (forward-chaining), `rdfs_rules()` (7 rules), `owl_rl_rules()` (4 rules). 59 tests in `tests/test_kb_inference.py`.
 - `src/dynafx/knowledge/hierarchy.py` + `loader.py` — `TypeNode`, `TypeHierarchy`, `MDM_TYPE_HIERARCHY`, `TBox`, `GENERAL_TBOX`, `load_tbox`, `validate_against_tbox`. 17 tests in `tests/test_tbox.py`.
-- `src/dynafx/knowledge/production.py` — `ProductionRuleEngine`, `ProductionRule`, `Condition` hierarchy (5 types), `Action` hierarchy (5 types), fire_once/max_fires/priority. 53 tests in `tests/test_kb_production.py`.
+- `src/dynafx/knowledge/production.py` — `ProductionRuleEngine`, `ProductionRule`, `Condition` hierarchy (7 types), `Action` hierarchy (5 types), fire_once/max_fires/priority. 53 tests in `tests/test_kb_production.py`.
 - `src/dynafx/knowledge/transactions.py` — `Transaction`, `TransactionStore`, `TransactionQuery`. Append-only temporal log with RDF backing. 25 tests in `tests/test_kb_transactions.py`.
 - `src/dynafx/knowledge/execution.py` — `ExecutionRecord`, `ExecutionStore`. Provenance-tracked action records. 10 tests.
 - `examples/global_solar_epc_twin.py` — supply chain digital twin example: 7 EPC CSVs → named-graph KB → params_from_kb → baseline/typhoon runs → evidence round-trip → scenario grading/ranking/filtering → production rules → kb_lp_minimize → causal/feedback → provenance → L1–L5 maturity ladder. Verifies baseline $931.4M / disruption −$2.8M.

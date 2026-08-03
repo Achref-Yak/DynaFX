@@ -138,7 +138,7 @@ into the KB. See [Tutorial 7](tutorials/07-closed-loop-twin.md).
 | `causes_strip(model, var, state)` | Decompose a variable into contributing factors | [10](tutorials/10-publishing-results.md) |
 | `causes_tree`, `effects_tree` | Upstream / downstream dependency trees | — |
 | `detect_feedback_loops(model)` | Find reinforcing/balancing loops | [10](tutorials/10-publishing-results.md) |
-| `loops_for_variable(var)` | Loops touching one variable | — |
+| `loops_for_variable(analysis, var)` | Loops touching one variable | — |
 
 ### Scenario comparison & sensitivity
 
