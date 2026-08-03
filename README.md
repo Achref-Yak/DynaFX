@@ -237,7 +237,7 @@ If DynaFX contributes to your research, please cite it:
 
 ```bibtex
 @software{Yak_DynaFX,
-  author       = {Achref Yak},
+  author       = {Achref Yakdhane},
   title        = {DynaFX: {A} semantic simulation platform for cognitive digital twins},
   year         = {2026},
   url          = {https://github.com/Achref-Yak/DynaFX},
@@ -246,7 +246,7 @@ If DynaFX contributes to your research, please cite it:
 }
 ```
 
-Plain text: *Achref Yak. (2026). DynaFX: A semantic simulation platform for cognitive digital twins (Version 0.2.0). https://github.com/Achref-Yak/DynaFX*
+Plain text: *Achref Yakdhane. (2026). DynaFX: A semantic simulation platform for cognitive digital twins (Version 0.2.0). https://github.com/Achref-Yak/DynaFX*
 
 A persistent DOI (via Zenodo) will be added here once a release is published. See [citation](docs/citation.md) for details.
 

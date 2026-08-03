@@ -33,6 +33,3 @@ publish a release, the steps are:
    link the GitHub repo, enable the webhook). Zenodo reads `CITATION.cff`
    and `pyproject.toml` metadata automatically.
 3. **Add the DOI badge** to the README and to the citation block above.
-
-Until then, cite the version above. If you have an **ORCID**, adding it to
-`CITATION.cff` disambiguates the author record; this is optional.
