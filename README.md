@@ -6,13 +6,13 @@
 [![Code style](https://img.shields.io/badge/code%20style-ruff-000000)](https://docs.astral.sh/ruff/)
 [![Pyright](https://img.shields.io/badge/types-pyright-6A1B4D)](https://github.com/microsoft/pyright)
 
-Multi-paradigm simulation (**SD + ABM + DES**) with cognitive reasoning — knowledge graphs, confidence grading, and argumentation for simulation-driven decisions.
+Multi-paradigm simulation (**SD + ABM + DES**) with a knowledge-graph engine — RDF/OWL/SPARQL semantics, production rules, and closed-loop KB↔simulation reasoning for decision support.
 
 ---
 
 ## Why DynaFX?
 
-Most simulation tools stop at modeling. DynaFX goes further — your models can **query knowledge graphs at runtime**, **fuse uncertain evidence from conflicting sources**, and **grade source trust automatically**. It is open-source, Python-native, and designed so that simulation and reasoning are not separate tools but a single connected system.
+Most simulation tools stop at modeling. DynaFX goes further — your models can **query knowledge graphs at runtime**, **let KB facts steer the dynamics**, and **write simulation results back as evidence** that rules and optimization can act on. It is open-source, Python-native, and designed so that simulation and reasoning are not separate tools but a single connected system.
 
 ---
 
@@ -20,7 +20,7 @@ Most simulation tools stop at modeling. DynaFX goes further — your models can 
 
 DynaFX provides a Vensim-style `.sysd` DSL for building stock-and-flow models with full arithmetic, lookup tables, and comparisons. The engine supports RK4 and Euler integration, automatic topological sorting of auxiliary variables, and higher-order delays (SMOOTH, SMOOTHI, DELAY3, DELAYN, DELAY_FIXED, CONVEY_BATCH). Time functions like PULSE, STEP, RAMP, and NOISE are built in.
 
-## Cognitive Reasoning
+## Knowledge Engine
 
 The knowledge engine is built on a full RDF stack: a triple data model (NamedNode, BlankNode, Literal, Triple), a `TripleStore` with SPO/POS/OSP indices and named graphs, and a Turtle/N-Triples parser and serializer. SPARQL queries can be evaluated directly against the store. RDFS inference (7 rules) and OWL RL inference (4 rules) run as forward-chaining passes.
 
@@ -36,7 +36,7 @@ The DES engine provides queues with capacity limits and service time expressions
 
 ## Cross-Paradigm Integration
 
-SD, ABM, and DES share a unified state dictionary — all three paradigms read and write to the same namespace. A single `.sysd` file can contain stocks, flows, agents, queues, and resources. DES queues can read ABM agent properties and SD aux values. The CLI provides `--paradigm` and `--stats` flags to control which engines are active.
+SD, ABM, and DES share a unified state dictionary — all three paradigms read and write to the same namespace. A single `.sysd` file can contain stocks, flows, agents, queues, and resources. DES queues can read ABM agent properties and SD aux values.
 
 The `KBSimBridge` connects the knowledge graph to the simulation: it extracts parameters from the KB, injects them into the model, and after simulation writes evidence triples back. `KB_QUERY` can be used inside `.sysd` auxiliary expressions and ABM agent rules to read from the knowledge graph at runtime. `KB_ASSERT` allows agents to update the KB mid-simulation. The `ClosedLoopReasoner` orchestrates multi-pass reasoning-simulation cycles where each pass informs the next.
 
@@ -65,48 +65,27 @@ uv pip install -e ".[all]"
 ```python
 from dynafx import parse_sysd_file
 
-model = parse_sysd_file("models/student_math.sysd")
-result = model.simulate(params={
-    "KG_anxiety_belief": 0.8,
-    "KG_attention_belief": 0.85,
-})
+model = parse_sysd_file("data/models/global_solar_epc.sysd")
+result = model.simulate()
 
-print(f"Final performance: {result.values['Math_Performance'][-1]:.2f}")
-result.plot("math_outcome.png", stocks=["Math_Performance"])
+print(result.values["Global_Panel_Supply"][-1])
+result.plot("out.png", stocks=["Global_Panel_Supply"])
 ```
 
 ### Knowledge Graph Pipeline
 
 ```python
-from dynafx import TripleStore, parse_turtle, cumulative_fusion, grade_queries
+from dynafx import parse_turtle, grade_queries
 
-store = TripleStore()
-for t in parse_turtle(source_a).triples():
-    store.add(t, graph="alpha")
-for t in parse_turtle(source_b).triples():
-    store.add(t, graph="bravo")
+store = parse_turtle("""
+    @prefix ex: <http://ex.org/> .
+    ex:portfolio ex:revenue 950.0 .
+""")
 
-fused = cumulative_fusion(store, ["alpha", "bravo"])
-result = grade_queries(fused, "SELECT ?revenue WHERE { ?s :revenue ?revenue }")
-print(f"Confidence: {result.confidence:.2f}")
+query = "PREFIX ex: <http://ex.org/> SELECT ?v WHERE { ex:portfolio ex:revenue ?v }"
+grades = grade_queries([(query, "v", 0.5, 0.0)], store)
+print(grades)   # {'0': 1.0} — score in [0, 1]
 ```
-
-### CLI
-
-```bash
-# Simulate a model
-dynafx simulate models/student_math.sysd
-
-# Simulate with ABM and DES stats
-dynafx simulate models/pandemic_response.sysd --paradigm all --stats
-
-# Validate a model
-dynafx validate models/pandemic_seirvh.sysd
-
-# List available models
-dynafx list
-```
-
 
 ## Tests
 

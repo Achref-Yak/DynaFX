@@ -10,24 +10,24 @@ RDF (Resource Description Framework) models knowledge as **subject–predicate�
 
 1. **Open, standardized, and interoperable.** RDF is a W3C standard. Knowledge built in DynaFX can be exported, merged, and queried with the wider semantic-web ecosystem (or moved to a production triple store) without a translation layer.
 2. **Identity is explicit.** Every entity is an IRI; every property is a named relation. This matches how enterprises actually describe themselves — contracts reference suppliers, projects reference ports — as typed, nameable relationships, not rows in a table.
-3. **Schema-flexible.** RDF admits data without a fixed schema and lets the ontology impose structure where needed. A digital twin ingesting heterogeneous sources (CSVs, sensor exports, documents) benefits enormously from this tolerance.
+3. **Schema-flexible.** RDF admits data without a fixed schema and lets the ontology impose structure where needed. A system ingesting heterogeneous sources (CSVs, sensor exports, documents) benefits enormously from this tolerance.
 4. **Reasoning-ready.** RDF's model is the substrate for RDFS and OWL, which give us class hierarchies, domain/range constraints, and entailment — inference that a relational schema cannot express.
 
-**Assumption:** the twin's facts are representable as entities and binary relations. Multi-valued and n-ary facts must be reified — a known limitation we accept in exchange for the benefits above.
+**Assumption:** the system's facts are representable as entities and binary relations. Multi-valued and n-ary facts must be reified — a known limitation we accept in exchange for the benefits above.
 
 ---
 
 ## Why OWL and SPARQL?
 
-**OWL** provides the ontology layer: classes (`rdfs:subClassOf`), properties (`rdfs:subPropertyOf`), and constraints (domain/range, inverse, transitivity). We use the **RL profile** — a tractable fragment with polynomial-time reasoning — via a forward-chaining engine. This gives us the expressive tools that matter for enterprise twins (hierarchies, property semantics, type propagation) without the undecidability of full OWL.
+**OWL** provides the ontology layer: classes (`rdfs:subClassOf`), properties (`rdfs:subPropertyOf`), and constraints (domain/range, inverse, transitivity). We use the **RL profile** — a tractable fragment with polynomial-time reasoning — via a forward-chaining engine. This gives us the expressive tools that matter for enterprise models (hierarchies, property semantics, type propagation) without the undecidability of full OWL.
 
-**SPARQL** is the query language over the resulting graph. It is the standard interface between "what the twin knows" and "what the twin computes". In DynaFX, SPARQL strings are used in three places:
+**SPARQL** is the query language over the resulting graph. It is the standard interface between "what the system knows" and "what the system computes". In DynaFX, SPARQL strings are used in three places:
 
 - *Pre-flight*: `params_from_kb` extracts KB facts into parameters (we support a declarative claim-map form).
 - *Mid-flight*: `KB_QUERY` builtins evaluate ASK/SELECT queries every timestep, so simulation dynamics are numerically steered by knowledge.
 - *Post-flight / reasoning*: SPARQL backs production-rule conditions and scenario grading.
 
-**Assumption:** the knowledge the twin needs is queryable as a graph. Temporal and probabilistic knowledge require additional structure that is out of scope today (see [Open Research Problems](open-problems.md)).
+**Assumption:** the knowledge the system needs is queryable as a graph. Temporal and probabilistic knowledge require additional structure that is out of scope today (see [Open Research Problems](open-problems.md)).
 
 ---
 
@@ -41,7 +41,7 @@ Each simulation paradigm models a different kind of question, and real systems a
 | **Agent-Based Modeling** | Heterogeneous actors, rules, interaction | Emergence, strategy switching, distributed decisions |
 | **Discrete Event Simulation** | Queues, resources, schedules | Congestion, capacity, event timing, logistics |
 
-In the flagship twin (see the [Digital Twin](digital-twin.md)), the port closure is an SD-level supply-rate disruption, ABM agents switch procurement strategies under crisis conditions, and DES queues model berth and yard congestion — all in one model, all reading the same knowledge graph. A single paradigm could not represent that combination faithfully.
+In the flagship example (see the [Case Study](case-study-solar-epc.md)), the port closure is an SD-level supply-rate disruption, ABM agents switch procurement strategies under crisis conditions, and DES queues model berth and yard congestion — all in one model, all reading the same knowledge graph. A single paradigm could not represent that combination faithfully.
 
 The three paradigms share **one state namespace** (stocks + agent metrics + queue metrics in a single dict). This makes cross-paradigm coupling — a DES queue gated by an SD stock, an aux reading an agent aggregate — a first-class design decision rather than an ad-hoc integration.
 
@@ -57,9 +57,9 @@ The core intellectual claim of DynaFX is that **knowledge and dynamics should be
 knowledge → parameters → simulation → evidence → knowledge
 ```
 
-This is a *semantic simulation*: the twin's dynamics are not just calibrated against data — they are *steered by* the knowledge graph at run time, and the results *become* knowledge. `ClosedLoopReasoner` operationalizes this as iterative **simulate → grade → nudge → re-simulate** cycles until targets are met.
+This is a *semantic simulation*: the model's dynamics are not just calibrated against data — they are *steered by* the knowledge graph at run time, and the results *become* knowledge. `ClosedLoopReasoner` operationalizes this as iterative **simulate → grade → nudge → re-simulate** cycles until targets are met.
 
-This is a cognitive-digital-twin architecture in the Digital Twin Consortium sense: a twin that learns at run time (evidence), foresees the future (scenario/sensitivity), and acts (rules + optimization).
+This is a *closed-loop reasoning* architecture: the system learns at run time (evidence), foresees the future (scenario/sensitivity), and acts (rules + optimization) — with explicit, auditable mechanisms rather than opaque black boxes.
 
 ---
 
@@ -68,7 +68,7 @@ This is a cognitive-digital-twin architecture in the Digital Twin Consortium sen
 - **All enterprise data is representable as RDF triples.** CSV→RDF via YAML mappings is the canonical ingestion path.
 - **Aggregates are materialized, not computed on query.** The SPARQL evaluator has no GROUP BY; aggregate facts (reliability, projects-at-risk) are computed at ingest and stored explicitly.
 - **Determinism is the default.** Simulations are seeded; reproducibility is a research requirement.
-- **Models are explicit and auditable.** No hidden fitted parameters inside the twin — learning is structural (evidence and rules), not black-box.
+- **Models are explicit and auditable.** No hidden fitted parameters inside the model — learning is structural (evidence and rules), not black-box.
 - **Single-process, in-memory.** The triple store and simulation run in one process. Scale-out and federation are future work.
 
 ---
@@ -88,7 +88,7 @@ We document these deliberately, as they bound the claims one can make with DynaF
 
 ## Citable Materials
 
-- [Concepts](concepts.md) — the vocabulary (knowledge graph, bridge, evidence, scenario, policy, cognitive digital twin).
+- [Concepts](concepts.md) — the vocabulary (knowledge graph, bridge, evidence, scenario, policy, closed loop).
 - [Architecture](architecture.md) — the layered pipeline and extension points.
 - [Open Research Problems](open-problems.md) — questions we are seeking collaborators for.
-- Digital Twin Consortium, *Cognitive Digital Twins: Digital Twins That Learn By Themselves, Foresee the Future, and Act Accordingly* (2022) — the framing of cognitive digital twins that this platform operationalizes.
+- [Case Study](case-study-solar-epc.md) — the flagship end-to-end example.

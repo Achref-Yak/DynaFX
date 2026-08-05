@@ -44,7 +44,7 @@ graph TD
     L5 --> L1
 ```
 
-The cycle: **Knowledge Layer → Reasoning Layer → Bridge → Simulation Layer → Evidence Generation → Knowledge Update.** The knowledge graph is not a passive input; it is both read (to parameterize and steer the simulation) and written (as evidence), so the twin's knowledge grows with every run.
+The cycle: **Knowledge Layer → Reasoning Layer → Bridge → Simulation Layer → Evidence Generation → Knowledge Update.** The knowledge graph is not a passive input; it is both read (to parameterize and steer the simulation) and written (as evidence), so the system's knowledge grows with every run.
 
 ---
 
@@ -52,7 +52,7 @@ The cycle: **Knowledge Layer → Reasoning Layer → Bridge → Simulation Layer
 
 ### 1. Knowledge Layer (`dynafx/knowledge`)
 
-The **memory and semantics** of the twin.
+The **memory and semantics** of the system.
 
 - **`TripleStore`** — in-memory RDF store with SPO/POS/OSP indices, named graphs, and all 8 triple patterns. Facts are stored per source graph, preserving provenance.
 - **Ontology / TBox** — class and property hierarchies (`TypeHierarchy`, `TBox`, `load_tbox`).

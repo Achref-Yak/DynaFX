@@ -1,8 +1,8 @@
 # Tutorial 7 — Closed-Loop Simulation
 
-This is where DynaFX earns the "cognitive digital twin" label. Facts flow
-**KB → simulation**, and simulation results flow **simulation → KB** as
-evidence — a closed loop. The class that orchestrates this is `KBSimBridge`.
+This is the defining pattern of DynaFX. Facts flow **KB → simulation**, and
+simulation results flow **simulation → KB** as evidence — a closed loop. The
+class that orchestrates this is `KBSimBridge`.
 
 ## Step 1 — KB facts become simulation parameters
 
@@ -33,8 +33,8 @@ params = bridge.params_from_kb(claim_map, default=0.5, exclude_graphs=set())
 print(params)   # {'kb_reliability': 0.1}
 ```
 
-By default the `schema`, `meta`, and `fused` graphs are excluded (they hold
-ontology and derived triples, not source facts).
+By default the `schema` and `meta` graphs are excluded (they hold ontology
+and derived triples, not source facts).
 
 ## Step 2 — simulate with the KB attached
 
@@ -112,21 +112,21 @@ run = bridge.record_provenance(
 print(run.iri)   # e.g. .../run/<uuid>
 ```
 
-## The full L1→L5 picture
+## The full loop
 
-The flagship `examples/global_solar_epc_twin.py` wires all of this together
-across five levels:
+The flagship `examples/global_solar_epc.py` wires all of this together across
+the full reasoning loop:
 
-| Level | Bridge role |
+| Stage | Bridge role |
 |-------|-------------|
-| L1 Sense | CSVs → named-graph KB + RDFS inference |
-| L2 Assemble | `params_from_kb` → simulation params |
-| L3 Model | SD + ABM + DES model |
-| L4 Live | KB disruption flag + agents write triples mid-run |
-| L5 Decide | evidence round-trip, scenarios, rules, LP, provenance |
+| Sense | CSVs → named-graph KB + RDFS inference |
+| Assemble | `params_from_kb` → simulation params |
+| Model | SD + ABM + DES model |
+| Live | KB disruption flag + agents write triples mid-run |
+| Decide | evidence round-trip, scenarios, rules, LP, provenance |
 
 ```bash
-uv run python examples/global_solar_epc_twin.py
+uv run python examples/global_solar_epc.py
 ```
 
 ## What's next

@@ -40,7 +40,7 @@ for t in store.triples(pattern, graph="people"):
 ## Named graphs
 
 Named graphs let you separate *sources* or *layers* of knowledge. In the
-flagship twin, suppliers, projects, logistics, workforce, meta-ontology, and
+flagship example, suppliers, projects, logistics, workforce, meta-ontology, and
 simulation evidence each live in their own graph.
 
 ```python

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "dynafx"
 version = "0.2.0"
-description = "Multi-paradigm simulation framework (SD + ABM + DES) with cognitive reasoning — knowledge graphs, confidence grading, and argumentation for simulation-driven decision support"
+description = "Multi-paradigm simulation framework (SD + ABM + DES) with a semantic knowledge engine — RDF/OWL/SPARQL knowledge graphs and closed-loop KB<->simulation reasoning for decision support"
 readme = "README.md"
 requires-python = ">=3.12"
 license = {text = "MIT"}
@@ -14,9 +14,8 @@ authors = [
 ]
 keywords = [
     "system-dynamics", "agent-based-modeling", "discrete-event-simulation",
-    "cognitive-digital-twin", "knowledge-graph", "simulation",
-    "subjective-logic", "argumentation", "decision-intelligence",
-    "vensim", "open-source", "multi-paradigm",
+    "knowledge-graph", "semantic-simulation", "rdf", "sparql", "simulation",
+    "decision-support", "vensim", "open-source", "multi-paradigm",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",

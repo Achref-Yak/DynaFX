@@ -5,7 +5,7 @@ If DynaFX contributes to your research, please cite the software:
 ```bibtex
 @software{Yak_DynaFX,
   author       = {Achref Yakdhane},
-  title        = {DynaFX: {A} semantic simulation platform for cognitive digital twins},
+  title        = {DynaFX: {A} multi-paradigm simulation framework with a semantic knowledge engine},
   year         = {2026},
   url          = {https://github.com/Achref-Yak/DynaFX},
   version      = {0.2.0},
@@ -15,8 +15,8 @@ If DynaFX contributes to your research, please cite the software:
 
 Plain text:
 
-> Achref Yakdhane. (2026). DynaFX: A semantic simulation platform for cognitive
-> digital twins (Version 0.2.0). https://github.com/Achref-Yak/DynaFX
+> Achref Yakdhane. (2026). DynaFX: A multi-paradigm simulation framework with
+> a semantic knowledge engine (Version 0.2.0). https://github.com/Achref-Yak/DynaFX
 
 The repository also ships a machine-readable [`CITATION.cff`](https://github.com/Achref-Yak/DynaFX/blob/main/CITATION.cff),
 so GitHub shows a *Cite this repository* button on the project page.

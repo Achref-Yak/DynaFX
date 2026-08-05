@@ -18,10 +18,10 @@
 │   └── custom builtins and DES hook registration
 │
 ├── 0.3  Example Scripts (1 script)
-│   └── Supply chain twin: global_solar_epc_twin (L1-L5, SD+ABM+DES+KB)
+│   └── Flagship example: global_solar_epc (KB→sim→evidence, SD+ABM+DES)
 │
 └── 0.5  Model Library (5 .sysd models)
-    ├── Supply chain twin: global_solar_epc
+    ├── Flagship model: global_solar_epc
     └── Library fixtures: vmi, reverse_logistics, cold_chain, supply_chain_demo
 ```
 

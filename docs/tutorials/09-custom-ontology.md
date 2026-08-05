@@ -122,7 +122,7 @@ print(validate_against_tbox("STOCK", "flow_in", tbox))   # False — not in gene
 
 ## Bundling custom rules for reuse
 
-Package your rules as a function so the twin pipeline can attach them:
+Package your rules as a function so the closed-loop pipeline can attach them:
 
 ```python
 def my_rules() -> list[Rule]:

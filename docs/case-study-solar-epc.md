@@ -1,9 +1,9 @@
-# Digital Twin: Global Solar EPC
+# Case Study: Global Solar EPC
 
-`examples/global_solar_epc_twin.py` is a living digital twin of a solar EPC (engineering, procurement, construction) enterprise reasoning through a typhoon-induced port closure disruption. It closes the full KB→Sim→Evidence loop in one runnable script.
+`examples/global_solar_epc.py` is the flagship end-to-end example: a solar EPC (engineering, procurement, construction) enterprise reasoning through a typhoon-induced port closure disruption. It closes the full KB→Sim→Evidence loop in one runnable script.
 
 ```bash
-python examples/global_solar_epc_twin.py      # exit 0, ~8 s, 12 sections
+python examples/global_solar_epc.py      # exit 0, ~8 s, 12 sections
 ```
 
 ## The 12 Sections
@@ -20,7 +20,7 @@ python examples/global_solar_epc_twin.py      # exit 0, ~8 s, 12 sections
 | 8 | OPTIMIZE | `kb_lp_minimize` allocates a mitigation budget from SPARQL coeffs/bounds |
 | 9 | DIAGNOSE | `causal_trace` revenue decomposition + `detect_feedback_loops` (5 loops) |
 | 10 | PROVENANCE | `record_provenance` — PROV run entity with audit trail |
-| 11 | MAP | which section proves L1 (sense) … L5 (decide) |
+| 11 | MAP | which section proves each stage of the reasoning loop (sense → decide) |
 | 12 | TAKEAWAY | the loop closes; $2,795K cost of a 30-day closure |
 
 ## The Live Knowledge Base
