@@ -1,12 +1,14 @@
 # DynaFX
 
-Multi-paradigm system dynamics framework (SD + ABM + DES) with RDF/OWL/SPARQL cognitive reasoning engine and Subjective Logic confidence grading.
+Multi-paradigm simulation (**SD + ABM + DES**) with cognitive reasoning — knowledge graphs, confidence grading, and argumentation for simulation-driven decisions.
 
 ## Quick Start
 
 ```bash
 pip install dynafx
 ```
+
+### Simulate a model
 
 ```python
 from dynafx import SysdModel, parse_sysd_file
@@ -16,15 +18,31 @@ result = model.simulate(t_start=0, t_end=100, dt=0.25, params={"k": 0.5})
 print(result.values["MyStock"][-1])
 ```
 
+### Query a knowledge graph with confidence
+
+```python
+from dynafx import TripleStore, parse_turtle, cumulative_fusion, grade_query
+
+store = TripleStore()
+for t in parse_turtle(source_a).triples():
+    store.add(t, graph="alpha")
+for t in parse_turtle(source_b).triples():
+    store.add(t, graph="bravo")
+
+fused = cumulative_fusion(store, ["alpha", "bravo"])
+result = grade_query(fused, "SELECT ?revenue WHERE { ?s :revenue ?revenue }")
+print(f"Confidence: {result.confidence:.2f}")
+```
+
 ## Features
 
 | Paradigm | Description |
 |----------|-------------|
 | **System Dynamics** | Stock/flow models, Vensim-style DSL, RK4/Euler integration, submodels, unit checking |
+| **Cognitive Reasoning** | RDF triple store, SPARQL, RDFS/OWL inference, KBT source trust, argumentation, SL fusion |
 | **Agent-Based** | Strategies, rules, message passing, strategy switching with cooldown |
 | **Discrete Event** | Queues, resources, event-driven simulation, DES clock |
-| **Knowledge Base** | RDF triple store, Turtle parser, SPARQL query, RDFS/OWL RL inference, production rules |
-| **Epistemics** | Subjective Logic fusion, KBT source scoring, argumentation frameworks, evidence matrices |
+| **Knowledge Bridge** | `KB_QUERY` / `KB_ASSERT` in simulation — models query and update the knowledge graph at runtime |
 
 ## Package Architecture
 
@@ -41,8 +59,8 @@ dynafx/
 
 All 46 examples are in `examples/` with descriptive docstrings. Key ones:
 
-- `global_solar_epc_dashboard.py` — 16-tab supply chain dashboard (KB + SD + DES + ABM)
-- `saas_churn_signal.py` — SaaS churn with signal chain detection
-- `argumentation_showcase.py` — Full epistemics pipeline (Turtle → inference → argumentation → fusion)
-- `supply_chain_hybrid.py` — Multi-paradigm supply chain with KB integration
-- `ev_battery_supply_chain.py` — 6-echelon EV battery model with report generation
+- `multi_paradigm_student.py` — **Full cognitive pipeline:** KG → trust → argumentation → fusion → SD+ABM+DES → feedback loop
+- `cognitive_twin_demo.py` — **Self-healing digital twin:** ABM agents update KB mid-simulation
+- `knowledge_fusion_showcase.py` — **End-to-end epistemics:** KBT → argumentation → fusion → SPARQL grading
+- `decision_toy.py` — **KB-driven scenario ranking:** 4 scenarios, constraint filtering, goal grading
+- `full_showcase.py` — **Feature tour:** 14 simulation capabilities in one script

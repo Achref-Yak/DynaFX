@@ -6,7 +6,25 @@
 [![Code style](https://img.shields.io/badge/code%20style-ruff-000000)](https://docs.astral.sh/ruff/)
 [![Pyright](https://img.shields.io/badge/types-pyright-6A1B4D)](https://github.com/microsoft/pyright)
 
-Multi-paradigm system dynamics framework (**SD + ABM + DES**) with an RDF/OWL/SPARQL cognitive reasoning engine and Subjective Logic (SL) confidence grading.
+Multi-paradigm simulation (**SD + ABM + DES**) with cognitive reasoning — knowledge graphs, confidence grading, and argumentation for simulation-driven decisions.
+
+---
+
+## Why DynaFX?
+
+Most simulation tools stop at modeling. DynaFX goes further — your models can **query knowledge graphs at runtime**, **fuse uncertain evidence from conflicting sources**, and **grade source trust automatically**.
+
+| Capability | Vensim | AnyLogic | DynaFX |
+|---|---|---|---|
+| System Dynamics | ✅ | ✅ | ✅ |
+| Agent-Based Modeling | ❌ | ✅ | ✅ |
+| Discrete Event Simulation | ⚠️ | ✅ | ✅ |
+| Knowledge Graph (RDF/OWL/SPARQL) | ❌ | ❌ | ✅ |
+| Source trust scoring (KBT) | ❌ | ❌ | ✅ |
+| Argumentation & evidence fusion | ❌ | ❌ | ✅ |
+| Causal tracing & feedback loops | ✅ | ❌ | ✅ |
+| Open source | ❌ | ❌ | ✅ |
+| Python-native | ❌ | ❌ | ✅ |
 
 ---
 
@@ -33,6 +51,22 @@ Multi-paradigm system dynamics framework (**SD + ABM + DES**) with an RDF/OWL/SP
 | Stock / flow ontology (MATERIAL / INFORMATION / FINANCIAL) | Stable |
 | Model validation (name resolution, flow conservation, bounds) | Stable |
 | Plotting API (`.plot()`, `.plot_with_bands()`) | Stable |
+
+### Cognitive Reasoning Engine (KB)
+
+| Feature | Status |
+|---------|--------|
+| RDF data model (NamedNode, BlankNode, Literal, Triple) | Stable |
+| TripleStore with SPO/POS/OSP indices, named graphs | Stable |
+| Turtle / N-Triples parser and serializer | Stable |
+| SPARQL query parser and evaluator | Stable |
+| RDFS inference (7 rules) | Stable |
+| OWL RL inference (4 rules) | Stable |
+| SL confidence layer (`fuse_graphs`, `grade_query`) | Stable |
+| Evidence Matrix (L1-distance consensus) | Stable |
+| KBT (Knowledge-Based Trust) — source reliability scoring via EM | Stable |
+| Dung argumentation framework (grounded / preferred semantics) | Stable |
+| Argumentation filter in fusion pipeline | Stable |
 
 ### Agent-Based Modeling (ABM)
 
@@ -62,22 +96,6 @@ Multi-paradigm system dynamics framework (**SD + ABM + DES**) with an RDF/OWL/SP
 | SD + ABM + DES in a single `.sysd` file | Stable |
 | DES queues read ABM agent properties / SD aux values | Stable |
 | CLI with `--paradigm` and `--stats` flags | Stable |
-
-### Cognitive Reasoning Engine (KB)
-
-| Feature | Status |
-|---------|--------|
-| RDF data model (NamedNode, BlankNode, Literal, Triple) | Stable |
-| TripleStore with SPO/POS/OSP indices, named graphs | Stable |
-| Turtle / N-Triples parser and serializer | Stable |
-| SPARQL query parser and evaluator | Stable |
-| RDFS inference (7 rules) | Stable |
-| OWL RL inference (4 rules) | Stable |
-| SL confidence layer (`fuse_graphs`, `grade_query`) | Stable |
-| Evidence Matrix (L1-distance consensus) | Stable |
-| KBT (Knowledge-Based Trust) — source reliability scoring via EM | Stable |
-| Dung argumentation framework (grounded / preferred semantics) | Stable |
-| Argumentation filter in fusion pipeline | Stable |
 
 ---
 
@@ -149,15 +167,12 @@ dynafx list
 
 | Example | What it shows |
 |---------|---------------|
-| `examples/multi_paradigm_student.py` | 3-pass KG→KBT→Argumentation→bridge→SD+ABM+DES pipeline |
-| `examples/knowledge_fusion_showcase.py` | End-to-end KG→KBT→Argumentation→SL fusion→SPARQL |
-| `examples/argumentation_showcase.py` | Turtle→named graphs→RDFS inference→argumentation→fusion |
-| `examples/supply_chain_demo.py` | 3-echelon supply chain with DELAY3/SMOOTH/SIN/PULSE |
-| `examples/supply_chain_paradigm.py` | 7-stock supply chain with DES escalations queue |
-| `examples/signal_showcase.py` | 9 leading-indicator domains built with SignalChain |
-| `examples/saas_churn_signal.py` | SaaS churn with 43-day leading indicator, 5 scenarios |
-| `examples/full_showcase.py` | 14-section feature tour (~12s runtime) |
-| `examples/pandemic_response.py` | SD+ABM+DES pandemic model with cohort analysis |
+| `examples/multi_paradigm_student.py` | **Full cognitive pipeline:** KG → trust scoring → argumentation → fusion → SD+ABM+DES → feedback loop |
+| `examples/cognitive_twin_demo.py` | **Self-healing digital twin:** ABM agents update KB mid-simulation, SD reads it via `KB_QUERY` |
+| `examples/decision_toy.py` | **KB-driven scenario ranking:** 4 scenarios, constraint filtering, goal grading |
+| `examples/knowledge_fusion_showcase.py` | **End-to-end epistemics:** KBT → argumentation → evidence fusion → SPARQL grading |
+| `examples/full_showcase.py` | **Feature tour:** 14 simulation capabilities in one script |
+| `examples/supply_chain_bridge.py` | **Enterprise bridge:** KB ↔ simulation with closed-loop reasoning |
 
 ---
 
@@ -174,25 +189,27 @@ pytest tests/ -q
 ## Architecture
 
 ```
-┌─────────────────────────┐    ┌──────────────────────────┐
-│  System Dynamics (SD)   │    │  Cognitive Reasoning (KB) │
-│  .sysd DSL              │    │  RDF/OWL/SPARQL          │
-│  SD + ABM + DES         │    │  Named graphs per source  │
-│  Causal tracing         │    │  KBT source scoring      │
-│  Feedback loops         │    │  Dung argumentation      │
-│  Sensitivity analysis   │    │  SL fusion + grading     │
-│  Units checking         │    │  Evidence matrix         │
-│  Submodels / includes   │    │  RDFS/OWL inference     │
-│  Optimization (LP)      │    └──────────────────────────┘
-│  Scenario comparison    │
-└──────────┬──────────────┘
-           │ share: Opinion, cumulative_fusion, EvidenceMatrix
-           └──────────────────────────────────────┐
-                                  ┌────────────────┴───────────────┐
-                                  │  reason/ (SL + Argumentation) │
-                                  │  sl/ (opinion algebra)        │
-                                  └────────────────────────────────┘
+┌─────────────────────────┐         ┌──────────────────────────┐
+│  Simulation Engine      │◄───────►│  Cognitive Reasoning     │
+│  SD + ABM + DES         │  KB_QUERY / KB_ASSERT           │
+│  .sysd DSL              │         │  RDF/OWL/SPARQL          │
+│  Causal tracing         │         │  KBT source scoring      │
+│  Feedback loops         │         │  Dung argumentation      │
+│  Sensitivity analysis   │         │  SL fusion + grading     │
+│  Optimization (LP)      │         │  Evidence matrix         │
+│  Scenario comparison    │         │  RDFS/OWL inference      │
+└─────────────────────────┘         └──────────────────────────┘
+              │                                │
+              └────────────┬───────────────────┘
+                           │
+              ┌────────────┴───────────────┐
+              │  Shared: Opinion,          │
+              │  cumulative_fusion,        │
+              │  EvidenceMatrix            │
+              └────────────────────────────┘
 ```
+
+Models can **query the knowledge graph at runtime** via `KB_QUERY` and **update it** via `KB_ASSERT` — the simulation and knowledge layers are bidirectionally connected.
 
 ---
 
