@@ -20,19 +20,9 @@ Most simulation tools stop at modeling. DynaFX goes further — your models can 
 
 DynaFX provides a Vensim-style `.sysd` DSL for building stock-and-flow models with full arithmetic, lookup tables, and comparisons. The engine supports RK4 and Euler integration, automatic topological sorting of auxiliary variables, and higher-order delays (SMOOTH, SMOOTHI, DELAY3, DELAYN, DELAY_FIXED, CONVEY_BATCH). Time functions like PULSE, STEP, RAMP, and NOISE are built in.
 
-Models can be validated automatically for name resolution, flow conservation, and bounds. Units can be annotated using the `~Unit~` syntax and checked at compile time. A submodel and module include system allows reusable model components to be composed into larger systems.
-
-For analysis, DynaFX provides causal tracing (upstream causes and downstream effects), feedback loop detection, sensitivity analysis with uniform/normal/lognormal ensembles, and scenario comparison with tornado diagrams and deviation summaries. Linear programming optimization and Pareto optimization are available for resource allocation and multi-objective problems. CSV import and export support interpolated lookups for driving models with external data.
-
-The Python API (`SysdModel`, `StockDef`, `FlowDef`, `AuxDef`) allows programmatic model construction with loops, conditionals, and dynamic parameter injection. A `CompiledSystem` cache provides ~25x speedup via pre-compiled code objects. Models can also be imported from Vensim `.mdl` files. A BFO-based stock/flow ontology classifies flows as MATERIAL, INFORMATION, or FINANCIAL. Plotting is available through `.plot()` and `.plot_with_bands()`.
-
 ## Cognitive Reasoning
 
 The knowledge engine is built on a full RDF stack: a triple data model (NamedNode, BlankNode, Literal, Triple), a `TripleStore` with SPO/POS/OSP indices and named graphs, and a Turtle/N-Triples parser and serializer. SPARQL queries can be evaluated directly against the store. RDFS inference (7 rules) and OWL RL inference (4 rules) run as forward-chaining passes.
-
-On top of this sits a confidence and trust layer. Subjective Logic provides opinion algebra for fusing beliefs from multiple sources. The `EvidenceMatrix` computes structured consensus using L1-distance analysis. KBT (Knowledge-Based Trust) automatically scores source reliability using expectation-maximization. A Dung argumentation framework with grounded and preferred semantics resolves conflicts between claims, and an argumentation filter can be applied during fusion to defeat unreliable evidence before it propagates.
-
-This means your simulation models can query the knowledge graph, and the knowledge graph can be populated, updated, and graded — all within the same framework.
 
 ## Agent-Based Modeling
 
@@ -117,52 +107,11 @@ dynafx validate models/pandemic_seirvh.sysd
 dynafx list
 ```
 
----
-
-## Examples
-
-| Example | What it shows |
-|---------|---------------|
-| `examples/multi_paradigm_student.py` | **Full cognitive pipeline:** KG → trust scoring → argumentation → fusion → SD+ABM+DES → feedback loop |
-| `examples/cognitive_twin_demo.py` | **Self-healing digital twin:** ABM agents update KB mid-simulation, SD reads it via `KB_QUERY` |
-| `examples/decision_toy.py` | **KB-driven scenario ranking:** 4 scenarios, constraint filtering, goal grading |
-| `examples/knowledge_fusion_showcase.py` | **End-to-end epistemics:** KBT → argumentation → evidence fusion → SPARQL grading |
-| `examples/full_showcase.py` | **Feature tour:** 14 simulation capabilities in one script |
-| `examples/supply_chain_bridge.py` | **Enterprise bridge:** KB ↔ simulation with closed-loop reasoning |
-
----
 
 ## Tests
 
 ```bash
 pytest tests/ -q
-```
-
-1332+ tests covering the SD engine, KB engine, argumentation, KBT, and SL confidence layer.
-
----
-
-## Architecture
-
-```
-┌─────────────────────────┐         ┌──────────────────────────┐
-│  Simulation Engine      │◄───────►│  Cognitive Reasoning     │
-│  SD + ABM + DES         │  KB_QUERY / KB_ASSERT           │
-│  .sysd DSL              │         │  RDF/OWL/SPARQL          │
-│  Causal tracing         │         │  KBT source scoring      │
-│  Feedback loops         │         │  Dung argumentation      │
-│  Sensitivity analysis   │         │  SL fusion + grading     │
-│  Optimization (LP)      │         │  Evidence matrix         │
-│  Scenario comparison    │         │  RDFS/OWL inference      │
-└─────────────────────────┘         └──────────────────────────┘
-              │                                │
-              └────────────┬───────────────────┘
-                           │
-              ┌────────────┴───────────────┐
-              │  Shared: Opinion,          │
-              │  cumulative_fusion,        │
-              │  EvidenceMatrix            │
-              └────────────────────────────┘
 ```
 
 Models can **query the knowledge graph at runtime** via `KB_QUERY` and **update it** via `KB_ASSERT` — the simulation and knowledge layers are bidirectionally connected.
