@@ -220,15 +220,6 @@ class TestSerialize:
         assert "ex:object" in output
         assert "@prefix" in output
 
-    def test_opinion_comment(self):
-        from dynafx.core.models import Opinion
-        s = NamedNode("http://ex.org/s")
-        p = NamedNode("http://ex.org/p")
-        o = NamedNode("http://ex.org/o")
-        t = Triple(s, p, o, opinion=Opinion(0.8, 0.1, 0.1))
-        output = serialize_turtle([t])
-        assert "b=0.80" in output
-
     def test_serialize_roundtrip(self):
         turtle = '@prefix : <http://ex.org/> .\n:s :p "hello" ;\n  :q 42 .\n'
         store1 = parse_turtle(turtle)
@@ -296,17 +287,6 @@ class TestNTriples:
         assert "<http://ex.org/p>" in output
         assert "<http://ex.org/o>" in output
 
-    def test_serialize_opinion(self):
-        from dynafx.core.models import Opinion
-        t = Triple(
-            NamedNode("http://ex.org/s"),
-            NamedNode("http://ex.org/p"),
-            NamedNode("http://ex.org/o"),
-            opinion=Opinion(0.9, 0.05, 0.05),
-        )
-        output = serialize_ntriples([t])
-        assert "b=0.90" in output
-
     def test_serialize_roundtrip(self):
         t = Triple(
             NamedNode("http://ex.org/s"),
@@ -328,8 +308,6 @@ def _n3_contains(output: str, triple: Triple) -> bool:
     s_str = _node_in(triple.subject)
     p_str = _node_in(triple.predicate)
     o_str = _node_in(triple.object_)
-    if triple.opinion:
-        o_str += "  # b="
     return s_str in output and p_str in output
 
 

@@ -13,7 +13,7 @@ from __future__ import annotations
 import csv
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 
@@ -36,7 +36,7 @@ class ColumnMapping:
 
     predicate: str
     col_type: str  # "string" | "float" | "integer" | "boolean" | "iri"
-    iri_prefix: Optional[str] = None  # required when col_type == "iri"
+    iri_prefix: str | None = None  # required when col_type == "iri"
 
 
 @dataclass
@@ -117,7 +117,7 @@ _TYPE_CONVERTERS = {
 }
 
 
-def _convert_value(col: ColumnMapping, value: str) -> Optional[Any]:
+def _convert_value(col: ColumnMapping, value: str) -> Any | None:
     """Convert a CSV string to an RDF node based on column type."""
     stripped = value.strip()
     if not stripped:
@@ -177,12 +177,6 @@ def ingest_csv(
         mapping=mapping_path,
         target_graph=mapping_def.target_graph,
     )
-    entity_iri_parts = []
-    type_ns, type_local = (
-        mapping_def.entity_class.rsplit("/", 1)
-        if "/" in mapping_def.entity_class
-        else ("", mapping_def.entity_class)
-    )
     class_node = NamedNode(mapping_def.entity_class)
 
     for row_idx, row in enumerate(rows):
@@ -199,9 +193,9 @@ def ingest_csv(
         entity_iri = NamedNode(mapping_def.id_prefix + raw_id)
         triple_count = 0
 
-        def _add(p: str, o: Any) -> None:
+        def _add(p: str, o: Any, _entity_iri=entity_iri) -> None:
             nonlocal triple_count
-            store.add(Triple(entity_iri, NamedNode(p), o), mapping_def.target_graph)
+            store.add(Triple(_entity_iri, NamedNode(p), o), mapping_def.target_graph)
             triple_count += 1
 
         try:

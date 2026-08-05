@@ -21,16 +21,16 @@ import copy
 import logging
 import math
 import random
-import zlib
-
-_logger = logging.getLogger(__name__)
 import re
+import zlib
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 import networkx as nx
 
 from dynafx.dynamics.dsl import AgentDef, AgentRuleDef
+
+_logger = logging.getLogger(__name__)
 
 # Shared builtin functions for condition and effect eval namespaces
 _ABM_BUILTINS: dict[str, Any] = {
@@ -63,7 +63,7 @@ class AgentInstance:
     neighbors: list[AgentInstance] = field(default_factory=list)
     mailbox: list[Message] = field(default_factory=list)
     _pending_outbox: list[Message] = field(default_factory=list)
-    strategy: Optional[str] = None
+    strategy: str | None = None
     _strategy_locked_until: float = 0.0
 
     def perceive(self, env: dict[str, float], t: float = 0.0) -> dict[str, float]:
@@ -97,7 +97,7 @@ class AgentInstance:
         return merged
 
     def decide(self, perceive_state: dict[str, float], t: float = 0.0,
-               kb_builtins: Optional[dict[str, Any]] = None) -> list[tuple[str, float]]:
+               kb_builtins: dict[str, Any] | None = None) -> list[tuple[str, float]]:
         """Evaluate meta-rules (always) then strategy-scoped or flat rules.
 
         Returns list of (property, delta). Handles SEND and SWITCH_STRATEGY
@@ -170,7 +170,7 @@ class ABMEngine:
     Supports optional social networks for peer influence.
     """
 
-    def __init__(self, agents: list[AgentDef], seed: int = 42, kb_builtins: Optional[dict[str, Any]] = None):
+    def __init__(self, agents: list[AgentDef], seed: int = 42, kb_builtins: dict[str, Any] | None = None):
         self.agent_defs = agents
         self.instances: list[AgentInstance] = []
         self._seed = seed
@@ -304,7 +304,7 @@ def _build_network(count: int, network_type: str, rng: random.Random) -> nx.Grap
 
 # ── Condition / Effect Evaluation ──────────────────────────────
 
-def _eval_condition(condition: str, state: dict[str, float], extra_builtins: Optional[dict[str, Any]] = None) -> bool:
+def _eval_condition(condition: str, state: dict[str, float], extra_builtins: dict[str, Any] | None = None) -> bool:
     """Evaluate a condition string against state dict.
 
     Supports: and, or, not, comparisons (>, <, >=, <=, ==, !=).
@@ -329,7 +329,7 @@ def _eval_condition(condition: str, state: dict[str, float], extra_builtins: Opt
 
 
 def _eval_effect(effect_str: str, state: dict[str, float],
-                 kb_builtins: Optional[dict[str, Any]] = None) -> tuple[str, float]:
+                 kb_builtins: dict[str, Any] | None = None) -> tuple[str, float]:
     """Parse and evaluate an effect string like 'budget -= Price'.
 
     Returns (property_name, delta).
@@ -429,7 +429,7 @@ def _split_top_level(s: str) -> list[str]:
 
 def _parse_send(eff_str: str, sender_id: int, sender_type: str,
                 state: dict[str, float],
-                kb_builtins: Optional[dict[str, Any]] = None) -> Optional[Message]:
+                kb_builtins: dict[str, Any] | None = None) -> Message | None:
     """Parse 'SEND(Buyer, "order_qty", qty=100)' into a Message.
 
     Returns None if parsing fails.
@@ -469,7 +469,7 @@ def _parse_send(eff_str: str, sender_id: int, sender_type: str,
     )
 
 
-def _parse_switch_strategy(eff_str: str) -> tuple[Optional[str], float]:
+def _parse_switch_strategy(eff_str: str) -> tuple[str | None, float]:
     """Parse 'SWITCH_STRATEGY("crisis", cooldown=10)' into (name, cooldown)."""
     m = _SWITCH_RE.match(eff_str.strip())
     if not m:

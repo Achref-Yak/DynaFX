@@ -1,14 +1,13 @@
 """Inference engine with RDFS and OWL RL rule sets.
 
-Forward-chaining rule engine with opinion propagation.
+Forward-chaining rule engine.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
-from dynafx.core.models import Opinion
 from dynafx.knowledge.model import (
     BlankNode,
     Literal,
@@ -55,9 +54,9 @@ class Var:
 @dataclass(frozen=True)
 class InferencePattern:
     """Triple pattern where positions can be RDFNode, Var, or None."""
-    subject: Optional[Any] = None
-    predicate: Optional[Any] = None
-    object_: Optional[Any] = None
+    subject: Any | None = None
+    predicate: Any | None = None
+    object_: Any | None = None
 
 
 # ── Rule ─────────────────────────────────────────────────────────
@@ -71,15 +70,10 @@ class Rule:
         name: Human-readable rule name.
         head: List of patterns to infer (conclusion).
         body: List of patterns to match (premise).
-        confidence_fn: How to combine body opinions:
-            "min" - minimum belief, maximum uncertainty
-            "product" - product-based combination
-            "average" - weighted mean of (b, d, u)
     """
     name: str
     head: list[InferencePattern]
     body: list[InferencePattern]
-    confidence_fn: str = "min"
 
 
 # ── RDFS Rule Set ────────────────────────────────────────────────
@@ -221,7 +215,7 @@ class RuleEngine:
     Applies rules iteratively until fixpoint or max_iterations.
     """
 
-    def __init__(self, rules: Optional[list[Rule]] = None,
+    def __init__(self, rules: list[Rule] | None = None,
                  max_iterations: int = 10):
         self.rules: list[Rule] = list(rules) if rules else []
         self.max_iterations = max_iterations
@@ -238,18 +232,17 @@ class RuleEngine:
         Returns the total number of new triples inferred.
         """
         total_new = 0
-        for iteration in range(self.max_iterations):
+        for _iteration in range(self.max_iterations):
             inferred: list[Triple] = []
             for rule in self.rules:
                 bindings = self._eval_body(rule.body, store)
-                for binding, body_opinions in bindings:
+                for binding, _ in bindings:
                     for head_pat in rule.head:
-                        t = self._instantiate(head_pat, binding, rule, body_opinions)
+                        t = self._instantiate(head_pat, binding)
                         if t is not None:
                             inferred.append(t)
             added = 0
             for t in inferred:
-                # Check if triple already exists (by identity)
                 pat = TriplePattern(t.subject, t.predicate, t.object_)
                 if pat not in store:
                     store.add(t)
@@ -265,23 +258,21 @@ class RuleEngine:
         self,
         body: list[InferencePattern],
         store: TripleStore,
-    ) -> list[tuple[dict[str, RDFNode], list[Optional[Opinion]]]]:
+    ) -> list[tuple[dict[str, RDFNode], list]]:
         """Evaluate body patterns against the store.
 
-        Returns list of (binding, opinions) tuples where binding maps
-        variable names to RDFNodes and opinions is a parallel list of
-        opinions from each body pattern match.
+        Returns list of (binding, _) tuples where binding maps
+        variable names to RDFNodes.
         """
-        result: list[tuple[dict[str, RDFNode], list[Optional[Opinion]]]] = [({}, [])]
+        result: list[tuple[dict[str, RDFNode], list]] = [({}, [])]
         for pat in body:
-            next_result: list[tuple[dict[str, RDFNode], list[Optional[Opinion]]]] = []
-            for binding, opin_list in result:
+            next_result: list[tuple[dict[str, RDFNode], list]] = []
+            for binding, _opin_list in result:
                 resolved = self._resolve_pat(pat, binding)
                 for triple in store.triples(resolved):
                     new_binding = self._extract_bindings(pat, triple, binding)
                     if new_binding is not None:
-                        new_opinions = list(opin_list) + [triple.opinion]
-                        next_result.append((new_binding, new_opinions))
+                        next_result.append((new_binding, []))
             result = next_result
             if not result:
                 break
@@ -292,7 +283,6 @@ class RuleEngine:
         pat: InferencePattern,
         binding: dict[str, RDFNode],
     ) -> TriplePattern:
-        """Resolve an inference pattern by substituting known bindings."""
         s = pat.subject
         p = pat.predicate
         o = pat.object_
@@ -317,8 +307,7 @@ class RuleEngine:
         pat: InferencePattern,
         triple: Triple,
         current_binding: dict[str, RDFNode],
-    ) -> Optional[dict[str, RDFNode]]:
-        """Extract new bindings from a matching triple, checking consistency."""
+    ) -> dict[str, RDFNode] | None:
         new_binding = dict(current_binding)
         for pos_name, pos_val in [("subject", pat.subject),
                                    ("predicate", pat.predicate),
@@ -339,10 +328,7 @@ class RuleEngine:
     def _instantiate(
         pat: InferencePattern,
         binding: dict[str, RDFNode],
-        rule: Rule,
-        body_opinions: list[Optional[Opinion]],
-    ) -> Optional[Triple]:
-        """Instantiate a head pattern with variable bindings."""
+    ) -> Triple | None:
         s = pat.subject
         p = pat.predicate
         o = pat.object_
@@ -359,69 +345,16 @@ class RuleEngine:
         if not isinstance(s, (NamedNode, BlankNode)):
             return None
         if isinstance(o, Literal):
-            pass  # literals are allowed as objects
+            pass
         elif not isinstance(o, (NamedNode, BlankNode)):
             return None
         if not isinstance(p, NamedNode):
             return None
 
-        opin = propagate_opinion(rule, body_opinions)
-        return Triple(s, p, o, opinion=opin)
-
-    # ── Queries ───────────────────────────────────────────────
+        return Triple(s, p, o)
 
     def __len__(self) -> int:
         return len(self.rules)
-
-
-# ── Opinion propagation ──────────────────────────────────────────
-
-
-def propagate_opinion(
-    rule: Rule,
-    body_opinions: list[Optional[Opinion]],
-) -> Optional[Opinion]:
-    """Compute the opinion for an inferred triple from body opinions."""
-    valid = [o for o in body_opinions if o is not None]
-    if not valid:
-        return Opinion(0.5, 0.3, 0.2)
-
-    if rule.confidence_fn == "min":
-        return _propagate_min(valid)
-    if rule.confidence_fn == "product":
-        return _propagate_product(valid)
-    if rule.confidence_fn == "average":
-        return _propagate_average(valid)
-    return _propagate_min(valid)
-
-
-def _propagate_min(opinions: list[Opinion]) -> Opinion:
-    b = min(o.belief for o in opinions)
-    d = max(o.disbelief for o in opinions)  # worst-case disbelief
-    u = max(o.uncertainty for o in opinions)
-    return Opinion(b, d, u)
-
-
-def _propagate_product(opinions: list[Opinion]) -> Opinion:
-    prod_bu = 1.0
-    prod_u = 1.0
-    for o in opinions:
-        prod_bu *= (o.belief + o.uncertainty)
-        prod_u *= o.uncertainty
-    b = prod_bu - prod_u
-    u = prod_u
-    d = 1.0 - b - u
-    return Opinion(max(0.0, min(1.0, b)),
-                   max(0.0, min(1.0, d)),
-                   max(0.0, min(1.0, u)))
-
-
-def _propagate_average(opinions: list[Opinion]) -> Opinion:
-    n = len(opinions)
-    b = sum(o.belief for o in opinions) / n
-    d = sum(o.disbelief for o in opinions) / n
-    u = sum(o.uncertainty for o in opinions) / n
-    return Opinion(b, d, u)
 
 
 def _rdf_equal(a: Any, b: Any) -> bool:

@@ -9,7 +9,7 @@ from dynafx.knowledge.loader import (
     TBox, load_tbox, validate_against_tbox,
     GENERAL_TBOX, BUILTIN_TBOXES,
 )
-from dynafx.core.math import CATEGORY_LEVELS
+from dynafx.knowledge.loader import CATEGORY_LEVELS
 
 
 class TestTBox:

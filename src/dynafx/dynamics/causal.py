@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from dynafx.dynamics.dsl import SysdModel
 
@@ -126,7 +126,7 @@ def causes_tree(
     model: SysdModel,
     variable: str,
     max_depth: int = 10,
-) -> Optional[CausalNode]:
+) -> CausalNode | None:
     """Walk upstream dependencies recursively to build a causes tree.
 
     Args:
@@ -166,7 +166,7 @@ def effects_tree(
     model: SysdModel,
     variable: str,
     max_depth: int = 10,
-) -> Optional[CausalNode]:
+) -> CausalNode | None:
     """Walk downstream to find all affected variables.
 
     Args:
@@ -207,7 +207,7 @@ def causes_strip(
     model: SysdModel,
     variable: str,
     state: dict[str, float],
-) -> Optional[CausalStrip]:
+) -> CausalStrip | None:
     """Decompose a variable's value into contributing factors at a given state.
 
     For each upstream variable, shows its contribution to the target's value.
@@ -225,20 +225,16 @@ def causes_strip(
     if variable not in deps:
         return None
 
-    expr, refs = deps[variable]
+    _, refs = deps[variable]
     total_value = state.get(variable, 0.0)
     strip = CausalStrip(variable=variable, total_value=total_value)
 
     for ref in sorted(refs):
         ref_value = state.get(ref, 0.0)
-        # Estimate contribution: proportion of value from this reference
-        # Simple heuristic: if ref_value > 0 and total_value > 0, contribution ~ ref_value/total_value
-        # For more accuracy, we'd need to evaluate partial derivatives
-        contribution = ref_value if abs(total_value) < 1e-10 else ref_value
         strip.factors.append({
             "name": ref,
             "value": ref_value,
-            "contribution": contribution,
+            "contribution": ref_value,
             "expr": deps.get(ref, ("", set()))[0],
         })
 

@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Optional
 
 # ─── Unit representation ────────────────────────────────────────
 
@@ -201,7 +200,7 @@ class UnitRegistry:
         """Register a custom unit."""
         self.units[name] = unit
 
-    def resolve(self, name: str) -> Optional[Unit]:
+    def resolve(self, name: str) -> Unit | None:
         """Look up a unit by name."""
         if name in self.units:
             return self.units[name]
@@ -265,7 +264,7 @@ class UnitCheckResult:
 class UnitChecker:
     """Checks dimensional consistency of a SysdModel."""
 
-    def __init__(self, registry: Optional[UnitRegistry] = None):
+    def __init__(self, registry: UnitRegistry | None = None):
         self.registry = registry or UnitRegistry()
         self._units: dict[str, Unit] = {}  # variable name → unit
         self._declared: dict[str, Unit] = {}  # explicitly annotated units
@@ -353,7 +352,7 @@ class UnitChecker:
                     self._result.checked_names.append(aux.name)
                     changed = True
 
-    def _infer_expression_unit(self, expr: str, model) -> Optional[Unit]:
+    def _infer_expression_unit(self, expr: str, model) -> Unit | None:
         """Infer the unit of an expression from its components."""
         expr = expr.strip()
 
@@ -414,11 +413,7 @@ class UnitChecker:
                 # Mathematical functions: return dimensionless or same unit
                 if args:
                     return self._infer_expression_unit(args[0], model)
-            elif func_name == "PULSE":
-                return Unit()  # dimensionless
-            elif func_name == "NOISE":
-                return Unit()  # dimensionless
-            elif func_name in ("STEP", "RAMP"):
+            elif func_name == "PULSE" or func_name == "NOISE" or func_name in ("STEP", "RAMP"):
                 return Unit()  # dimensionless
 
         # Parenthesized expression
@@ -429,10 +424,8 @@ class UnitChecker:
         # Extract all words and check if any are known
         words = re.findall(r"[A-Za-z_]\w*", expr)
         for word in words:
-            if word in self._units:
-                # Simple case: expression is just this variable
-                if expr == word:
-                    return self._units[word]
+            if word in self._units and expr == word:
+                return self._units[word]
 
         return None
 
@@ -547,7 +540,7 @@ class UnitChecker:
                         severity="warning",
                     ))
 
-    def _find_time_unit(self, model) -> Optional[Unit]:
+    def _find_time_unit(self, model) -> Unit | None:
         """Find the time unit used in the model.
 
         Prefers variables whose name suggests they are time parameters,
@@ -561,7 +554,7 @@ class UnitChecker:
                         return Unit(factors=((factor_name, 1.0),))
 
         # Second pass: look for explicitly declared time units
-        for name, unit in self._declared.items():
+        for _name, unit in self._declared.items():
             for factor_name, _ in unit.factors:
                 if factor_name in _TIME_UNITS:
                     return Unit(factors=((factor_name, 1.0),))

@@ -17,8 +17,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Optional
-
+from typing import Any
 
 import numpy as np
 
@@ -81,11 +80,11 @@ class OptimizationResult:
 
 def lp_minimize(
     c: list[float],
-    A_ub: Optional[list[list[float]]] = None,
-    b_ub: Optional[list[float]] = None,
-    A_eq: Optional[list[list[float]]] = None,
-    b_eq: Optional[list[float]] = None,
-    bounds: Optional[list[tuple[Optional[float], Optional[float]]]] = None,
+    A_ub: list[list[float]] | None = None,
+    b_ub: list[float] | None = None,
+    A_eq: list[list[float]] | None = None,
+    b_eq: list[float] | None = None,
+    bounds: list[tuple[float | None, float | None]] | None = None,
 ) -> LPResult:
     """Minimize c^T x subject to constraints.
 
@@ -125,11 +124,11 @@ def lp_minimize(
 
 def lp_maximize(
     c: list[float],
-    A_ub: Optional[list[list[float]]] = None,
-    b_ub: Optional[list[float]] = None,
-    A_eq: Optional[list[list[float]]] = None,
-    b_eq: Optional[list[float]] = None,
-    bounds: Optional[list[tuple[Optional[float], Optional[float]]]] = None,
+    A_ub: list[list[float]] | None = None,
+    b_ub: list[float] | None = None,
+    A_eq: list[list[float]] | None = None,
+    b_eq: list[float] | None = None,
+    bounds: list[tuple[float | None, float | None]] | None = None,
 ) -> LPResult:
     """Maximize c^T x subject to constraints.
 
@@ -187,9 +186,6 @@ def calibrate(
         total_error = 0.0
 
         for variable, observations in data.items():
-            times = [t for t, _ in observations]
-            values = [v for _, v in observations]
-
             # Run simulation
             result = model.simulate(params=params)
             sim_times = result["times"]
@@ -298,7 +294,7 @@ def optimize(
     model,
     objective_fn: Callable[[dict[str, float]], float],
     param_bounds: dict[str, tuple[float, float]],
-    constraints: Optional[list[dict[str, Any]]] = None,
+    constraints: list[dict[str, Any]] | None = None,
     method: str = "nelder-mead",
     max_iterations: int = 1000,
     seed: int = 42,
@@ -388,9 +384,7 @@ def optimize(
         for c in constraints:
             if "fun" in c:
                 val = c["fun"](test_params)
-                if c.get("type") == "ineq" and val < 0:
-                    constraints_satisfied = False
-                elif c.get("type") == "eq" and abs(val) > 1e-6:
+                if (c.get("type") == "ineq" and val < 0) or (c.get("type") == "eq" and abs(val) > 1e-6):
                     constraints_satisfied = False
 
     return OptimizationResult(
@@ -502,7 +496,7 @@ def _crowding_distance(
     Returns: {original_index: crowding_distance}
     """
     n = len(front_indices)
-    dists: dict[int, float] = {idx: 0.0 for idx in front_indices}
+    dists: dict[int, float] = dict.fromkeys(front_indices, 0.0)
     if n <= 2:
         for idx in front_indices:
             dists[idx] = float("inf")
@@ -620,9 +614,7 @@ def pareto_optimize(
     # Initialize population
     population = _random_population(param_bounds, population_size, rng)
 
-    n_objectives = len(objective_fns)
-
-    for gen in range(generations):
+    for _gen in range(generations):
         # Evaluate all objectives
         values: list[list[float]] = []
         for ind in population:
@@ -744,12 +736,12 @@ def kb_lp_minimize(
     store: Any,
     c_query: str,
     bounds_query: str,
-    A_ub_query: Optional[str] = None,
-    b_ub_query: Optional[str] = None,
-    A_eq_query: Optional[str] = None,
-    b_eq_query: Optional[str] = None,
+    A_ub_query: str | None = None,
+    b_ub_query: str | None = None,
+    A_eq_query: str | None = None,
+    b_eq_query: str | None = None,
         var_name: str = "v",
-        var_count: Optional[int] = None,
+        var_count: int | None = None,
 ) -> LPResult:
     """Solve LP with objective and constraints read from SPARQL queries.
 
@@ -779,9 +771,10 @@ def kb_lp_minimize(
         rows: list[list[float]] = []
         for binding in qr.bindings:
             vals = []
-            for k, v in binding.items():
+            for _k, v in binding.items():
+                val = v.value if hasattr(v, "value") else v
                 try:
-                    vals.append(float(v))
+                    vals.append(float(val))
                 except (ValueError, TypeError):
                     vals.append(0.0)
             if vals:
@@ -797,7 +790,7 @@ def kb_lp_minimize(
 
     # Bounds
     bounds_rows = _eval_q(bounds_query)
-    bounds: list[tuple[Optional[float], Optional[float]]] = [(None, None)] * n_vars
+    bounds: list[tuple[float | None, float | None]] = [(None, None)] * n_vars
     for i, row in enumerate(bounds_rows):
         if i < n_vars:
             lo = _float_or_inf(row[0]) if len(row) > 0 else None
@@ -918,7 +911,7 @@ def kb_optimize(
     objective_fn: Callable[[dict[str, float]], float],
     store: Any,
     param_bounds_query: str,
-    constraints_query: Optional[str] = None,
+    constraints_query: str | None = None,
     var_name: str = "v",
     **opt_kwargs: Any,
 ) -> OptimizationResult:

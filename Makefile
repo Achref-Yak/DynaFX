@@ -9,9 +9,6 @@ test:
 test-v:
 	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m pytest tests/ -v
 
-run:
-	PYTHONPATH=$(PYTHONPATH) $(PYTHON) -m cognitive_engine.system $(FILE)
-
 clean:
 	rm -rf .pytest_cache __pycache__
 	find . -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true

@@ -13,7 +13,6 @@ Handles the common subset:
 from __future__ import annotations
 
 import re
-from typing import Optional
 
 from dynafx.knowledge.model import (
     BlankNode,
@@ -109,9 +108,7 @@ class TurtleParser:
         """Parse the full Turtle document."""
         while self.peek()[0] != "EOF":
             tok = self.peek()
-            if tok[0] in ("PREFIX", "SPARQL_PREFIX"):
-                self._parse_directive()
-            elif tok[0] in ("BASE", "SPARQL_BASE"):
+            if tok[0] in ("PREFIX", "SPARQL_PREFIX") or tok[0] in ("BASE", "SPARQL_BASE"):
                 self._parse_directive()
             else:
                 self._parse_triples()
@@ -122,7 +119,7 @@ class TurtleParser:
     def peek(self) -> tuple[str, str, int]:
         return self.tokens[self.pos]
 
-    def consume(self, expected_kind: Optional[str] = None) -> tuple[str, str, int]:
+    def consume(self, expected_kind: str | None = None) -> tuple[str, str, int]:
         tok = self.tokens[self.pos]
         if expected_kind and tok[0] != expected_kind:
             raise SyntaxError(
@@ -364,15 +361,13 @@ def parse_turtle(text: str, base_iri: str = "",
 
 def serialize_turtle(
     triples: list[Triple],
-    prefixes: Optional[dict[str, str]] = None,
-    comment_opinions: bool = True,
+    prefixes: dict[str, str] | None = None,
 ) -> str:
     """Serialize triples to pretty-printed Turtle.
 
     Args:
         triples: List of Triples to serialize.
         prefixes: Optional prefix map (e.g. {"ex": "http://example.org/"}).
-        comment_opinions: Whether to append opinion comments.
 
     Returns:
         Turtle-encoded string.
@@ -409,8 +404,6 @@ def serialize_turtle(
             obj_parts: list[str] = []
             for t in pred_triples:
                 obj_str = _n3_with_prefix(t.object_, prefixes)
-                if comment_opinions and t.opinion:
-                    obj_str += f"  # b={t.opinion.belief:.2f} d={t.opinion.disbelief:.2f} u={t.opinion.uncertainty:.2f}"
                 obj_parts.append(obj_str)
             objects_str = ", ".join(obj_parts)
             is_last = (i == len(pred_items) - 1)
@@ -453,7 +446,7 @@ def parse_ntriples(text: str, graph: str = "default") -> TripleStore:
     N-Triples is line-based: one triple per line.
     """
     store = TripleStore()
-    for line_num, line in enumerate(text.strip().split("\n"), 1):
+    for _line_num, line in enumerate(text.strip().split("\n"), 1):
         line = line.strip()
         if not line or line.startswith("#"):
             continue
@@ -494,7 +487,7 @@ def _split_ntriples_line(line: str) -> list[str]:
     return parts
 
 
-def _parse_ntriples_node(text: str) -> Optional[RDFNode]:
+def _parse_ntriples_node(text: str) -> RDFNode | None:
     text = text.strip()
     if text.startswith("<") and text.endswith(">"):
         return NamedNode(text[1:-1])
@@ -530,8 +523,6 @@ def serialize_ntriples(triples: list[Triple]) -> str:
         p = _n3_node(t.predicate)
         o = _n3_node(t.object_)
         line = f"{s} {p} {o} ."
-        if t.opinion:
-            line += f"  # b={t.opinion.belief:.2f} d={t.opinion.disbelief:.2f} u={t.opinion.uncertainty:.2f}"
         lines.append(line)
     return "\n".join(lines) + "\n" if lines else ""
 

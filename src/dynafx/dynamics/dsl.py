@@ -26,17 +26,16 @@ and user-defined func() macros.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import math
 import random
 import re
-
-logger = logging.getLogger(__name__)
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from types import CodeType
-from typing import Any, Optional
+from typing import Any
 
 from dynafx.core.decomposer import SystemDecomposer
 from dynafx.dynamics._parser import (
@@ -53,6 +52,8 @@ from dynafx.dynamics._parser import (
     _topo_sort,
 )
 from dynafx.dynamics.equations import euler_step, rk4_step
+
+logger = logging.getLogger(__name__)
 
 # ── AST Nodes ───────────────────────────────────────────────────
 
@@ -245,14 +246,14 @@ class _AgentCtx:
         self._agent.properties.append(AgentPropDef(name, initial, min_val, max_val))
         return self
 
-    def rule(self, name: str, condition: str, effects: Optional[list[str]] = None, priority: int = 0) -> _AgentCtx:
+    def rule(self, name: str, condition: str, effects: list[str] | None = None, priority: int = 0) -> _AgentCtx:
         self._agent.rules.append(AgentRuleDef(name, condition, effects or [], priority))
         return self
 
     def strategy(self, name: str) -> _StrategyCtx:
         return _StrategyCtx(self._agent, name)
 
-    def meta_rule(self, name: str, condition: str, effects: Optional[list[str]] = None, priority: int = 0) -> _AgentCtx:
+    def meta_rule(self, name: str, condition: str, effects: list[str] | None = None, priority: int = 0) -> _AgentCtx:
         self._agent.meta_rules.append(AgentRuleDef(name, condition, effects or [], priority))
         return self
 
@@ -273,7 +274,7 @@ class _StrategyCtx:
     def __exit__(self, *args: Any) -> None:
         pass
 
-    def rule(self, name: str, condition: str, effects: Optional[list[str]] = None, priority: int = 0) -> _StrategyCtx:
+    def rule(self, name: str, condition: str, effects: list[str] | None = None, priority: int = 0) -> _StrategyCtx:
         self._strategy.rules.append(AgentRuleDef(name, condition, effects or [], priority))
         return self
 
@@ -458,7 +459,7 @@ class SysdModel:
         return self
 
     def event(self, name: str, rate: str = "",
-              target_queue: str = "", effects: Optional[list[str]] = None) -> SysdModel:
+              target_queue: str = "", effects: list[str] | None = None) -> SysdModel:
         """Add a DES event."""
         self.events.append(EventDef(name, rate, target_queue, effects or []))
         return self
@@ -474,7 +475,7 @@ class SysdModel:
         return _SubmodelCtx(self, name)
 
     def include(self, name: str, alias: str = "",
-                params: Optional[dict[str, float]] = None) -> SysdModel:
+                params: dict[str, float] | None = None) -> SysdModel:
         """Instantiate a submodel with optional parameter overrides."""
         self.includes.append(IncludeDef(name, alias or f"{name}_inst", params or {}))
         return self
@@ -527,7 +528,7 @@ class SysdModel:
 
             # Detect time column type from first non-empty row
             time_is_datetime = False
-            time_ref: Optional[datetime] = None
+            time_ref: datetime | None = None
             for row in rows:
                 if row and row[0].strip():
                     first_val = row[0].strip()
@@ -664,9 +665,9 @@ class SysdModel:
     def simulate(
         self,
         method: str = "rk4",
-        t_span: Optional[tuple[float, float]] = None,
-        dt: Optional[float] = None,
-        params: Optional[dict[str, Any]] = None,
+        t_span: tuple[float, float] | None = None,
+        dt: float | None = None,
+        params: dict[str, Any] | None = None,
         kb: Any = None,
     ) -> SysdModelResult:
         """Run a simulation and return the trajectory.
@@ -699,10 +700,8 @@ class SysdModel:
         # Merge aux defaults into params (so calibration/optimization can override)
         for a in self.aux_vars:
             if a.name not in params:
-                try:
-                    params[a.name] = float(a.expr)
-                except ValueError:
-                    pass  # Expression auxes stay as expressions
+                with contextlib.suppress(ValueError):
+                    params[a.name] = float(a.expr)  # Expression auxes stay as expressions
 
         # Cache compiled artifacts for subsequent simulate() calls
         if (self._compiled_cache is None
@@ -898,6 +897,9 @@ class SysdModel:
                 des_metrics = des_engine.step(max(t0, 0.0), actual_step)
                 des_metrics_history.append(dict(des_metrics))
                 step_params = {**params, **des_metrics}
+                # Mirror the ABM merge (line above) so params_history — and the
+                # post-hoc aux replay that reads it — sees current DES metrics.
+                params.update(des_metrics)
             else:
                 step_params = params
 
@@ -983,7 +985,7 @@ class SysdModel:
             des_metrics_history=des_metrics_history,
         )
 
-    def validate(self, params: Optional[set[str]] = None) -> ValidationResult:
+    def validate(self, params: set[str] | None = None) -> ValidationResult:
         result = ValidationResult()
         all_names: set[str] = set()
         all_names.update(_get_builtin_names())
@@ -1041,14 +1043,13 @@ class SysdModel:
                 flow_name_counts.setdefault(key, [])
                 flow_name_counts[key].append((f.direction, s.name))
 
-                if f.direction == "-" and s.initial > 0:
-                    if not _has_stock_protection(f.expr, s.name):
-                        result.warnings.append(ValidationIssue(
-                            "warning",
-                            f"Outflow '{f.name}' may drive stock '{s.name}' negative — "
-                            f"consider using MAX(0, {s.name}) or MIN({s.name} / dt, ...)",
-                            loc,
-                        ))
+                if f.direction == "-" and s.initial > 0 and not _has_stock_protection(f.expr, s.name):
+                    result.warnings.append(ValidationIssue(
+                        "warning",
+                        f"Outflow '{f.name}' may drive stock '{s.name}' negative — "
+                        f"consider using MAX(0, {s.name}) or MIN({s.name} / dt, ...)",
+                        loc,
+                    ))
 
         for a in self.aux_vars:
             _check_expr(a.expr, f"aux '{a.name}'")
@@ -1126,7 +1127,7 @@ class SysdModel:
         n: int = 100,
         method: str = "rk4",
         seed: int = 42,
-        fixed_params: Optional[dict[str, Any]] = None,
+        fixed_params: dict[str, Any] | None = None,
         **sim_kwargs: Any,
     ) -> dict[str, Any]:
         """Run ensemble simulation with parameter uncertainty.
@@ -1177,7 +1178,6 @@ class SysdModel:
             result = self.simulate(method=method, params=sample, **sim_kwargs)
             trajectories.append(result)
 
-        n_stocks = len(trajectories[0].stocks)
         stock_names = list(trajectories[0].stocks)
         times = list(trajectories[0].times)
         n_t = len(times)
@@ -1188,7 +1188,7 @@ class SysdModel:
         p95: dict[str, list[float]] = {s: [0.0] * n_t for s in stock_names}
 
         for ti in range(n_t):
-            for si, s in enumerate(stock_names):
+            for s in stock_names:
                 vals = sorted(traj.values[s][ti] for traj in trajectories)
                 mean[s][ti] = sum(vals) / len(vals)
                 if len(vals) >= 2:
@@ -1242,9 +1242,9 @@ class SysdModelResult:
     def plot(
         self,
         path: str,
-        stocks: Optional[list[str]] = None,
+        stocks: list[str] | None = None,
         subplots: bool = False,
-        title: Optional[str] = None,
+        title: str | None = None,
     ) -> None:
         try:
             import matplotlib
@@ -1315,10 +1315,10 @@ class SysdModelResult:
         with open(path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             # Header
-            writer.writerow(["time"] + self.stocks)
+            writer.writerow(["time", *self.stocks])
             # Data rows
             for i, t in enumerate(self.times):
-                row = [t] + [self.values[name][i] for name in self.stocks]
+                row = [t, *[self.values[name][i] for name in self.stocks]]
                 writer.writerow(row)
 
 
@@ -1593,7 +1593,7 @@ def _compile_system(model: SysdModel) -> CompiledSystem:
 
     smooth_ode_strs: list[str] = []
     for i, entry in enumerate(smooth_params):
-        entry_type, aux_name, input_expr_str, delay_time, init_val = entry
+        entry_type, aux_name, input_expr_str, delay_time, _init_val = entry
         input_node = ExprParser(input_expr_str).parse()
         input_compiled = _compile_expr(input_node, name_set, aux_set)
         delay_str = smooth_delay_exprs[i]
@@ -1700,7 +1700,6 @@ def _make_kb_builtins(kb_store: Any = None) -> dict[str, Any]:
             "KB_ASSERT": lambda s="", p="", o="", belief=1.0, graph="simulation": 0.0,
         }
 
-    from dynafx.core.models import Opinion as _Opinion
     from dynafx.knowledge.model import (
         BlankNode as _BlankNode,
     )
@@ -1761,7 +1760,7 @@ def _make_kb_builtins(kb_store: Any = None) -> dict[str, Any]:
         s_node = _resolve_kb_node(s)
         p_node = _resolve_kb_node(p)
         o_node = _resolve_kb_node(o, force_literal=True)
-        triple = _Triple(s_node, p_node, o_node, opinion=_Opinion(belief, 1.0 - belief, 0.0))
+        triple = _Triple(s_node, p_node, o_node)
         kb_store.add(triple, graph=graph)
         return 1.0
 
@@ -1771,9 +1770,9 @@ def _make_kb_builtins(kb_store: Any = None) -> dict[str, Any]:
 def _build_system(
     model: SysdModel,
     params: dict[str, Any],
-    emergent_props: Optional[list] = None,
+    emergent_props: list | None = None,
     seed: int = 42,
-    cache: Optional[CompiledSystem] = None,
+    cache: CompiledSystem | None = None,
     kb: Any = None,
 ) -> tuple[Callable, list[str], list[float], int, dict[str, Any] | None]:
     """Build ODE system from SysdModel.
@@ -1790,9 +1789,6 @@ def _build_system(
     # Overwrite stock portion with current model initial values
     for i, s in enumerate(model.stocks):
         y0[i] = s.initial
-    stock_names = cache.stock_names
-    inflow_strs = cache.inflow_strs
-    outflow_strs = cache.outflow_strs
     aux_names_ordered = cache.aux_names_ordered
     smooth_names = cache.smooth_names
     smooth_ode_strs = cache.smooth_ode_strs
@@ -1815,7 +1811,7 @@ def _build_system(
     # Each buffer is a deque of (exit_time, value) pairs.
     # Buffers are seeded with initial value so delays work from t=0.
     _pipeline_buffers: dict[str, deque[tuple[float, float]]] = {}
-    for df_name, _, df_delay in delay_fixed_compiled:
+    for df_name, _, _df_delay in delay_fixed_compiled:
         _pipeline_buffers[df_name] = deque()
     # CONVEY_BATCH pipeline buffers (separate from delay_fixed)
     _cbatch_pipe_buffers: dict[str, deque[tuple[float, float]]] = {}
@@ -1979,7 +1975,7 @@ def _build_system(
         _ns.update(_a)
 
         for _dfi in range(_df_count):
-            df_name, df_compiled, df_delay_str = delay_fixed_compiled[_dfi]
+            df_name, _df_compiled, _df_delay_str = delay_fixed_compiled[_dfi]
             try:
                 input_val = eval(_df_input_code[_dfi], _no_builtins, _ns)
             except Exception:
@@ -2014,7 +2010,7 @@ def _build_system(
         # ── CONVEY_BATCH processing ─────────────────────────────────
         if _cbatch_count > 0:
             for _cbi in range(_cbatch_count):
-                acc_name, cb_input_str, cb_delay_str, cb_batch, out_name = cbatch_compiled[_cbi]
+                acc_name, _cb_input_str, cb_delay_str, cb_batch, out_name = cbatch_compiled[_cbi]
                 acc_idx = all_names.index(acc_name)
                 acc_val = y[acc_idx]
                 pipe_name = f"{acc_name}_pipe"
@@ -2223,9 +2219,7 @@ def _build_tree(lines: list[_TokenLine]) -> SysdModel:
                 stack.pop()
             parent = stack[-1][1] if stack else None
             rule = _parse_agent_rule(args)
-            if isinstance(parent, AgentDef):
-                parent.rules.append(rule)
-            elif isinstance(parent, AgentStrategy):
+            if isinstance(parent, (AgentDef, AgentStrategy)):
                 parent.rules.append(rule)
             else:
                 continue  # orphan rule, skip
@@ -2328,10 +2322,8 @@ def _build_tree(lines: list[_TokenLine]) -> SysdModel:
                         elif " " in part:
                             val = part.split(None, 1)[1]
                         if val:
-                            try:
+                            with contextlib.suppress(ValueError):
                                 capacity = int(float(val.strip()))
-                            except ValueError:
-                                pass
                     elif pl.startswith("service_time"):
                         val = ""
                         if "=" in part:
@@ -2347,10 +2339,8 @@ def _build_tree(lines: list[_TokenLine]) -> SysdModel:
                         elif " " in part:
                             val = part.split(None, 1)[1]
                         if val:
-                            try:
+                            with contextlib.suppress(ValueError):
                                 servers = max(1, int(float(val.strip())))
-                            except ValueError:
-                                pass
                     elif pl.startswith("event_driven") or pl == "event_driven":
                         event_driven = True
             qd = QueueDef(name=name, capacity=capacity, service_time=service_time, servers=servers, event_driven=event_driven)
@@ -2387,10 +2377,8 @@ def _build_tree(lines: list[_TokenLine]) -> SysdModel:
                             val = part.split(None, 1)[1]
                         else:
                             continue
-                        try:
+                        with contextlib.suppress(ValueError):
                             capacity = int(float(val.strip()))
-                        except ValueError:
-                            pass
             rd = ResourceDef(name=name, capacity=capacity)
             model.resources.append(rd)
             while stack and stack[-1][0] >= indent:
@@ -2457,10 +2445,8 @@ def _build_tree(lines: list[_TokenLine]) -> SysdModel:
                     for p in params_str.split(","):
                         if "=" in p:
                             k, v = p.split("=", 1)
-                            try:
+                            with contextlib.suppress(ValueError):
                                 params[k.strip()] = float(v.strip())
-                            except ValueError:
-                                pass
                 else:
                     instance_name = _STRIP_RE.sub("", rest.strip())
 
@@ -2480,10 +2466,8 @@ def _build_tree(lines: list[_TokenLine]) -> SysdModel:
                         p = p.strip()
                         if "=" in p:
                             k, v = p.split("=", 1)
-                            try:
+                            with contextlib.suppress(ValueError):
                                 params[k.strip()] = float(v.strip())
-                            except ValueError:
-                                pass
 
             inc = IncludeDef(submodel_name=submodel_name, instance_name=instance_name, params=params)
             model.includes.append(inc)
@@ -2548,10 +2532,8 @@ def _parse_agent_property(args: str) -> AgentPropDef:
     name = _STRIP_RE.sub("", parts[0].split(":")[0].strip()) if ":" in parts[0] else _STRIP_RE.sub("", parts[0].strip())
     initial = 0.0
     if ":" in parts[0]:
-        try:
+        with contextlib.suppress(ValueError):
             initial = float(parts[0].split(":", 1)[1].strip())
-        except ValueError:
-            pass
 
     prop = AgentPropDef(name=name, initial=initial)
     for p in parts[1:]:
@@ -2649,14 +2631,14 @@ def _expand_includes(model: SysdModel) -> SysdModel:
         # Sort by length (longest first) to avoid partial matches
         sorted_names = sorted(replacements.keys(), key=len, reverse=True)
 
-        def _replace_refs(expr: str) -> str:
+        def _replace_refs(expr: str, _sorted_names=sorted_names, _replacements=replacements) -> str:
             """Replace variable references using word-boundary matching."""
             import re as _re
             result = expr
-            for old_name in sorted_names:
+            for old_name in _sorted_names:
                 # Use word boundary to avoid replacing parts of function names
                 pattern = r'\b' + _re.escape(old_name) + r'\b'
-                result = _re.sub(pattern, replacements[old_name], result)
+                result = _re.sub(pattern, _replacements[old_name], result)
             return result
 
         # Copy stocks with prefixed names

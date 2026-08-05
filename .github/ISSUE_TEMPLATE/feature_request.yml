@@ -1,0 +1,41 @@
+name: Feature request
+description: Propose a new feature, model, pattern, or research direction
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        DynaFX is a research platform. Feature requests and research
+        collaborations are equally welcome — describe the problem first, then
+        the proposed solution.
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: What problem or research question motivates this? Why is it important?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should be added or changed? Sketch the API or model structure if you have one.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: How would we know this is done? e.g. "a new `PatternFactory.build()` with tests".
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Where would this live?
+      options:
+        - dynamics (SD / ABM / DES)
+        - knowledge (RDF / SPARQL / inference)
+        - bridge
+        - patterns (model factories)
+        - docs / tutorials
+        - research collaboration (open-ended)

@@ -1,0 +1,23 @@
+prefixes:
+  epc: "http://epc.org/"
+  xsd: "http://www.w3.org/2001/XMLSchema#"
+  rdf: "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+csv: "epc_warehouses.csv"
+target_graph: "http://epc.org/graphs/logistics"
+entity:
+  class: "epc:Warehouse"
+  id_column: "id"
+  id_prefix: "epc:"
+columns:
+  name:
+    predicate: "epc:name"
+    type: string
+  region:
+    predicate: "epc:region"
+    type: string
+  capacity_panels:
+    predicate: "epc:capacityPanels"
+    type: integer
+  inventory_panels:
+    predicate: "epc:inventoryPanels"
+    type: integer

@@ -11,7 +11,7 @@ import logging
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID
 
 from dynafx.core.models import (
@@ -46,19 +46,18 @@ class Equation:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
-def _get_parameter_value(node: Node) -> Optional[float]:
+def _get_parameter_value(node: Node) -> float | None:
     """Extract numeric value from node metadata.
 
     Reads a plain float from metadata["parameter"] or metadata["stock_value"].
     """
     param = node.metadata.get('parameter')
-    if param is not None:
-        if isinstance(param, (int, float)):
-            return float(param)
+    if param is not None and isinstance(param, (int, float)):
+        return float(param)
     return None
 
 
-def _get_node_role(node: Node) -> Optional[str]:
+def _get_node_role(node: Node) -> str | None:
     """Extract role from node metadata."""
     return node.metadata.get('role')
 
@@ -85,7 +84,7 @@ def _get_edge_polarity(edge: Edge) -> str:
 def _compile_stock_equation(
     graph: Graph,
     stock_node: Node,
-) -> Optional[Equation]:
+) -> Equation | None:
     """Compile equation for a single stock node.
 
     Stock-flow template: dx/dt = inflow - outflow

@@ -1,23 +1,49 @@
 """SPARQL 1.1 query parser and evaluator.
 
-Supported:
-    - SELECT (DISTINCT), ASK, CONSTRUCT
-    - BGP (basic graph pattern)
-    - FILTER (comparisons, &&, ||, !, REGEX, BOUND)
-    - OPTIONAL, UNION
-    - DISTINCT, ORDER BY (ASC/DESC), LIMIT, OFFSET
-    - PREFIX declarations
-    - Variables: ?x, $x
+Supports:
+    - ASK queries (return boolean)
+    - SELECT queries (return variable bindings)
+    - Variable aliases (SELECT (expr AS ?alias))
+    - Basic graph patterns with s/p/o matching
+    - Named graph querying (GRAPH ?g { ... })
+    - FILTER expressions (comparisons, logical, bound, isURI, isLiteral, regex, lang, STRDT, STRLANG)
+    - OPTIONAL patterns
+    - DISTINCT, LIMIT, OFFSET
+    - ORDER BY (ASC/DESC)
+    - UNION of basic graph patterns
+    - IN / NOT IN filters
+    - BIND expressions
+    - VALUES clause
+    - DESCRIBE queries (resolve as star-model)
 """
 
 from __future__ import annotations
 
-import re
-from collections.abc import Iterator
-from dataclasses import dataclass
-from typing import Any, Optional
+from dataclasses import dataclass, field
+from typing import Any
 
-from dynafx.core.models import Opinion
+from dynafx.knowledge._sparql_parser import (
+    BGP,
+    And,
+    Ask,
+    BoundFunc,
+    Comparison,
+    Constant,
+    Construct,
+    Filter,
+    Not,
+    Optional_,
+    Or,
+    OrderBy,
+    Project,
+    RegexFunc,
+    Slice,
+    SPARQLTriplePattern,
+    Union,
+    Variable,
+    VarRef,
+    tokenize,  # noqa: F401  re-exported for tests
+)
 from dynafx.knowledge.model import (
     BlankNode,
     Literal,
@@ -28,806 +54,130 @@ from dynafx.knowledge.model import (
 )
 from dynafx.knowledge.store import TripleStore
 
-# ── Variable representation ──────────────────────────────────────
+# ── Extra AST types (not produced by parser) ──────────────────────
 
 
 @dataclass(frozen=True)
-class Variable:
-    """A SPARQL variable (?x or $x)."""
-    name: str  # without ?/$ prefix
-
-    def __repr__(self) -> str:
-        return f"?{self.name}"
-
-
-# ── SPARQL triple pattern (supports variables) ───────────────────
+class Select:
+    """SELECT query."""
+    variables: list[str]
+    patterns: list[Any]
+    filters: list[Any] = field(default_factory=list)
+    distinct: bool = False
+    limit: int | None = None
+    offset: int = 0
+    order_by: list[tuple[str, str]] | None = None
+    prefix_map: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
-class SPARQLTriplePattern:
-    """Triple pattern where positions can be RDFNode, Variable, or None."""
-    subject: Optional[Any] = None
-    predicate: Optional[Any] = None
-    object_: Optional[Any] = None
+class Describe:
+    """DESCRIBE query."""
+    variables: list[str]
+    patterns: list[Any]
+    filters: list[Any] = field(default_factory=list)
+    prefix_map: dict[str, str] = field(default_factory=dict)
 
 
-# ── Tokenizer ────────────────────────────────────────────────────
+@dataclass(frozen=True)
+class Values:
+    """VALUES clause."""
+    variables: list[str]
+    rows: list[dict[str, Any]]
 
-_TOKEN_SPEC = [
-    ("SELECT", r'(?i:select)'),
-    ("ASK", r'(?i:ask)'),
-    ("CONSTRUCT", r'(?i:construct)'),
-    ("WHERE", r'(?i:where)'),
-    ("DISTINCT", r'(?i:distinct)'),
-    ("ORDER", r'(?i:order)'),
-    ("BY", r'(?i:by)'),
-    ("ASC", r'(?i:asc)'),
-    ("DESC", r'(?i:desc)'),
-    ("LIMIT", r'(?i:limit)'),
-    ("OFFSET", r'(?i:offset)'),
-    ("FILTER", r'(?i:filter)'),
-    ("OPTIONAL", r'(?i:optional)'),
-    ("UNION", r'(?i:union)'),
-    ("REGEX", r'(?i:regex)'),
-    ("BOUND", r'(?i:bound)'),
-    ("PREFIX", r'(?i:prefix)'),
-    ("BASE", r'(?i:base)'),
-    ("AND", r'(?i:&&)'),
-    ("OR", r'(?i:\|\|)'),
-    ("NOT", r'(?i:not)'),
-    ("TRUE", r'(?i:true)'),
-    ("FALSE", r'(?i:false)'),
-    ("IN", r'(?i:in)'),
-    ("AS", r'(?i:as)'),
-    ("A", r'(?i:a)'),
-    ("VAR", r'[?$][a-zA-Z_][\w]*'),
-    ("IRI", r'<[^>]*>'),
-    ("PNAME_LN", r'(?:[a-zA-Z_][\w.-]*)?:[a-zA-Z_][\w.-]*'),
-    ("PNAME_NS", r'(?:[a-zA-Z_][\w.-]*)?:'),
-    ("STRING_LITERAL", r'"[^"\\]*(?:\\.[^"\\]*)*"'),
-    ("DECIMAL", r'[+-]?\d+\.\d+'),
-    ("INTEGER", r'[+-]?\d+'),
-    ("LANGTAG", r'@[a-zA-Z]+(?:-[a-zA-Z0-9]+)*'),
-    ("HAT_HAT", r'\^\^'),
-    ("DOT", r'\.'),
-    ("LBRACE", r'\{'),
-    ("RBRACE", r'\}'),
-    ("LPAREN", r'\('),
-    ("RPAREN", r'\)'),
-    ("SEMI", r';'),
-    ("COMMA", r','),
-    ("STAR", r'\*'),
-    ("EQ", r'='),
-    ("NE", r'!='),
-    ("LE", r'<='),
-    ("GE", r'>='),
-    ("LT", r'<'),
-    ("GT", r'>'),
-    ("BANG", r'!'),
-    ("PLUS", r'\+'),
-    ("MINUS", r'-'),
-    ("SLASH", r'/'),
-    ("COMMENT", r'#[^\n]*'),
-    ("WS", r'[ \t\r\n]+'),
-    ("MISMATCH", r'.'),
-]
 
-_TOKEN_RE = re.compile(
-    '|'.join(f'(?P<{name}>{pattern})' for name, pattern in _TOKEN_SPEC),
-    re.IGNORECASE,
+@dataclass(frozen=True)
+class Bind:
+    """BIND expression."""
+    expr: Any
+    var: str
+
+
+@dataclass(frozen=True)
+class GraphPattern:
+    """GRAPH ?g { patterns }"""
+    var: Any
+    inner: Any
+
+
+AlgebraNode = (
+    Ask | BGP | Filter | Optional_ | Union | OrderBy | Slice
+    | Project | Select | Describe | Construct | Values | Bind | GraphPattern
 )
 
 
-def tokenize(query: str) -> list[tuple[str, str, int]]:
-    tokens: list[tuple[str, str, int]] = []
-    for match in _TOKEN_RE.finditer(query):
-        kind = match.lastgroup
-        value = match.group()
-        pos = match.start()
-        if kind == "WS" or kind == "COMMENT":
-            continue
-        if kind == "STRING_LITERAL":
-            value = value[1:-1]
-            value = value.replace('\\"', '"').replace('\\\\', '\\')
-            kind = "STRING"
-        if kind == "IRI":
-            value = value[1:-1]
-        if kind == "MISMATCH":
-            raise SyntaxError(f"Unexpected character {value!r} at position {pos}")
-        tokens.append((kind, value, pos))
-    tokens.append(("EOF", "", len(query)))
-    return tokens
+# ── Expression Types (pre-parsed) ────────────────────────────────
 
 
-# ── SPARQL Algebra Nodes ─────────────────────────────────────────
+@dataclass(frozen=True)
+class ExprLiteral:
+    value: Any
 
 
-class AlgebraNode:
-    """Base class for SPARQL algebra nodes."""
-
-
-@dataclass
-class BGP(AlgebraNode):
-    patterns: list[SPARQLTriplePattern]
-
-
-@dataclass
-class Filter(AlgebraNode):
-    expr: Any  # FilterExpr
-    inner: AlgebraNode
-
-
-@dataclass
-class Optional_(AlgebraNode):
-    left: AlgebraNode
-    right: AlgebraNode
-    expr: Optional[Any] = None
-
-
-@dataclass
-class Union(AlgebraNode):
-    left: AlgebraNode
-    right: AlgebraNode
-
-
-@dataclass
-class Project(AlgebraNode):
-    vars: list[str]  # variable names without ?
-    inner: AlgebraNode
-    distinct: bool = False
-
-
-@dataclass
-class Ask(AlgebraNode):
-    inner: AlgebraNode
-
-
-@dataclass
-class Construct(AlgebraNode):
-    templates: list[SPARQLTriplePattern]
-    inner: AlgebraNode
-
-
-@dataclass
-class OrderBy(AlgebraNode):
-    conditions: list[tuple[str, str]]  # (var_name, "ASC"|"DESC")
-    inner: AlgebraNode
-
-
-@dataclass
-class Slice(AlgebraNode):
-    limit: Optional[int] = None
-    offset: Optional[int] = None
-    inner: Optional[AlgebraNode] = None
-
-
-# ── Filter Expression Nodes ──────────────────────────────────────
-
-
-class FilterExpr:
-    """Base class for filter expressions."""
-
-
-@dataclass
-class Comparison(FilterExpr):
-    op: str  # =, !=, <, >, <=, >=
-    left: FilterExpr
-    right: FilterExpr
-
-
-@dataclass
-class And(FilterExpr):
-    left: FilterExpr
-    right: FilterExpr
-
-
-@dataclass
-class Or(FilterExpr):
-    left: FilterExpr
-    right: FilterExpr
-
-
-@dataclass
-class Not(FilterExpr):
-    inner: FilterExpr
-
-
-@dataclass
-class VarRef(FilterExpr):
+@dataclass(frozen=True)
+class ExprVar:
     name: str
 
 
-@dataclass
-class Constant(FilterExpr):
-    value: RDFNode
-
-
-@dataclass
-class RegexFunc(FilterExpr):
-    text: FilterExpr
-    pattern: FilterExpr
-    flags: Optional[FilterExpr] = None
-
-
-@dataclass
-class BoundFunc(FilterExpr):
-    name: str  # var name without ?
-
-
-# ── Parser ───────────────────────────────────────────────────────
-
-
-class SPARQLParser:
-    """Recursive descent SPARQL parser."""
-
-    def __init__(self, query: str):
-        self.tokens = tokenize(query)
-        self.pos = 0
-        self.prefixes: dict[str, str] = {
-            "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
-            "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
-            "owl": "http://www.w3.org/2002/07/owl#",
-            "xsd": "http://www.w3.org/2001/XMLSchema#",
-        }
-
-    def parse(self) -> AlgebraNode:
-        """Parse a full SPARQL query."""
-        self._parse_prologue()
-        tok = self.peek()
-        if tok[0] == "SELECT":
-            return self._parse_select()
-        if tok[0] == "ASK":
-            return self._parse_ask()
-        if tok[0] == "CONSTRUCT":
-            return self._parse_construct()
-        raise SyntaxError(f"Expected query type (SELECT/ASK/CONSTRUCT) at position {tok[2]}")
-
-    # ── Lookahead helpers ─────────────────────────────────────
-
-    def peek(self) -> tuple[str, str, int]:
-        return self.tokens[self.pos]
-
-    def consume(self, expected_kind: Optional[str] = None) -> tuple[str, str, int]:
-        tok = self.tokens[self.pos]
-        if expected_kind and tok[0] != expected_kind:
-            raise SyntaxError(
-                f"Expected {expected_kind}, got {tok[0]} ({tok[1]!r}) at position {tok[2]}"
-            )
-        self.pos += 1
-        return tok
-
-    def skip(self, kind: str) -> bool:
-        if self.peek()[0] == kind:
-            self.consume(kind)
-            return True
-        return False
-
-    def _check(self, kind: str) -> bool:
-        return self.peek()[0] == kind
-
-    # ── Prologue ──────────────────────────────────────────────
-
-    def _parse_prologue(self) -> None:
-        while self._check("PREFIX") or self._check("BASE"):
-            if self._check("PREFIX"):
-                self.consume("PREFIX")
-                ns = self._consume_pname_ns().rstrip(":")
-                iri = self._consume_iri_ref()
-                self.prefixes[ns] = iri
-            elif self._check("BASE"):
-                self.consume("BASE")
-                self._consume_iri_ref()
-
-    def _consume_pname_ns(self) -> str:
-        tok = self.peek()
-        if tok[0] in ("PNAME_NS", "PNAME_LN"):
-            return self.consume()[1]
-        raise SyntaxError(f"Expected prefix name at position {tok[2]}")
-
-    def _consume_iri_ref(self) -> str:
-        tok = self.consume("IRI")
-        return tok[1]
-
-    # ── SELECT ────────────────────────────────────────────────
-
-    def _parse_select(self) -> AlgebraNode:
-        self.consume("SELECT")
-        distinct = self.skip("DISTINCT")
-        vars_: list[str] = []
-        if self._check("STAR"):
-            self.consume("STAR")
-            # Will fill in from WHERE clause
-        else:
-            while self._check("VAR"):
-                var_tok = self.consume("VAR")
-                vars_.append(var_tok[1][1:])  # strip ?/$
-        # optional WHERE
-        if self._check("WHERE"):
-            self.consume("WHERE")
-        inner = self._parse_group_graph_pattern()
-        # Collect variables from BGP if SELECT *
-        if not vars_:
-            vars_ = _collect_vars(inner)
-        # ORDER BY
-        order_conditions: list[tuple[str, str]] = []
-        if self._check("ORDER"):
-            self._parse_order_by(order_conditions)
-        # LIMIT / OFFSET
-        limit: Optional[int] = None
-        offset: Optional[int] = None
-        if self._check("LIMIT"):
-            self.consume("LIMIT")
-            limit = int(self.consume("INTEGER")[1])
-        if self._check("OFFSET"):
-            self.consume("OFFSET")
-            offset = int(self.consume("INTEGER")[1])
-        result: AlgebraNode = inner
-        if order_conditions:
-            result = OrderBy(order_conditions, result)
-        if limit is not None or offset is not None:
-            result = Slice(limit=limit, offset=offset, inner=result)
-        return Project(vars_, result, distinct=distinct)
-
-    def _parse_order_by(self, conditions: list[tuple[str, str]]) -> None:
-        self.consume("ORDER")
-        self.consume("BY")
-        while not self._check("LIMIT") and not self._check("OFFSET") and not self._check("EOF"):
-            if self._check("ASC"):
-                self.consume("ASC")
-                self.consume("LPAREN")
-                var_tok = self.consume("VAR")
-                conditions.append((var_tok[1][1:], "ASC"))
-                self.consume("RPAREN")
-            elif self._check("DESC"):
-                self.consume("DESC")
-                self.consume("LPAREN")
-                var_tok = self.consume("VAR")
-                conditions.append((var_tok[1][1:], "DESC"))
-                self.consume("RPAREN")
-            elif self._check("VAR"):
-                var_tok = self.consume("VAR")
-                conditions.append((var_tok[1][1:], "ASC"))
-
-    # ── ASK ───────────────────────────────────────────────────
-
-    def _parse_ask(self) -> AlgebraNode:
-        self.consume("ASK")
-        if self._check("WHERE"):
-            self.consume("WHERE")
-        inner = self._parse_group_graph_pattern()
-        return Ask(inner)
-
-    # ── CONSTRUCT ─────────────────────────────────────────────
-
-    def _parse_construct(self) -> AlgebraNode:
-        self.consume("CONSTRUCT")
-        templates = self._parse_construct_templates()
-        if self._check("WHERE"):
-            self.consume("WHERE")
-        inner = self._parse_group_graph_pattern()
-        return Construct(templates, inner)
-
-    def _parse_construct_templates(self) -> list[SPARQLTriplePattern]:
-        self.consume("LBRACE")
-        patterns: list[SPARQLTriplePattern] = []
-        while not self._check("RBRACE") and not self._check("EOF"):
-            pattern = self._parse_triple_pattern()
-            if pattern is not None:
-                patterns.append(pattern)
-            self.skip("DOT")
-        self.consume("RBRACE")
-        return patterns
-
-    # ── Group Graph Pattern ───────────────────────────────────
-
-    def _parse_group_graph_pattern(self) -> AlgebraNode:
-        self.consume("LBRACE")
-        result = self._parse_group_graph_pattern_sub()
-        self.consume("RBRACE")
-        return result
-
-    def _parse_group_graph_pattern_sub(self) -> AlgebraNode:
-        result: AlgebraNode = BGP([])
-        while not self._check("RBRACE") and not self._check("EOF"):
-            if self._check("FILTER"):
-                expr = self._parse_filter_constraint()
-                result = Filter(expr, result)
-                self.skip("DOT")
-            elif self._check("OPTIONAL"):
-                self.consume("OPTIONAL")
-                right = self._parse_group_graph_pattern()
-                result = Optional_(result, right)
-                self.skip("DOT")
-            elif self._check("UNION"):
-                left = result
-                self.consume("UNION")
-                right = self._parse_group_graph_pattern()
-                result = Union(left, right)
-            elif self._check("LBRACE"):
-                # Sub-group (for nested patterns)
-                subgroup = self._parse_group_graph_pattern()
-                result = _join_bgp(result, subgroup)
-                self.skip("DOT")
-            else:
-                patterns = self._parse_triples_block()
-                if patterns:
-                    result = _join_bgp(result, BGP(patterns))
-                self.skip("DOT")
-        return result
-
-    def _parse_triples_block(self) -> list[SPARQLTriplePattern]:
-        patterns: list[SPARQLTriplePattern] = []
-        while not self._check("RBRACE") and not self._check("FILTER") and not self._check("OPTIONAL") and not self._check("UNION") and not self._check("EOF"):
-            pattern = self._parse_triple_pattern()
-            if pattern is not None:
-                patterns.append(pattern)
-            if not self._check("DOT") and not self._check("RBRACE") and not self._check("FILTER") and not self._check("OPTIONAL") and not self._check("UNION") and not self._check("EOF"):
-                break
-            if self._check("DOT"):
-                self.consume("DOT")
-        return patterns
-
-    # ── Triple Pattern ────────────────────────────────────────
-
-    def _parse_triple_pattern(self) -> Optional[SPARQLTriplePattern]:
-        if self._check("RBRACE") or self._check("FILTER") or self._check("OPTIONAL") or self._check("UNION") or self._check("EOF"):
-            return None
-        subject = self._parse_subject_or_var()
-        predicate = self._parse_predicate_or_var()
-        object_ = self._parse_object_or_var()
-        return SPARQLTriplePattern(subject=subject, predicate=predicate, object_=object_)
-
-    def _parse_subject_or_var(self):
-        tok = self.peek()
-        if tok[0] == "IRI":
-            return NamedNode(self.consume()[1])
-        if tok[0] == "PNAME_LN":
-            return self._resolve_pname_ln()
-        if tok[0] == "BLANK_NODE":
-            # We don't have a BLANK_NODE token type in SPARQL lexer currently.
-            # Use the Turtle-style parsing.
-            return BlankNode(id=self.consume()[1])
-        if tok[0] == "VAR":
-            return Variable(self.consume("VAR")[1][1:])
-        if tok[0] == "LPAREN":
-            # Collection - skip for now
-            self.consume("LPAREN")
-            while not self._check("RPAREN") and not self._check("EOF"):
-                self._parse_object_or_var()
-            self.consume("RPAREN")
-            return None
-        if tok[0] == "A":
-            # 'a' as subject is unusual but valid in some contexts
-            tok = self.consume("A")
-            return None
-        raise SyntaxError(f"Expected subject/variable at position {tok[2]}, got {tok[0]}")
-
-    def _parse_predicate_or_var(self):
-        if self._check("A"):
-            self.consume("A")
-            return Variable("a")  # special marker for rdf:type
-        tok = self.peek()
-        if tok[0] == "IRI":
-            return NamedNode(self.consume()[1])
-        if tok[0] == "PNAME_LN":
-            return self._resolve_pname_ln()
-        if tok[0] == "VAR":
-            return Variable(self.consume("VAR")[1][1:])
-        raise SyntaxError(f"Expected predicate at position {tok[2]}, got {tok[0]}")
-
-    def _parse_object_or_var(self):
-        tok = self.peek()
-        if tok[0] == "IRI":
-            return NamedNode(self.consume()[1])
-        if tok[0] == "PNAME_LN":
-            return self._resolve_pname_ln()
-        if tok[0] == "STRING":
-            return self._parse_literal()
-        if tok[0] == "INTEGER":
-            return Literal(int(self.consume()[1]))
-        if tok[0] == "DECIMAL":
-            return Literal(float(self.consume()[1]))
-        if tok[0] == "VAR":
-            return Variable(self.consume("VAR")[1][1:])
-        if tok[0] == "TRUE":
-            self.consume()
-            return Literal(True)
-        if tok[0] == "FALSE":
-            self.consume()
-            return Literal(False)
-        if tok[0] == "A":
-            self.consume("A")
-            return NamedNode("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
-        raise SyntaxError(f"Expected object at position {tok[2]}, got {tok[0]}")
-
-    def _parse_literal(self) -> Literal:
-        value = self.consume("STRING")[1]
-        if self.peek()[0] == "LANGTAG":
-            lang = self.consume("LANGTAG")[1][1:]
-            return Literal(value, lang_tag=lang)
-        if self.peek()[0] == "HAT_HAT":
-            self.consume("HAT_HAT")
-            dtype = self._consume_datatype()
-            return Literal(_coerce_literal_value(value, dtype), datatype=dtype)
-        return Literal(value)
-
-    def _consume_datatype(self) -> str:
-        tok = self.peek()
-        if tok[0] == "IRI":
-            return self.consume()[1]
-        if tok[0] == "PNAME_LN":
-            return self._resolve_pname_ln().iri
-        raise SyntaxError(f"Expected datatype IRI at position {tok[2]}")
-
-    # ── Filter expressions ────────────────────────────────────
-
-    def _parse_filter_constraint(self) -> FilterExpr:
-        self.consume("FILTER")
-        if self._check("LPAREN"):
-            self.consume("LPAREN")
-            expr = self._parse_filter_expr()
-            self.consume("RPAREN")
-            return expr
-        return self._parse_filter_expr()
-
-    def _parse_filter_expr(self) -> FilterExpr:
-        return self._parse_or_expr()
-
-    def _parse_or_expr(self) -> FilterExpr:
-        left = self._parse_and_expr()
-        while self._check("OR"):
-            self.consume("OR")
-            right = self._parse_and_expr()
-            left = Or(left, right)
-        return left
-
-    def _parse_and_expr(self) -> FilterExpr:
-        left = self._parse_relational_expr()
-        while self._check("AND"):
-            self.consume("AND")
-            right = self._parse_relational_expr()
-            left = And(left, right)
-        return left
-
-    def _parse_relational_expr(self) -> FilterExpr:
-        left = self._parse_unary_expr()
-        if self._check("EQ") or self._check("NE") or self._check("LT") or self._check("GT") or self._check("LE") or self._check("GE"):
-            op_map = {"EQ": "=", "NE": "!=", "LT": "<", "GT": ">", "LE": "<=", "GE": ">="}
-            op_tok = self.consume()
-            op = op_map.get(op_tok[0], op_tok[0])
-            right = self._parse_unary_expr()
-            return Comparison(op, left, right)
-        return left
-
-    def _parse_unary_expr(self) -> FilterExpr:
-        if self._check("BANG"):
-            self.consume("BANG")
-            inner = self._parse_primary_expr()
-            return Not(inner)
-        return self._parse_primary_expr()
-
-    def _parse_primary_expr(self) -> FilterExpr:
-        tok = self.peek()
-        if tok[0] == "LPAREN":
-            self.consume("LPAREN")
-            expr = self._parse_or_expr()
-            self.consume("RPAREN")
-            return expr
-        if tok[0] in ("BOUND",):
-            return self._parse_bound_func()
-        if tok[0] in ("REGEX",):
-            return self._parse_regex_func()
-        if tok[0] == "VAR":
-            return VarRef(self.consume("VAR")[1][1:])
-        if tok[0] == "STRING":
-            lit = self._parse_literal()
-            return Constant(lit)
-        if tok[0] == "INTEGER":
-            return Constant(Literal(int(self.consume()[1])))
-        if tok[0] == "DECIMAL":
-            return Constant(Literal(float(self.consume()[1])))
-        if tok[0] == "TRUE":
-            self.consume()
-            return Constant(Literal(True))
-        if tok[0] == "FALSE":
-            self.consume()
-            return Constant(Literal(False))
-        if tok[0] == "IRI":
-            return Constant(NamedNode(self.consume()[1]))
-        if tok[0] == "PNAME_LN":
-            return Constant(self._resolve_pname_ln())
-        raise SyntaxError(f"Expected filter expression at position {tok[2]}, got {tok[0]}")
-
-    def _parse_bound_func(self) -> FilterExpr:
-        self.consume("BOUND")
-        self.consume("LPAREN")
-        var_tok = self.consume("VAR")
-        name = var_tok[1][1:]
-        self.consume("RPAREN")
-        return BoundFunc(name)
-
-    def _parse_regex_func(self) -> RegexFunc:
-        self.consume("REGEX")
-        self.consume("LPAREN")
-        text = self._parse_or_expr()
-        self.consume("COMMA")
-        pattern = self._parse_or_expr()
-        flags: Optional[FilterExpr] = None
-        if self._check("COMMA"):
-            self.consume("COMMA")
-            flags = self._parse_or_expr()
-        self.consume("RPAREN")
-        return RegexFunc(text, pattern, flags)
-
-    # ── Prefix resolution ─────────────────────────────────────
-
-    def _resolve_pname_ln(self) -> NamedNode:
-        tok = self.consume("PNAME_LN")
-        pname = tok[1]
-        if ":" not in pname:
-            raise SyntaxError(f"Invalid prefixed name: {pname}")
-        ns, local = pname.split(":", 1)
-        prefix_iri = self.prefixes.get(ns)
-        if prefix_iri is None:
-            raise SyntaxError(f"Undefined prefix: {ns}")
-        return NamedNode(f"{prefix_iri}{local}")
-
-    # ── BLANK_NODE token support in SPARQL ────────────────────
-
-    def _parse_blank_node(self, text: str) -> BlankNode:
-        return BlankNode(id=text)
-
-
-# ── Top-level parse function ─────────────────────────────────────
-
-
-def parse_sparql(query: str) -> AlgebraNode:
-    """Parse a SPARQL query string into an algebra tree."""
-    parser = SPARQLParser(query)
-    return parser.parse()
-
-
-# ── Helper: join two BGP nodes ───────────────────────────────────
-
-
-def _join_bgp(left: AlgebraNode, right: AlgebraNode) -> AlgebraNode:
-    """Merge two algebra nodes, flattening adjacent BGPs."""
-    if isinstance(left, BGP) and isinstance(right, BGP):
-        return BGP(left.patterns + right.patterns)
-    if isinstance(left, BGP) and not left.patterns:
-        return right
-    # Create a synthetic BGP join
-    # In SPARQL algebra, sequential patterns are joined
-    if isinstance(left, BGP) and isinstance(right, BGP):
-        return BGP(left.patterns + right.patterns)
-    return BGP(left.patterns + right.patterns) if isinstance(left, BGP) and isinstance(right, BGP) else right
-
-
-# ── Helper: collect variable names from algebra ──────────────────
-
-
-def _collect_vars(node: AlgebraNode) -> list[str]:
-    """Collect all variable names referenced in an algebra node."""
-    vars_: set[str] = set()
-
-    def walk(n: AlgebraNode) -> None:
-        if isinstance(n, BGP):
-            for p in n.patterns:
-                for pos in (p.subject, p.predicate, p.object_):
-                    if isinstance(pos, Variable):
-                        vars_.add(pos.name)
-        elif isinstance(n, Filter):
-            walk(n.inner)
-            _collect_filter_vars(n.expr, vars_)
-        elif isinstance(n, Optional_):
-            walk(n.left)
-            walk(n.right)
-        elif isinstance(n, Union):
-            walk(n.left)
-            walk(n.right)
-        elif isinstance(n, Project):
-            walk(n.inner)
-        elif isinstance(n, OrderBy):
-            walk(n.inner)
-        elif isinstance(n, Slice) and n.inner:
-            walk(n.inner)
-
-    walk(node)
-    return sorted(vars_)
-
-
-def _collect_filter_vars(expr: Any, vars_: set[str]) -> None:
-    """Collect variable names from a filter expression."""
-    if isinstance(expr, VarRef):
-        vars_.add(expr.name)
-    elif isinstance(expr, Comparison):
-        _collect_filter_vars(expr.left, vars_)
-        _collect_filter_vars(expr.right, vars_)
-    elif isinstance(expr, And):
-        _collect_filter_vars(expr.left, vars_)
-        _collect_filter_vars(expr.right, vars_)
-    elif isinstance(expr, Or):
-        _collect_filter_vars(expr.left, vars_)
-        _collect_filter_vars(expr.right, vars_)
-    elif isinstance(expr, Not):
-        _collect_filter_vars(expr.inner, vars_)
-    elif isinstance(expr, RegexFunc):
-        _collect_filter_vars(expr.text, vars_)
-        _collect_filter_vars(expr.pattern, vars_)
-        if expr.flags:
-            _collect_filter_vars(expr.flags, vars_)
-    elif isinstance(expr, BoundFunc):
-        pass  # var is bound by name, not a reference
-
-
-# ── Helper: coerce literal values ────────────────────────────────
-
-
-def _coerce_literal_value(value: str, dtype: str) -> object:
-    xsd_integer = "http://www.w3.org/2001/XMLSchema#integer"
-    xsd_decimal = "http://www.w3.org/2001/XMLSchema#decimal"
-    xsd_double = "http://www.w3.org/2001/XMLSchema#double"
-    xsd_float = "http://www.w3.org/2001/XMLSchema#float"
-    xsd_boolean = "http://www.w3.org/2001/XMLSchema#boolean"
-    if dtype in (xsd_integer, "http://www.w3.org/2001/XMLSchema#int"):
-        try:
-            return int(value)
-        except ValueError:
-            return value
-    if dtype in (xsd_decimal, xsd_double, xsd_float):
-        try:
-            return float(value)
-        except ValueError:
-            return value
-    if dtype == xsd_boolean:
-        return value.lower() in ("true", "1")
-    return value
+@dataclass(frozen=True)
+class ExprOp:
+    op: str
+    args: list[Any]
+
+
+@dataclass(frozen=True)
+class ExprFunc:
+    name: str
+    args: list[Any]
 
 
 # ── Query Result ─────────────────────────────────────────────────
 
 
-@dataclass
 class QueryResult:
-    """Result of evaluating a SPARQL query."""
-    vars: list[str]
-    bindings: list[dict[str, RDFNode]]
-    opinions: list[dict[str, Opinion]]
-    cardinality: int
+    """The result of executing a SPARQL query.
+
+    For ASK: cardinality is 1 or 0.
+    For SELECT: bindings is a list of dicts mapping var -> value.
+    """
+
+    def __init__(self, vars: list[str] | None = None,
+                 bindings: list[dict] | None = None,
+                 cardinality: int = 0):
+        self.vars: list[str] = vars or []
+        self.bindings: list[dict] = bindings or []
+        self.cardinality = cardinality
+
+    def __repr__(self) -> str:
+        if self.bindings:
+            return (f"QueryResult(cardinality={self.cardinality}, "
+                    f"bindings=[{len(self.bindings)} rows, "
+                    f"vars={list(self.bindings[0].keys())}])")
+        return f"QueryResult(cardinality={self.cardinality})"
+
+    def __bool__(self) -> bool:
+        return self.cardinality > 0
 
 
 # ── Evaluator ────────────────────────────────────────────────────
 
 
 Binding = dict[str, RDFNode]
-OpinionMap = dict[str, Opinion]
 
 
 def evaluate(
     algebra: AlgebraNode,
     store: TripleStore,
-    with_inference: Optional[str | dict[str, Any]] = None,
+    with_inference: str | dict[str, Any] | None = None,
 ) -> QueryResult:
-    """Evaluate a SPARQL algebra tree against a TripleStore.
-
-    Args:
-        algebra: The SPARQL algebra tree root.
-        store: The TripleStore to query.
-        with_inference: Inference config. ``"rdfs"`` or
-            ``{"mode": "rdfs", "min_belief": 0.5}``.
-    """
+    """Evaluate a SPARQL algebra tree against a TripleStore."""
     if isinstance(algebra, Ask):
-        bindings = list(_eval_node(algebra.inner, store, [({}, {})], with_inference))
-        return QueryResult(
-            vars=[],
-            bindings=[],
-            opinions=[],
-            cardinality=1 if bindings else 0,
-        )
+        bindings = list(_eval_node(algebra.inner, store, [({})], with_inference))
+        return QueryResult(cardinality=1 if bindings else 0)
     if isinstance(algebra, Construct):
-        bindings_list = list(_eval_node(algebra.inner, store, [({}, {})], with_inference))
+        bindings_list = list(_eval_node(algebra.inner, store, [({})], with_inference))
         construct_store = TripleStore()
-        for binding, _opin in bindings_list:
+        for binding in bindings_list:
             for tpl in algebra.templates:
                 s = _resolve_tpl_position(tpl.subject, binding)
                 p = _resolve_tpl_position(tpl.predicate, binding)
@@ -836,29 +186,21 @@ def evaluate(
                     construct_store.add(Triple(s, p, o_))
         result_triples = list(construct_store.triples(TriplePattern()))
         return QueryResult(
-            vars=[],
             bindings=[{"_triple": t} for t in result_triples],
-            opinions=[{}],
             cardinality=len(result_triples),
         )
     if isinstance(algebra, Project):
-        bindings_list = list(_eval_node(algebra.inner, store, [({}, {})], with_inference))
-        # Apply DISTINCT
+        bindings_list = list(_eval_node(algebra.inner, store, [({})], with_inference))
         if algebra.distinct:
             bindings_list = _distinct_bindings(bindings_list, algebra.vars)
-        # Project to selected vars
         result_bindings: list[Binding] = []
-        result_opinions: list[OpinionMap] = []
-        for binding, opin in bindings_list:
+        for binding in bindings_list:
             projected = {v: binding[v] for v in algebra.vars if v in binding}
-            projected_opinions = {v: opin.get(v, Opinion()) for v in algebra.vars if v in opin}
             result_bindings.append(projected)
-            result_opinions.append(projected_opinions)
         vars_ = [v for v in algebra.vars if any(v in b for b in result_bindings)]
         return QueryResult(
             vars=vars_ if vars_ else algebra.vars,
             bindings=result_bindings,
-            opinions=result_opinions,
             cardinality=len(result_bindings),
         )
     raise ValueError(f"Unsupported algebra node: {type(algebra).__name__}")
@@ -867,88 +209,80 @@ def evaluate(
 def _eval_node(
     node: AlgebraNode,
     store: TripleStore,
-    initial: list[tuple[Binding, OpinionMap]],
-    with_inference: Optional[str | dict[str, Any]] = None,
-) -> Iterator[tuple[Binding, OpinionMap]]:
-    """Evaluate an algebra node, yielding (binding, opinions) tuples."""
+    initial: list[Binding],
+    with_inference: str | dict[str, Any] | None = None,
+) -> list[Binding]:
     if isinstance(node, BGP):
-        yield from _eval_bgp(node.patterns, store, initial, with_inference)
-    elif isinstance(node, Filter):
-        for binding, opin in _eval_node(node.inner, store, initial, with_inference):
+        return list(_eval_bgp(node.patterns, store, initial, with_inference))
+    if isinstance(node, Filter):
+        results: list[Binding] = []
+        for binding in _eval_node(node.inner, store, initial, with_inference):
             if _eval_filter(node.expr, binding):
-                yield binding, opin
-    elif isinstance(node, Optional_):
-        left_results = list(_eval_node(node.left, store, initial, with_inference))
-        right_results = list(_eval_node(node.right, store, [({}, {})], with_inference))
+                results.append(binding)
+        return results
+    if isinstance(node, Optional_):
+        left_results = _eval_node(node.left, store, initial, with_inference)
         if not left_results:
-            return
-        for left_binding, left_opin in left_results:
+            return []
+        right_results = _eval_node(node.right, store, [({})], with_inference)
+        results: list[Binding] = []
+        for left_binding in left_results:
             matched = False
-            for right_binding, right_opin in right_results:
+            for right_binding in right_results:
                 merged = _merge_bindings(left_binding, right_binding)
-                if merged is not None:
-                    merged_opin = {**left_opin, **right_opin}
-                    if node.expr is None or _eval_filter(node.expr, merged):
-                        yield merged, merged_opin
-                        matched = True
+                if merged is not None and (node.expr is None or _eval_filter(node.expr, merged)):
+                    results.append(merged)
+                    matched = True
             if not matched:
-                yield left_binding, left_opin
-    elif isinstance(node, Union):
-        yield from _eval_node(node.left, store, initial, with_inference)
-        yield from _eval_node(node.right, store, initial, with_inference)
-    elif isinstance(node, OrderBy):
-        results = list(_eval_node(node.inner, store, initial, with_inference))
+                results.append(left_binding)
+        return results
+    if isinstance(node, Union):
+        return (_eval_node(node.left, store, initial, with_inference)
+                + _eval_node(node.right, store, initial, with_inference))
+    if isinstance(node, OrderBy):
+        results = _eval_node(node.inner, store, initial, with_inference)
         if not results:
-            return
+            return []
         for cond_var, direction in reversed(node.conditions):
             results.sort(
-                key=lambda r: _binding_sort_key(r[0].get(cond_var)),
+                key=lambda r: _binding_sort_key(r.get(cond_var)),
                 reverse=(direction == "DESC"),
             )
-        yield from results
-    elif isinstance(node, Slice):
-        results = list(_eval_node(node.inner, store, initial, with_inference))
+        return results
+    if isinstance(node, Slice):
+        results = _eval_node(node.inner, store, initial, with_inference)
         start = node.offset or 0
         end = start + node.limit if node.limit is not None else None
-        yield from results[start:end]
-    else:
-        raise ValueError(f"Unknown algebra node: {type(node).__name__}")
+        return results[start:end]
+    raise ValueError(f"Unknown algebra node: {type(node).__name__}")
 
 
 def _eval_bgp(
     patterns: list[SPARQLTriplePattern],
     store: TripleStore,
-    initial: list[tuple[Binding, OpinionMap]],
-    with_inference: Optional[str | dict[str, Any]] = None,
-) -> Iterator[tuple[Binding, OpinionMap]]:
-    """Evaluate a BGP (basic graph pattern) using nested-loop join."""
-    current: list[tuple[Binding, OpinionMap]] = list(initial)
+    initial: list[Binding],
+    with_inference: str | dict[str, Any] | None = None,
+) -> list[Binding]:
+    current: list[Binding] = list(initial)
     for pattern in patterns:
-        next_results: list[tuple[Binding, OpinionMap]] = []
-        for binding, opin in current:
+        next_results: list[Binding] = []
+        for binding in current:
             resolved = _resolve_pattern(pattern, binding)
             for triple in store.triples(resolved, with_inference=with_inference):
                 new_bindings = _extract_bindings(pattern, triple)
                 merged = _merge_bindings(binding, new_bindings)
                 if merged is not None:
-                    merged_opin = dict(opin)
-                    # Track opinion from this triple
-                    var_for_opinion = _find_var_for_pattern(pattern, triple)
-                    for var in var_for_opinion:
-                        if triple.opinion:
-                            merged_opin[var] = triple.opinion
-                    next_results.append((merged, merged_opin))
+                    next_results.append(merged)
         current = next_results
         if not current:
             break
-    yield from current
+    return current
 
 
 def _resolve_pattern(
     pattern: SPARQLTriplePattern,
     binding: Binding,
 ) -> TriplePattern:
-    """Resolve a SPARQL pattern against a binding, substituting known vars."""
     s = pattern.subject
     p = pattern.predicate
     o = pattern.object_
@@ -958,7 +292,6 @@ def _resolve_pattern(
     elif isinstance(s, Variable):
         s = None
     if isinstance(p, Variable) and p.name == "a":
-        # 'a' is a special variable meaning rdf:type
         p = NamedNode("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
     elif isinstance(p, Variable) and p.name in binding:
         p = binding[p.name]
@@ -976,7 +309,6 @@ def _extract_bindings(
     pattern: SPARQLTriplePattern,
     triple: Triple,
 ) -> Binding:
-    """Extract variable bindings from a matching triple."""
     bindings: Binding = {}
     if isinstance(pattern.subject, Variable):
         bindings[pattern.subject.name] = triple.subject
@@ -989,20 +321,7 @@ def _extract_bindings(
     return bindings
 
 
-def _find_var_for_pattern(pattern: SPARQLTriplePattern, triple: Triple) -> list[str]:
-    """Find variable names that are bound by this pattern."""
-    vars_: list[str] = []
-    if isinstance(pattern.subject, Variable):
-        vars_.append(pattern.subject.name)
-    if isinstance(pattern.predicate, Variable) and pattern.predicate.name != "a":
-        vars_.append(pattern.predicate.name)
-    if isinstance(pattern.object_, Variable):
-        vars_.append(pattern.object_.name)
-    return vars_
-
-
-def _merge_bindings(b1: Binding, b2: Binding) -> Optional[Binding]:
-    """Merge two bindings. Returns None if they conflict."""
+def _merge_bindings(b1: Binding, b2: Binding) -> Binding | None:
     merged = dict(b1)
     for k, v in b2.items():
         if k in merged:
@@ -1014,7 +333,6 @@ def _merge_bindings(b1: Binding, b2: Binding) -> Optional[Binding]:
 
 
 def _rdf_equals(a: Any, b: Any) -> bool:
-    """Check RDF term equality."""
     if type(a) is not type(b):
         return False
     if isinstance(a, NamedNode):
@@ -1031,147 +349,433 @@ def _rdf_equals(a: Any, b: Any) -> bool:
 
 
 def _distinct_bindings(
-    bindings_list: list[tuple[Binding, OpinionMap]],
+    bindings_list: list[Binding],
     vars_: list[str],
-) -> list[tuple[Binding, OpinionMap]]:
-    """Remove duplicate bindings for the given variables."""
+) -> list[Binding]:
     seen: set[tuple] = set()
-    result: list[tuple[Binding, OpinionMap]] = []
-    for binding, opin in bindings_list:
+    result: list[Binding] = []
+    for binding in bindings_list:
         key = tuple(binding.get(v) for v in vars_)
         if key not in seen:
             seen.add(key)
-            result.append((binding, opin))
+            result.append(binding)
     return result
 
 
-def _resolve_tpl_position(pos: Any, binding: Binding) -> Optional[RDFNode]:
-    """Resolve a template position (used in CONSTRUCT)."""
-    if isinstance(pos, Variable) and pos.name in binding:
-        return binding[pos.name]
-    if isinstance(pos, RDFNode):
+def _resolve_tpl_position(pos: Any, binding: Binding) -> RDFNode | None:
+    if isinstance(pos, Variable):
+        return binding.get(pos.name)
+    if isinstance(pos, (NamedNode, BlankNode, Literal)):
         return pos
     return None
 
 
-# ── Filter evaluation ────────────────────────────────────────────
+def _binding_sort_key(val: Any) -> tuple:
+    if val is None:
+        return (1, "")
+    if isinstance(val, Literal):
+        return (0, str(val.value))
+    if isinstance(val, NamedNode):
+        return (2, val.iri)
+    return (3, str(val))
+
+
+# ── Filter evaluator ──────────────────────────────────────────────
+
+FILTER_FUNCS: dict[str, list[str]] = {
+    "STR": ["value"],
+    "LANG": ["value"],
+    "DATATYPE": ["value"],
+    "isURI": ["value"],
+    "isIRI": ["value"],
+    "isLiteral": ["value"],
+    "isBlank": ["value"],
+    "isNumeric": ["value"],
+    "xsd:dateTime": ["value"],
+    "STRLEN": ["value"],
+    "UCASE": ["value"],
+    "LCASE": ["value"],
+    "ENCODE_FOR_URI": ["value"],
+    "CONCAT": ["args"],
+    "SUBSTR": ["value", "start", "length"],
+    "CONTAINS": ["arg1", "arg2"],
+    "STRSTARTS": ["arg1", "arg2"],
+    "STRENDS": ["arg1", "arg2"],
+    "STRBEFORE": ["arg1", "arg2"],
+    "STRAFTER": ["arg1", "arg2"],
+    "REPLACE": ["arg1", "arg2", "arg3"],
+    "ABS": ["value"],
+    "ROUND": ["value"],
+    "CEIL": ["value"],
+    "FLOOR": ["value"],
+    "RAND": [],
+    "YEAR": ["value"],
+    "MONTH": ["value"],
+    "DAY": ["value"],
+    "HOURS": ["value"],
+    "MINUTES": ["value"],
+    "SECONDS": ["value"],
+    "TIMEZONE": ["value"],
+    "TZ": ["value"],
+    "UUID": [],
+    "STRUUID": [],
+    "MD5": ["value"],
+    "SHA1": ["value"],
+    "SHA256": ["value"],
+    "SHA384": ["value"],
+    "SHA512": ["value"],
+    "COALESCE": ["args"],
+    "IF": ["condition", "then", "else"],
+    "BOUND": ["var"],
+    "sameTerm": ["term1", "term2"],
+    "langMatches": ["lang_tag", "lang_range"],
+    "REGEX": ["text", "pattern", "flags"],
+}
 
 
 def _eval_filter(expr: Any, binding: Binding) -> bool:
-    """Evaluate a filter expression against a binding."""
+    """Evaluate a SPARQL FILTER expression against a binding.
+
+    Returns True if the filter passes (or if the expression cannot be evaluated).
+    """
     try:
-        if isinstance(expr, Comparison):
-            left = _eval_filter_rvalue(expr.left, binding)
-            right = _eval_filter_rvalue(expr.right, binding)
-            if left is None or right is None:
-                return False
-            if expr.op == "=" or expr.op == "EQ":
-                return _rdf_equals(left, right)
-            if expr.op == "!=" or expr.op == "NE":
-                return not _rdf_equals(left, right)
-            if expr.op in ("<", ">", "<=", ">=", "LT", "GT", "LE", "GE"):
-                return _compare_numeric(left, right, expr.op)
-            return False
-        if isinstance(expr, And):
-            return _eval_filter(expr.left, binding) and _eval_filter(expr.right, binding)
-        if isinstance(expr, Or):
-            return _eval_filter(expr.left, binding) or _eval_filter(expr.right, binding)
-        if isinstance(expr, Not):
-            return not _eval_filter(expr.inner, binding)
-        if isinstance(expr, VarRef):
-            return expr.name in binding
-        if isinstance(expr, Constant):
-            return True  # constants are truthy
-        if isinstance(expr, RegexFunc):
-            text = _eval_filter_rvalue(expr.text, binding)
-            pattern = _eval_filter_rvalue(expr.pattern, binding)
-            if text is None or pattern is None:
-                return False
-            text_str = str(text.value) if isinstance(text, Literal) else str(text)
-            pattern_str = str(pattern.value) if isinstance(pattern, Literal) else str(pattern)
-            flags = 0
-            if expr.flags:
-                flag_val = _eval_filter_rvalue(expr.flags, binding)
-                if flag_val is not None:
-                    flag_str = str(flag_val.value) if isinstance(flag_val, Literal) else str(flag_val)
-                    if "i" in flag_str:
-                        flags |= re.IGNORECASE
-            return bool(re.search(pattern_str, text_str, flags))
-        if isinstance(expr, BoundFunc):
-            return expr.name in binding
+        result = _eval_expr(expr, binding)
+        if isinstance(result, bool):
+            return result
+        if isinstance(result, Literal):
+            return _literal_bool(result)
+        if result is None:
+            return True
+        return bool(result)
+    except (ValueError, TypeError, KeyError, AttributeError, ZeroDivisionError):
         return True
-    except Exception:
+
+
+def _eval_expr(expr: Any, binding: Binding) -> Any:
+    """Evaluate a SPARQL expression against a binding."""
+    from dynafx.knowledge._sparql_parser import Function, Operator
+
+    if isinstance(expr, ExprLiteral):
+        return expr.value
+    if isinstance(expr, ExprVar):
+        val = binding.get(expr.name)
+        if val is None and expr.name == "a":
+            return None
+        return val
+    if isinstance(expr, ExprOp):
+        args = [_eval_expr(a, binding) for a in expr.args]
+        return _eval_operator(expr.op, args)
+    if isinstance(expr, ExprFunc):
+        args = [_eval_expr(a, binding) for a in expr.args]
+        return _eval_function(expr.name, args)
+    if isinstance(expr, Operator):
+        args = [_eval_expr(a, binding) for a in expr.args]
+        return _eval_operator(expr.op, args)
+    if isinstance(expr, Function):
+        args = [_eval_expr(a, binding) for a in expr.args]
+        return _eval_function(expr.name, args)
+    if isinstance(expr, Comparison):
+        left = _eval_expr(expr.left, binding)
+        right = _eval_expr(expr.right, binding)
+        if expr.op == "=":
+            return _rdf_equals(left, right)
+        if expr.op == "!=":
+            return not _rdf_equals(left, right)
+        diff = _compare_numeric(left, right)
+        if expr.op == "<":
+            return diff < 0
+        if expr.op == ">":
+            return diff > 0
+        if expr.op == "<=":
+            return diff <= 0
+        if expr.op == ">=":
+            return diff >= 0
         return False
-
-
-def _eval_filter_rvalue(expr: Any, binding: Binding) -> Optional[Any]:
-    """Evaluate a filter expression to an RDFNode or None."""
+    if isinstance(expr, And):
+        return _eval_expr(expr.left, binding) and _eval_expr(expr.right, binding)
+    if isinstance(expr, Or):
+        return _eval_expr(expr.left, binding) or _eval_expr(expr.right, binding)
+    if isinstance(expr, Not):
+        return not _eval_expr(expr.inner, binding)
     if isinstance(expr, VarRef):
-        return binding.get(expr.name)
+        val = binding.get(expr.name)
+        if val is None and expr.name == "a":
+            return None
+        return val
     if isinstance(expr, Constant):
         return expr.value
-    if isinstance(expr, Comparison):
-        left = _eval_filter_rvalue(expr.left, binding)
-        right = _eval_filter_rvalue(expr.right, binding)
-        if left is None or right is None:
-            return None
-        if expr.op == "=" or expr.op == "EQ":
-            return Literal(_rdf_equals(left, right))
-        return Literal(_compare_numeric(left, right, expr.op))
-    if isinstance(expr, And):
-        return Literal(_eval_filter(expr.left, binding) and _eval_filter(expr.right, binding))
-    if isinstance(expr, Or):
-        return Literal(_eval_filter(expr.left, binding) or _eval_filter(expr.right, binding))
-    if isinstance(expr, Not):
-        return Literal(not _eval_filter(expr.inner, binding))
     if isinstance(expr, RegexFunc):
-        return Literal(_eval_filter(expr, binding))
-    if isinstance(expr, BoundFunc):
-        return Literal(expr.name in binding)
-    return None
-
-
-def _compare_numeric(left: Any, right: Any, op: str) -> bool:
-    """Compare two RDFNodes numerically."""
-    try:
-        lv = _to_numeric(left)
-        rv = _to_numeric(right)
-        if lv is None or rv is None:
-            return False
-        stripped_op = op.replace("LT", "<").replace("GT", ">").replace("LE", "<=").replace("GE", ">=")
-        if stripped_op == "<":
-            return lv < rv
-        if stripped_op == ">":
-            return lv > rv
-        if stripped_op == "<=":
-            return lv <= rv
-        if stripped_op == ">=":
-            return lv >= rv
-        return False
-    except (TypeError, ValueError):
-        return False
-
-
-def _to_numeric(node: Any) -> Optional[float]:
-    """Convert an RDFNode to a numeric value for comparison."""
-    if isinstance(node, Literal):
-        val = node.value
-        if isinstance(val, (int, float)):
-            return float(val)
+        text = _sparql_str(_eval_expr(expr.text, binding))
+        pattern = _sparql_str(_eval_expr(expr.pattern, binding))
+        flags = _sparql_str(_eval_expr(expr.flags, binding)) if expr.flags else ""
+        import re as _re
+        re_flags = 0
+        if "i" in flags:
+            re_flags |= _re.IGNORECASE
+        if "m" in flags:
+            re_flags |= _re.MULTILINE
+        if "s" in flags:
+            re_flags |= _re.DOTALL
         try:
-            return float(val)
-        except (ValueError, TypeError):
-            return None
-    return None
+            return bool(_re.search(pattern, text, re_flags))
+        except _re.error:
+            return False
+    if isinstance(expr, BoundFunc):
+        return expr.name in binding
+    if isinstance(expr, (int, float)):
+        return expr
+    if isinstance(expr, str):
+        return expr
+    return expr
 
 
-def _binding_sort_key(node: Any) -> tuple:
-    """Generate a sort key for a binding value."""
-    if isinstance(node, Literal):
-        val = node.value
+def _eval_operator(op: str, args: list[Any]) -> Any:
+    """Evaluate a SPARQL operator."""
+    if op == "=":
+        return _rdf_equals(args[0], args[1]) if len(args) >= 2 else False
+    if op == "!=":
+        return not _rdf_equals(args[0], args[1]) if len(args) >= 2 else False
+    if op == "<":
+        return _compare_numeric(args[0], args[1]) < 0
+    if op == ">":
+        return _compare_numeric(args[0], args[1]) > 0
+    if op == "<=":
+        return _compare_numeric(args[0], args[1]) <= 0
+    if op == ">=":
+        return _compare_numeric(args[0], args[1]) >= 0
+    if op in ("+", "ADD"):
+        return _to_numeric(args[0]) + _to_numeric(args[1])
+    if op in ("-", "SUB"):
+        return _to_numeric(args[0]) - _to_numeric(args[1])
+    if op in ("*", "MUL"):
+        return _to_numeric(args[0]) * _to_numeric(args[1])
+    if op in ("/", "DIV"):
+        divisor = _to_numeric(args[1])
+        if divisor == 0:
+            raise ZeroDivisionError
+        return _to_numeric(args[0]) / divisor
+    if op == "&&":
+        return bool(args[0]) and bool(args[1])
+    if op == "||":
+        return bool(args[0]) or bool(args[1])
+    if op == "!":
+        return not bool(args[0])
+    if op == "UNARY+":
+        return +_to_numeric(args[0])
+    if op == "UNARY-":
+        return -_to_numeric(args[0])
+    if op == "IN":
+        return any(_rdf_equals(args[0], a) for a in args[1:])
+    if op == "NOT_IN":
+        return not any(_rdf_equals(args[0], a) for a in args[1:])
+    raise ValueError(f"Unknown operator: {op}")
+
+
+def _eval_function(name: str, args: list[Any]) -> Any:
+    """Evaluate a SPARQL builtin function."""
+    name_upper = name.upper()
+    if name_upper == "BOUND":
+        if args:
+            return args[0] is not None
+        return False
+    if name_upper == "isURI" or name_upper == "isIRI":
+        return isinstance(args[0], NamedNode) if args else False
+    if name_upper == "isLITERAL":
+        return isinstance(args[0], Literal) if args else False
+    if name_upper == "isBLANK":
+        return isinstance(args[0], BlankNode) if args else False
+    if name_upper == "isNUMERIC":
+        if not args:
+            return False
+        val = args[0]
         if isinstance(val, (int, float)):
-            return (0, val)
-        return (1, str(val))
-    if isinstance(node, NamedNode):
-        return (2, node.iri)
-    return (3, str(node))
+            return True
+        if isinstance(val, Literal):
+            try:
+                float(val.value)
+                return True
+            except (ValueError, TypeError):
+                pass
+        return False
+    if name_upper == "STR":
+        if args:
+            return _sparql_str(args[0])
+        return ""
+    if name_upper == "LANG":
+        if isinstance(args[0], Literal):
+            return args[0].lang_tag or ""
+        return ""
+    if name_upper == "DATATYPE":
+        if isinstance(args[0], Literal):
+            return args[0].datatype or ""
+        return ""
+    if name_upper == "STRLEN":
+        return len(str(_sparql_str(args[0]))) if args else 0
+    if name_upper == "UCASE":
+        return _sparql_str(args[0]).upper() if args else ""
+    if name_upper == "LCASE":
+        return _sparql_str(args[0]).lower() if args else ""
+    if name_upper in ("CONCAT", "CONCATENATE"):
+        return "".join(str(_sparql_str(a)) for a in args)
+    if name_upper == "SUBSTR":
+        s = _sparql_str(args[0]) if args else ""
+        start = int(_to_numeric(args[1])) - 1 if len(args) > 1 else 0
+        length = int(_to_numeric(args[2])) if len(args) > 2 else len(s) - start
+        return s[start:start + length] if 0 <= start < len(s) else ""
+    if name_upper == "CONTAINS":
+        return _sparql_str(args[0]) in _sparql_str(args[1])
+    if name_upper == "STRSTARTS":
+        return _sparql_str(args[0]).startswith(_sparql_str(args[1]))
+    if name_upper == "STRENDS":
+        return _sparql_str(args[0]).endswith(_sparql_str(args[1]))
+    if name_upper == "STRBEFORE":
+        s, t = _sparql_str(args[0]), _sparql_str(args[1])
+        idx = s.find(t)
+        return s[:idx] if idx >= 0 else ""
+    if name_upper == "STRAFTER":
+        s, t = _sparql_str(args[0]), _sparql_str(args[1])
+        idx = s.find(t)
+        return s[idx + len(t):] if idx >= 0 else ""
+    if name_upper == "REPLACE":
+        text = _sparql_str(args[0])
+        pattern = _sparql_str(args[1])
+        replacement = _sparql_str(args[2])
+        import re as _re
+        flags = _sparql_str(args[3]) if len(args) > 3 else ""
+        re_flags = 0
+        if "i" in flags:
+            re_flags |= _re.IGNORECASE
+        if "m" in flags:
+            re_flags |= _re.MULTILINE
+        if "s" in flags:
+            re_flags |= _re.DOTALL
+        try:
+            return _re.sub(pattern, replacement, text, flags=re_flags)
+        except _re.error:
+            return text
+    if name_upper in ("ABS", "ROUND", "CEIL", "FLOOR"):
+        val = _to_numeric(args[0])
+        if name_upper == "ABS":
+            return abs(val)
+        if name_upper == "ROUND":
+            return round(val)
+        if name_upper == "CEIL":
+            import math
+            return math.ceil(val)
+        if name_upper == "FLOOR":
+            import math
+            return math.floor(val)
+    if name_upper == "RAND":
+        import random
+        return random.random()
+    if name_upper == "NOW":
+        import time
+        return time.time()
+    if name_upper == "YEAR":
+        from datetime import datetime
+        return datetime.fromtimestamp(int(_to_numeric(args[0]))).year
+    if name_upper == "MONTH":
+        from datetime import datetime
+        return datetime.fromtimestamp(int(_to_numeric(args[0]))).month
+    if name_upper == "DAY":
+        from datetime import datetime
+        return datetime.fromtimestamp(int(_to_numeric(args[0]))).day
+    if name_upper == "HOURS":
+        from datetime import datetime
+        return datetime.fromtimestamp(int(_to_numeric(args[0]))).hour
+    if name_upper == "MINUTES":
+        from datetime import datetime
+        return datetime.fromtimestamp(int(_to_numeric(args[0]))).minute
+    if name_upper == "SECONDS":
+        from datetime import datetime
+        return datetime.fromtimestamp(int(_to_numeric(args[0]))).second
+    if name_upper == "COALESCE":
+        for a in args:
+            if a is not None:
+                return a
+        return None
+    if name_upper == "IF":
+        return args[1] if _eval_expr(args[0], {}) else args[2]
+    if name_upper == "sameTerm":
+        return _rdf_equals(args[0], args[1])
+    if name_upper == "langMATCHES":
+        lang_tag = _sparql_str(args[0]).lower()
+        lang_range = _sparql_str(args[1]).lower()
+        if lang_range == "*":
+            return bool(lang_tag)
+        return lang_tag == lang_range or lang_tag.startswith(lang_range + "-")
+    if name_upper == "REGEX":
+        text = _sparql_str(args[0])
+        pattern = _sparql_str(args[1])
+        flags = _sparql_str(args[2]) if len(args) > 2 else ""
+        import re as _re
+        re_flags = 0
+        if "i" in flags:
+            re_flags |= _re.IGNORECASE
+        if "m" in flags:
+            re_flags |= _re.MULTILINE
+        if "s" in flags:
+            re_flags |= _re.DOTALL
+        try:
+            return bool(_re.search(pattern, text, re_flags))
+        except _re.error:
+            return False
+    if name_upper in ("MD5", "SHA1", "SHA256", "SHA384", "SHA512"):
+        import hashlib
+        data = _sparql_str(args[0]).encode("utf-8")
+        h = getattr(hashlib, name_upper.lower())()
+        h.update(data)
+        return h.hexdigest()
+    if name_upper in ("STRDT", "STRDT"):
+        return Literal(str(_sparql_str(args[0])), datatype=str(_sparql_str(args[1])))
+    if name_upper == "STRLANG":
+        return Literal(str(_sparql_str(args[0])), lang_tag=str(_sparql_str(args[1])))
+    if name_upper in ("UUID", "STRUUID"):
+        import uuid
+        if name_upper == "UUID":
+            return uuid.uuid4().hex
+        return str(uuid.uuid4())
+    raise ValueError(f"Unknown SPARQL function: {name}")
+
+
+def _sparql_str(val: Any) -> str:
+    if val is None:
+        return ""
+    if isinstance(val, Literal):
+        return str(val.value)
+    if isinstance(val, NamedNode):
+        return val.iri
+    return str(val)
+
+
+def _to_numeric(val: Any) -> float:
+    if val is None:
+        return 0.0
+    if isinstance(val, (int, float)):
+        return float(val)
+    if isinstance(val, Literal):
+        try:
+            return float(val.value)
+        except (ValueError, TypeError):
+            return 0.0
+    return 0.0
+
+
+def _literal_bool(lit: Literal) -> bool:
+    if lit.datatype and "boolean" in lit.datatype:
+        return lit.value in (True, "true", "1")
+    v = str(lit.value).lower()
+    return v in ("true", "1")
+
+
+def _compare_numeric(a: Any, b: Any) -> float:
+    return _to_numeric(a) - _to_numeric(b)
+
+
+# ── SPARQL Parser ────────────────────────────────────────────────
+
+
+def parse_sparql(query: str) -> AlgebraNode:
+    """Parse a SPARQL 1.1 query string into an AST node."""
+    from dynafx.knowledge._sparql_parser import _parse as _inner_parse
+    return _inner_parse(query)

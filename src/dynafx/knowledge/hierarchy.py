@@ -13,7 +13,6 @@ Based on:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass
@@ -27,7 +26,7 @@ class TypeNode:
         description: Human-readable description.
     """
     name: str
-    parent: Optional[str] = None
+    parent: str | None = None
     properties: dict[str, bool] = field(default_factory=dict)
     description: str = ""
 
@@ -48,7 +47,7 @@ class TypeHierarchy:
     def add_type(
         self,
         name: str,
-        parent: Optional[str] = None,
+        parent: str | None = None,
         description: str = "",
         **properties: bool,
     ) -> None:
@@ -100,7 +99,7 @@ class TypeHierarchy:
             get_ancestors("PERSON") → ["PERSON", "AGENT", "BLOB"]
         """
         ancestors: list[str] = []
-        current: Optional[str] = type_name
+        current: str | None = type_name
         visited: set[str] = set()
         while current:
             if current in visited:
@@ -196,10 +195,7 @@ class TypeHierarchy:
 
         # Check range constraint (stored as "range" property)
         range_type = edge_node.properties.get("range")
-        if range_type and not self.is_subtype(target_type, range_type):
-            return False
-
-        return True
+        return not (range_type and not self.is_subtype(target_type, range_type))
 
     def to_dict(self) -> dict:
         """Serialize to dictionary."""

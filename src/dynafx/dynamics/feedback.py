@@ -90,7 +90,7 @@ def _find_simple_cycles(
             elif ref in rec_stack:
                 # Found a cycle
                 cycle_start = path.index(ref)
-                cycle = path[cycle_start:] + [ref]
+                cycle = [*path[cycle_start:], ref]
                 # Normalize: start with smallest element
                 min_idx = cycle[:-1].index(min(cycle[:-1]))
                 normalized = cycle[min_idx:-1] + cycle[:min_idx] + [cycle[min_idx]]

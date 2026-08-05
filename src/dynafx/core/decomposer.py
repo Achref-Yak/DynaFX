@@ -22,7 +22,7 @@ Hybrid usage — wrap an extracted graph for annotation:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID
 
 from dynafx.core.models import (
@@ -32,7 +32,6 @@ from dynafx.core.models import (
     Graph,
     Node,
     NodeType,
-    Opinion,
     ReasoningMode,
 )
 
@@ -66,7 +65,7 @@ class SystemDecomposer:
 
     def __init__(
         self,
-        graph: Optional[Graph] = None,
+        graph: Graph | None = None,
         name: str = "",
     ) -> None:
         if graph is not None:
@@ -89,7 +88,7 @@ class SystemDecomposer:
     def _to_key(self, name: str) -> str:
         return name.strip().lower()
 
-    def _lookup(self, name: str) -> Optional[UUID]:
+    def _lookup(self, name: str) -> UUID | None:
         return self._name_index.get(self._to_key(name))
 
     # ── Nodes ─────────────────────────────────────────────────────
@@ -99,9 +98,9 @@ class SystemDecomposer:
         name: str,
         *,
         type: str = "CONCEPT",
-        partition: Optional[str] = None,
-        parent: Optional[str] = None,
-        confidence: Optional[float] = None,
+        partition: str | None = None,
+        parent: str | None = None,
+        confidence: float | None = None,
     ) -> str:
         """Create a node and return its *name* for chaining.
 
@@ -168,7 +167,6 @@ class SystemDecomposer:
             target_id=tgt_id,
             type=etype,
             polarity=polarity,
-            opinion=Opinion(),
             metadata={"confidence": confidence},
         )
         self.graph.edges[edge.id] = edge
@@ -180,7 +178,7 @@ class SystemDecomposer:
 
     # ── Legacy helpers (graph wrapping) ───────────────────────────
 
-    def _match_node(self, name: str) -> Optional[Node]:
+    def _match_node(self, name: str) -> Node | None:
         nid = self._lookup(name)
         if nid is not None:
             return self.graph.nodes.get(nid)

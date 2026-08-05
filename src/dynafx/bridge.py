@@ -29,12 +29,8 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
-logger = logging.getLogger(__name__)
-
-from dynafx.core.models import Opinion
-from dynafx.epistemics.argumentation import build_framework
 from dynafx.knowledge import parse_sparql, sparql_evaluate
 from dynafx.knowledge.model import (
     Literal,
@@ -44,6 +40,8 @@ from dynafx.knowledge.model import (
 )
 from dynafx.knowledge.production import Action, ActionResult
 from dynafx.knowledge.store import TripleStore
+
+logger = logging.getLogger(__name__)
 
 NS_PROV = "http://www.w3.org/ns/prov#"
 NS_SIM = "http://dynafx.org/simulation#"
@@ -68,23 +66,20 @@ class KBSimBridge:
         self,
         claim_map: list[tuple[NamedNode, NamedNode, object, str]],
         default: float = 0.5,
-        exclude_graphs: Optional[set[str]] = None,
-        type_coerce: Optional[dict[str, str]] = None,
+        exclude_graphs: set[str] | None = None,
+        type_coerce: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """Map KB triples to simulation parameters.
 
         For each (subject, predicate, object, param_name) entry, finds
-        the maximum belief across all graphs (excluding schema/meta/fused
-        by default) and returns it as a float parameter.
+        matching triples and returns the object value as a typed param.
 
         Args:
             claim_map: List of (subject, predicate, object_literal, param_name) tuples.
-            default: Default belief value when no matching triple exists.
+            default: Default value when no matching triple exists.
             exclude_graphs: Graphs to skip.
             type_coerce: Optional dict param_name → type string
-                ("float", "int", "str", "bool"). When provided, the
-                triple's object value (not belief) is coerced instead of
-                returning belief.
+                ("float", "int", "str", "bool").
 
         Returns:
             dict mapping param_name → value (float, int, str, or bool).
@@ -94,50 +89,42 @@ class KBSimBridge:
         params: dict[str, Any] = {}
         for subj, pred, obj, param_name in claim_map:
             coerce_type = (type_coerce or {}).get(param_name, "float")
-            max_belief = 0.0
-            best_literal: Any = None
+            raw_value: Any = None
             has_any = False
             for g in self.store.graphs():
                 if g in exclude_graphs:
                     continue
                 for t in self.store.triples(TriplePattern(subj, pred, obj), graph=g):
-                    b = t.opinion.belief if t.opinion else 0.5
-                    if b > max_belief:
-                        max_belief = b
-                        best_literal = t.object_
-                    has_any = True
+                    if t.object_ is not None:
+                        raw_value = getattr(t.object_, 'value', t.object_)
+                        has_any = True
+                        break
 
             if not has_any:
                 params[param_name] = default
                 continue
 
             if coerce_type == "float":
-                params[param_name] = max_belief
+                try:
+                    params[param_name] = float(raw_value)
+                except (ValueError, TypeError):
+                    params[param_name] = default
             elif coerce_type == "int":
-                val = max_belief
-                if best_literal is not None and hasattr(best_literal, "value"):
-                    try:
-                        val = int(best_literal.value)
-                    except (ValueError, TypeError):
-                        val = int(max_belief * 100)
-                params[param_name] = val
+                try:
+                    params[param_name] = int(raw_value)
+                except (ValueError, TypeError):
+                    params[param_name] = int(default)
             elif coerce_type == "str":
-                val = str(max_belief)
-                if best_literal is not None and hasattr(best_literal, "value"):
-                    val = str(best_literal.value)
-                params[param_name] = val
+                params[param_name] = str(raw_value)
             elif coerce_type == "bool":
-                if best_literal is not None and hasattr(best_literal, "value"):
-                    lv = best_literal.value
-                    if isinstance(lv, bool):
-                        val = lv
-                    else:
-                        val = max_belief > 0.5
+                if isinstance(raw_value, bool):
+                    params[param_name] = raw_value
+                elif isinstance(raw_value, str):
+                    params[param_name] = raw_value.lower() in ('true', '1', 'yes')
                 else:
-                    val = max_belief > 0.5
-                params[param_name] = val
+                    params[param_name] = bool(raw_value)
             else:
-                params[param_name] = max_belief
+                params[param_name] = raw_value
         return params
 
     def evidence_from_result(
@@ -146,17 +133,17 @@ class KBSimBridge:
         evidence_map: list[tuple[str, NamedNode, NamedNode, Callable[[list[float], list[float]], float]]],
         graph: str = "simulation",
     ) -> list[Triple]:
-        """Convert simulation results to opinion-bearing triples.
+        """Convert simulation results to KB triples.
 
         Args:
             result: SysdModelResult from model.simulate().
             evidence_map: List of (stock_name, subject, predicate, scoring_fn)
                 tuples. The scoring_fn receives (initial_values, final_values)
-                and returns a belief value in [0, 1].
+                and returns a numeric value.
             graph: Named graph to tag triples with (used at add time).
 
         Returns:
-            List of Triple objects with opinion set from scoring_fn.
+            List of Triple objects with the scored value as literal object.
         """
         triples: list[Triple] = []
         for stock_name, subj, pred, scoring_fn in evidence_map:
@@ -165,24 +152,18 @@ class KBSimBridge:
                 continue
             initial_v = values[:max(1, len(values) // 10)]
             final_v = values[-max(1, len(values) // 10):]
-            belief = scoring_fn(initial_v, final_v)
-            belief = max(0.0, min(1.0, belief))
-            obj = Literal(belief, datatype="http://www.w3.org/2001/XMLSchema#double")
-            triple = Triple(
-                subject=subj,
-                predicate=pred,
-                object_=obj,
-                opinion=Opinion(belief, 1.0 - belief, 0.0),
-            )
+            score = scoring_fn(initial_v, final_v)
+            obj = Literal(score, datatype="http://www.w3.org/2001/XMLSchema#double")
+            triple = Triple(subject=subj, predicate=pred, object_=obj)
             triples.append(triple)
         return triples
 
     def params_for_class(
         self,
         class_iri: str,
-        subject_filter: Optional[dict[str, Any]] = None,
+        subject_filter: dict[str, Any] | None = None,
         naming: str = "class_prefix",
-        exclude_predicates: Optional[set[str]] = None,
+        exclude_predicates: set[str] | None = None,
         default: float = 0.5,
     ) -> dict[str, Any]:
         """Introspect KB to extract numeric params for all instances of a class.
@@ -272,9 +253,9 @@ class KBSimBridge:
         method: str = "percentile",
         threshold: float = 0.5,
     ) -> Triple:
-        """Convert a simulation stock to an opinion-bearing triple.
+        """Convert a simulation stock to a KB triple.
 
-        Auto-computes the belief score using the chosen method:
+        Computes the score using the chosen method:
             ``"percentile"`` — normalises the stock's final values across
                 all stocks in the result.
             ``"delta"`` — absolute change relative to initial value.
@@ -290,19 +271,19 @@ class KBSimBridge:
             threshold: Cutoff for ``"threshold"`` method.
 
         Returns:
-            A Triple with opinion set to the computed belief.
+            A Triple with the computed score as literal object.
         """
         values = result.values.get(stock_name, [])
         if not values:
-            belief = 0.0
+            score = 0.0
         else:
             final_val = values[-1]
             if method == "delta":
                 initial = values[0]
                 denom = max(abs(initial), 1.0)
-                belief = min(1.0, abs(final_val - initial) / denom)
+                score = min(1.0, abs(final_val - initial) / denom)
             elif method == "threshold":
-                belief = 1.0 if final_val > threshold else 0.0
+                score = 1.0 if final_val > threshold else 0.0
             else:
                 all_finals = []
                 for vlist in result.values.values():
@@ -310,19 +291,10 @@ class KBSimBridge:
                         all_finals.append(vlist[-1])
                 vmin = min(all_finals) if all_finals else 0.0
                 vmax = max(all_finals) if all_finals else 1.0
-                if vmax > vmin:
-                    belief = (final_val - vmin) / (vmax - vmin)
-                else:
-                    belief = 0.5
+                score = (final_val - vmin) / (vmax - vmin) if vmax > vmin else 0.5
 
-        belief = max(0.0, min(1.0, belief))
-        obj = Literal(belief, datatype="http://www.w3.org/2001/XMLSchema#double")
-        return Triple(
-            subject=subject,
-            predicate=predicate,
-            object_=obj,
-            opinion=Opinion(belief, 1.0 - belief, 0.0),
-        )
+        obj = Literal(score, datatype="http://www.w3.org/2001/XMLSchema#double")
+        return Triple(subject=subject, predicate=predicate, object_=obj)
 
     @staticmethod
     def load_queries(yaml_path: str) -> dict[str, str]:
@@ -359,7 +331,7 @@ class KBSimBridge:
     def run_with_kb(
         self,
         model: Any,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
         **sim_kwargs: Any,
     ) -> Any:
         """Run a simulation with KB-connected builtins.
@@ -385,7 +357,7 @@ class KBSimBridge:
         model: Any,
         claim_map: list[tuple[NamedNode, NamedNode, object, str]],
         evidence_map: list[tuple[str, NamedNode, NamedNode, Callable[[list[float], list[float]], float]]],
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
         evidence_graph: str = "simulation",
         param_default: float = 0.5,
         **sim_kwargs: Any,
@@ -423,10 +395,10 @@ class KBSimBridge:
     def record_provenance(
         self,
         result: Any,
-        params: Optional[dict[str, Any]] = None,
-        run_id: Optional[str] = None,
+        params: dict[str, Any] | None = None,
+        run_id: str | None = None,
         graph: str = "provenance",
-        extra_annotations: Optional[list[Triple]] = None,
+        extra_annotations: list[Triple] | None = None,
     ) -> NamedNode:
         """Store a simulation run's provenance as RDF.
 
@@ -635,8 +607,8 @@ class ReasoningPass:
     params_override: dict[str, Any] = field(default_factory=dict)
     grade_queries: list[tuple[str, str, float, float]] = field(default_factory=list)
     param_nudges: dict[str, float] = field(default_factory=dict)
-    grade_update: Optional[Callable[[dict[str, float], TripleStore], dict[str, Any]]] = None
-    max_belief_graph: Optional[str] = None
+    grade_update: Callable[[dict[str, float], TripleStore], dict[str, Any]] | None = None
+    max_belief_graph: str | None = None
 
     def grade(
         self,
@@ -675,7 +647,7 @@ def grade_queries(
         dict mapping ``f"{prefix}{idx}"`` → float score in [0, 1].
     """
     grades: dict[str, float] = {}
-    for q_idx, (query_str, var_name, threshold, _) in enumerate(grade_specs):
+    for q_idx, (query_str, var_name, _, _) in enumerate(grade_specs):
         try:
             ast = parse_sparql(query_str)
             qr = sparql_evaluate(ast, store)
@@ -706,7 +678,7 @@ class ClosedLoopResult:
     results: list[Any] = field(default_factory=list)
     grades: list[dict[str, float]] = field(default_factory=list)
     run_nodes: list[NamedNode] = field(default_factory=list)
-    final_params: Optional[dict[str, Any]] = None
+    final_params: dict[str, Any] | None = None
     evidence_added: int = 0
 
     def summary(self) -> dict[str, Any]:
@@ -810,40 +782,6 @@ class ClosedLoopReasoner:
         cl_result.final_params = current_params
         return cl_result
 
-    def argumentative_filter(
-        self,
-        attack_graphs: Optional[set[str]] = None,
-        min_belief: float = 0.3,
-    ) -> None:
-        """Apply argumentation filter to clean contradictory evidence.
-
-        Builds an argumentation framework over the evidence asserted
-        during the pipeline, then removes OUT atoms from the store.
-
-        Args:
-            attack_graphs: Graphs to include (default: {self.evidence_graph}).
-            min_belief: Minimum belief for atoms to survive.
-        """
-        if attack_graphs is None:
-            attack_graphs = {self.evidence_graph}
-
-        af = build_framework(
-            self.bridge.store,
-            list(attack_graphs),
-            min_belief=min_belief,
-        )
-        grounded_ids = af.compute_grounded()
-        to_remove: list[tuple[Triple, str]] = []
-        for arg_id, arg in af.arguments.items():
-            if arg_id not in grounded_ids:
-                t = arg.triple
-                for g in attack_graphs:
-                    for found_t in self.bridge.store.triples(
-                        TriplePattern(t.subject, t.predicate, t.object_), graph=g
-                    ):
-                        to_remove.append((found_t, g))
-        for t, g in to_remove:
-            self.bridge.store.remove(TriplePattern(t.subject, t.predicate, t.object_), graph=g)
 
 
 # ── Cognitive Orchestrator — event → rule → sim → evidence loop ──
@@ -875,7 +813,7 @@ class CognitiveOrchestrator:
         })
     """
 
-    def __init__(self, store: Any, bridge: Optional[Any] = None):
+    def __init__(self, store: Any, bridge: Any | None = None):
         from dynafx.knowledge.execution import ExecutionStore
         from dynafx.knowledge.production import ProductionRuleEngine
         from dynafx.knowledge.transactions import TransactionStore
@@ -910,7 +848,7 @@ class CognitiveOrchestrator:
         payload: dict,
         source: str = "external",
         confidence: float = 1.0,
-        timestamp: Optional[float] = None,
+        timestamp: float | None = None,
     ) -> Any:
         """Ingest an external event — triggers the full pipeline.
 

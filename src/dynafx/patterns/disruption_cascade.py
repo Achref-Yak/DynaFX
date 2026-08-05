@@ -19,8 +19,6 @@ import statistics
 from pathlib import Path
 from typing import Any
 
-from dynafx.utils.dashboard_html import make_lazy
-
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
@@ -32,6 +30,7 @@ from dynafx.dynamics.dsl import (
     AgentStrategy,
     SysdModel,
 )
+from dynafx.utils.dashboard_html import make_lazy
 
 _THEME = {
     "primary": "#2B4570", "accent": "#4A6FA5", "success": "#3D8361",
@@ -331,18 +330,18 @@ class DisruptionCascade:
                                              "Fulfillment Rate"))
         fig1.add_trace(go.Scatter(x=t, y=total_orders, mode="lines",
                                    name="Total Orders",
-                                   line=dict(color=_COLORS[0], width=2)),
+                                   line={"color": _COLORS[0], "width": 2}),
                        row=1, col=1)
         fig1.add_vline(x=alert_t, line_dash="dash", line_color=_THEME["danger"],
                        row=1, col=1)
         fig1.add_trace(go.Scatter(x=t, y=fill_rate, mode="lines",
                                    name="Fulfillment Rate", fill="tozeroy",
-                                   line=dict(color=_COLORS[3], width=2),
+                                   line={"color": _COLORS[3], "width": 2},
                                    fillcolor=_hex_rgba(_COLORS[3], 0.2)),
                        row=2, col=1)
         fig1.add_vline(x=alert_t, line_dash="dash", line_color=_THEME["danger"],
                        row=2, col=1)
-        fig1.update_layout(height=450, margin=dict(l=40, r=20, t=50, b=30),
+        fig1.update_layout(height=450, margin={"l": 40, "r": 20, "t": 50, "b": 30},
                            paper_bgcolor=_THEME["card"], plot_bgcolor=_THEME["bg"],
                            showlegend=False)
         tab1_chart = fig1.to_html(full_html=False, include_plotlyjs=False)
@@ -359,17 +358,17 @@ class DisruptionCascade:
         fig2.add_trace(go.Scatter(x=t, y=[s / 1000 for s in shipments],
                                    mode="lines",
                                    name="Shipments (scaled /1000)",
-                                   line=dict(color=_COLORS[2], width=2)),
+                                   line={"color": _COLORS[2], "width": 2}),
                        row=1, col=1)
         fig2.add_trace(go.Scatter(x=t, y=avg_inv, mode="lines",
                                    name="Avg Buyer Inventory",
-                                   line=dict(color=_COLORS[0], width=2)),
+                                   line={"color": _COLORS[0], "width": 2}),
                        row=2, col=1)
         fig2.add_vline(x=alert_t, line_dash="dash", line_color=_THEME["danger"],
                        row=1, col=1)
         fig2.add_vline(x=alert_t, line_dash="dash", line_color=_THEME["danger"],
                        row=2, col=1)
-        fig2.update_layout(height=450, margin=dict(l=40, r=20, t=50, b=30),
+        fig2.update_layout(height=450, margin={"l": 40, "r": 20, "t": 50, "b": 30},
                            paper_bgcolor=_THEME["card"], plot_bgcolor=_THEME["bg"],
                            showlegend=False)
         tab2_chart = fig2.to_html(full_html=False, include_plotlyjs=False)
@@ -382,14 +381,14 @@ class DisruptionCascade:
         fig3.add_trace(go.Scatter(x=t, y=crisis_count, mode="lines+markers",
                                    name="Buyers in Crisis Mode",
                                    fill="tozeroy",
-                                   line=dict(color=_COLORS[3], width=2),
+                                   line={"color": _COLORS[3], "width": 2},
                                    fillcolor=_hex_rgba(_COLORS[3], 0.2)),
                        row=1, col=1)
         fig3.add_vline(x=alert_t, line_dash="dash", line_color=_THEME["danger"])
-        fig3.update_layout(height=350, margin=dict(l=40, r=20, t=30, b=30),
+        fig3.update_layout(height=350, margin={"l": 40, "r": 20, "t": 30, "b": 30},
                            paper_bgcolor=_THEME["card"], plot_bgcolor=_THEME["bg"],
                            showlegend=False,
-                           yaxis=dict(dtick=1, range=[-0.5, num_buyers + 0.5]))
+                           yaxis={"dtick": 1, "range": [-0.5, num_buyers + 0.5]})
         tab3_chart = fig3.to_html(full_html=False, include_plotlyjs=False)
 
         tab3 = f"""
@@ -402,7 +401,6 @@ class DisruptionCascade:
         for a in range(num_buyers):
             b_orders = [rec["order_sizes"][a] for rec in history]
             b_inv = [rec["inventories"][a] for rec in history]
-            b_strat = [rec["strategies"][a] for rec in history]
             avg_o = statistics.mean(b_orders) if b_orders else 0
             max_o = max(b_orders) if b_orders else 0
             pre_bo = [b_orders[i] for i in range(len(t)) if 5 <= t[i] <= 9]
@@ -425,10 +423,10 @@ class DisruptionCascade:
             b_inv = [rec["inventories"][a] for rec in history]
             fig4.add_trace(go.Scatter(x=t, y=b_inv, mode="lines",
                                        name=f"Buyer {a}",
-                                       line=dict(color=_COLORS[a % len(_COLORS)])),
+                                       line={"color": _COLORS[a % len(_COLORS)]}),
                            row=1, col=1)
         fig4.add_vline(x=alert_t, line_dash="dash", line_color=_THEME["danger"])
-        fig4.update_layout(height=350, margin=dict(l=40, r=20, t=30, b=30),
+        fig4.update_layout(height=350, margin={"l": 40, "r": 20, "t": 30, "b": 30},
                            paper_bgcolor=_THEME["card"], plot_bgcolor=_THEME["bg"])
         tab4_chart = fig4.to_html(full_html=False, include_plotlyjs=False)
 

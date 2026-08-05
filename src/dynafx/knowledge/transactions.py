@@ -33,9 +33,8 @@ import time
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
-from dynafx.core.models import Opinion
 from dynafx.knowledge.model import (
     Literal,
     NamedNode,
@@ -74,10 +73,10 @@ class Transaction:
 @dataclass(frozen=True)
 class TransactionQuery:
     """Filter parameters for querying transactions."""
-    event_type: Optional[str] = None
-    t_start: Optional[float] = None
-    t_end: Optional[float] = None
-    source: Optional[str] = None
+    event_type: str | None = None
+    t_start: float | None = None
+    t_end: float | None = None
+    source: str | None = None
     n: int = 0  # 0 = unlimited
 
 
@@ -104,7 +103,7 @@ class TransactionStore:
         payload: dict[str, Any],
         source: str = "external",
         confidence: float = 1.0,
-        timestamp: Optional[float] = None,
+        timestamp: float | None = None,
         graph: str = DEFAULT_GRAPH,
     ) -> Transaction:
         """Record a transaction and store it as RDF triples.
@@ -129,19 +128,17 @@ class TransactionStore:
         sx = NamedNode(f"{NS_TX}{tx_id}")
         event_node = NamedNode(f"{NS_EVENT}{event_type}")
 
-        opin = Opinion(confidence, 1.0 - confidence, 0.0)
-
         triples: list[Triple] = [
-            Triple(sx, NamedNode(f"{NS_TX}type"), event_node, opinion=opin),
-            Triple(sx, NamedNode(f"{NS_TX}timestamp"), Literal(ts), opinion=opin),
-            Triple(sx, NamedNode(f"{NS_TX}source"), Literal(source), opinion=opin),
-            Triple(sx, NamedNode(f"{NS_TX}confidence"), Literal(confidence), opinion=opin),
+            Triple(sx, NamedNode(f"{NS_TX}type"), event_node),
+            Triple(sx, NamedNode(f"{NS_TX}timestamp"), Literal(ts)),
+            Triple(sx, NamedNode(f"{NS_TX}source"), Literal(source)),
+            Triple(sx, NamedNode(f"{NS_TX}confidence"), Literal(confidence)),
         ]
 
         for k, v in payload.items():
             val = self._to_literal(v)
             triples.append(Triple(
-                sx, NamedNode(f"{NS_PAYLOAD}{k}"), val, opinion=opin,
+                sx, NamedNode(f"{NS_PAYLOAD}{k}"), val,
             ))
 
         with self._store.suppress_callbacks():
@@ -164,10 +161,10 @@ class TransactionStore:
 
     def query(
         self,
-        event_type: Optional[str] = None,
-        t_start: Optional[float] = None,
-        t_end: Optional[float] = None,
-        source: Optional[str] = None,
+        event_type: str | None = None,
+        t_start: float | None = None,
+        t_end: float | None = None,
+        source: str | None = None,
         n: int = 0,
     ) -> list[Transaction]:
         """Query transactions by filters, newest first.
@@ -211,7 +208,7 @@ class TransactionStore:
     def count_by_type(
         self,
         event_type: str,
-        since: Optional[float] = None,
+        since: float | None = None,
     ) -> int:
         """Count events of a given type since a timestamp."""
         return len(self.query(event_type=event_type, t_start=since))
@@ -219,7 +216,7 @@ class TransactionStore:
     def count_by_source(
         self,
         source: str,
-        since: Optional[float] = None,
+        since: float | None = None,
     ) -> int:
         """Count events from a given source since a timestamp."""
         return len(self.query(source=source, t_start=since))

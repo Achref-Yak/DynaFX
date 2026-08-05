@@ -1,0 +1,241 @@
+@prefix epc: <http://epc.org/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# ── Classes ──
+
+epc:Supplier a rdfs:Class ;
+    rdfs:label "Supplier" ;
+    rdfs:comment "A solar panel or component supplier" .
+
+epc:Project a rdfs:Class ;
+    rdfs:label "Project" ;
+    rdfs:comment "A solar EPC construction project" .
+
+epc:Port a rdfs:Class ;
+    rdfs:label "Port" ;
+    rdfs:comment "A shipping port in the logistics network" .
+
+epc:Ship a rdfs:Class ;
+    rdfs:label "Ship" ;
+    rdfs:comment "A cargo vessel transporting containers" .
+
+epc:Container a rdfs:Class ;
+    rdfs:label "Container" ;
+    rdfs:comment "A shipping container with contents" .
+
+epc:Warehouse a rdfs:Class ;
+    rdfs:label "Warehouse" ;
+    rdfs:comment "A regional warehouse storing panels" .
+
+epc:Worker a rdfs:Class ;
+    rdfs:label "Worker" ;
+    rdfs:comment "A construction or logistics worker" .
+
+epc:Portfolio a rdfs:Class ;
+    rdfs:label "Portfolio" ;
+    rdfs:comment "The enterprise portfolio aggregating all projects" .
+
+epc:Disruption a rdfs:Class ;
+    rdfs:label "Disruption" ;
+    rdfs:comment "A disruption event affecting operations" .
+
+# ── Datatype Properties ──
+
+epc:name a rdf:Property ;
+    rdfs:domain rdfs:Resource ;
+    rdfs:range xsd:string ;
+    rdfs:label "Name" .
+
+epc:region a rdf:Property ;
+    rdfs:domain rdfs:Resource ;
+    rdfs:range xsd:string ;
+    rdfs:label "Region" .
+
+epc:material a rdf:Property ;
+    rdfs:domain epc:Supplier ;
+    rdfs:range xsd:string ;
+    rdfs:label "Material supplied" .
+
+epc:reliability a rdf:Property ;
+    rdfs:domain epc:Supplier ;
+    rdfs:range xsd:double ;
+    rdfs:label "Supplier reliability score (0-1)" .
+
+epc:volumePerDay a rdf:Property ;
+    rdfs:domain epc:Supplier ;
+    rdfs:range xsd:double ;
+    rdfs:label "Production volume per day" .
+
+epc:costPerPanel a rdf:Property ;
+    rdfs:domain epc:Supplier ;
+    rdfs:range xsd:double ;
+    rdfs:label "Cost per panel" .
+
+epc:leadTimeDays a rdf:Property ;
+    rdfs:domain epc:Supplier ;
+    rdfs:range xsd:integer ;
+    rdfs:label "Lead time in days" .
+
+epc:capacityMW a rdf:Property ;
+    rdfs:domain epc:Project ;
+    rdfs:range xsd:double ;
+    rdfs:label "Project capacity in megawatts" .
+
+epc:budgetK a rdf:Property ;
+    rdfs:domain epc:Project ;
+    rdfs:range xsd:integer ;
+    rdfs:label "Project budget in thousands" .
+
+epc:deadlineDay a rdf:Property ;
+    rdfs:domain epc:Project ;
+    rdfs:range xsd:integer ;
+    rdfs:label "Project deadline day" .
+
+epc:status a rdf:Property ;
+    rdfs:domain rdfs:Resource ;
+    rdfs:range xsd:string ;
+    rdfs:label "Entity status" .
+
+epc:capacityPerDay a rdf:Property ;
+    rdfs:domain epc:Port ;
+    rdfs:range xsd:integer ;
+    rdfs:label "Port handling capacity per day" .
+
+epc:country a rdf:Property ;
+    rdfs:domain epc:Port ;
+    rdfs:range xsd:string ;
+    rdfs:label "Country" .
+
+epc:isChokepoint a rdf:Property ;
+    rdfs:domain epc:Port ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "Is this port a strategic chokepoint?" .
+
+epc:route a rdf:Property ;
+    rdfs:domain epc:Ship ;
+    rdfs:range xsd:string ;
+    rdfs:label "Shipping route name" .
+
+epc:capacityContainers a rdf:Property ;
+    rdfs:domain epc:Ship ;
+    rdfs:range xsd:integer ;
+    rdfs:label "Container capacity" .
+
+epc:speedKnots a rdf:Property ;
+    rdfs:domain epc:Ship ;
+    rdfs:range xsd:double ;
+    rdfs:label "Ship speed in knots" .
+
+epc:transitDays a rdf:Property ;
+    rdfs:domain epc:Ship ;
+    rdfs:range xsd:integer ;
+    rdfs:label "Transit time in days" .
+
+epc:contents a rdf:Property ;
+    rdfs:domain epc:Container ;
+    rdfs:range xsd:string ;
+    rdfs:label "Container contents description" .
+
+epc:quantity a rdf:Property ;
+    rdfs:domain epc:Container ;
+    rdfs:range xsd:integer ;
+    rdfs:label "Quantity of contents" .
+
+epc:etaDay a rdf:Property ;
+    rdfs:domain epc:Container ;
+    rdfs:range xsd:integer ;
+    rdfs:label "Estimated arrival day" .
+
+epc:capacityPanels a rdf:Property ;
+    rdfs:domain epc:Warehouse ;
+    rdfs:range xsd:integer ;
+    rdfs:label "Panel storage capacity" .
+
+epc:inventoryPanels a rdf:Property ;
+    rdfs:domain epc:Warehouse ;
+    rdfs:range xsd:integer ;
+    rdfs:label "Current panel inventory" .
+
+epc:role a rdf:Property ;
+    rdfs:domain epc:Worker ;
+    rdfs:range xsd:string ;
+    rdfs:label "Worker role" .
+
+epc:skillLevel a rdf:Property ;
+    rdfs:domain epc:Worker ;
+    rdfs:range xsd:integer ;
+    rdfs:label "Worker skill level (1-5)" .
+
+# ── Object Properties (relationships) ──
+
+epc:partner a rdf:Property ;
+    rdfs:domain epc:Project ;
+    rdfs:range epc:Supplier ;
+    rdfs:label "Partner supplier for this project" .
+
+epc:currentPort a rdf:Property ;
+    rdfs:domain epc:Ship ;
+    rdfs:range epc:Port ;
+    rdfs:label "Current port of this ship" .
+
+epc:nextPort a rdf:Property ;
+    rdfs:domain epc:Ship ;
+    rdfs:range epc:Port ;
+    rdfs:label "Next destination port" .
+
+epc:onShip a rdf:Property ;
+    rdfs:domain epc:Container ;
+    rdfs:range epc:Ship ;
+    rdfs:label "Container is on this ship" .
+
+epc:originPort a rdf:Property ;
+    rdfs:domain epc:Container ;
+    rdfs:range epc:Port ;
+    rdfs:label "Container origin port" .
+
+epc:destPort a rdf:Property ;
+    rdfs:domain epc:Container ;
+    rdfs:range epc:Port ;
+    rdfs:label "Container destination port" .
+
+epc:assignedTo a rdf:Property ;
+    rdfs:domain epc:Worker ;
+    rdfs:range epc:Project ;
+    rdfs:label "Worker assigned to this project" .
+
+# ── Portfolio aggregate properties ──
+
+epc:aggregateSupplierReliability a rdf:Property ;
+    rdfs:domain epc:Portfolio ;
+    rdfs:range xsd:double ;
+    rdfs:label "Average supplier reliability across all suppliers" .
+
+epc:projectsAtRisk a rdf:Property ;
+    rdfs:domain epc:Portfolio ;
+    rdfs:range xsd:integer ;
+    rdfs:label "Number of projects at risk" .
+
+epc:activeProjects a rdf:Property ;
+    rdfs:domain epc:Portfolio ;
+    rdfs:range xsd:integer ;
+    rdfs:label "Number of active projects" .
+
+epc:totalCapacityMW a rdf:Property ;
+    rdfs:domain epc:Portfolio ;
+    rdfs:range xsd:double ;
+    rdfs:label "Total capacity across all projects" .
+
+epc:containersInTransit a rdf:Property ;
+    rdfs:domain epc:Portfolio ;
+    rdfs:range xsd:integer ;
+    rdfs:label "Number of containers currently in transit" .
+
+# ── Disruption properties ──
+
+epc:active a rdf:Property ;
+    rdfs:domain epc:Disruption ;
+    rdfs:range xsd:boolean ;
+    rdfs:label "Is the disruption currently active?" .

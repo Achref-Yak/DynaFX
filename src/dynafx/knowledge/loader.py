@@ -12,7 +12,14 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from dynafx.core.math import CATEGORY_LEVELS
+# Category level constants (moved from deleted core/math.py)
+CATEGORY_LEVELS: dict[str, int] = {
+    "NECESSITY": 1, "AXIOM": 1,
+    "FACT": 2, "EVIDENCE": 2, "OBSERVATION": 2, "DOCUMENT": 2,
+    "BELIEF": 3, "CLAIM": 3, "CONDITION": 3, "JUSTIFICATION": 3,
+    "COUNTERCLAIM": 3, "HYPOTHESIS": 3, "RULE": 3, "DECISION": 3, "ACTION": 3,
+    "CONCEPT": 4, "ENTITY": 4, "EVENT": 4, "FALLACY": 4,
+}
 
 logger = logging.getLogger(__name__)
 
@@ -90,8 +97,6 @@ def load_tbox(name: str = "general") -> TBox:
 
 def validate_against_tbox(node_type: str, edge_type: str, tbox: TBox) -> bool:
     """Check if a node type and edge type are valid in the TBox."""
-    if node_type.upper() not in {k.upper() for k in tbox.node_types}:
-        return False
-    if edge_type.upper() not in {k.upper() for k in tbox.edge_types}:
-        return False
-    return True
+    node_valid = node_type.upper() in {k.upper() for k in tbox.node_types}
+    edge_valid = edge_type.upper() in {k.upper() for k in tbox.edge_types}
+    return node_valid and edge_valid

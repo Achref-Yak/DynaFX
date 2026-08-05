@@ -1,0 +1,57 @@
+// Multi-Echelon Supply Chain with Bullwhip Effect
+// ================================================
+// Demonstrates: DELAY3, DELAY_FIXED, SMOOTH, feedback loops,
+// causal tracing, calibration, LP optimization.
+//
+// Supply chain: Factory → Warehouse → Retailer → Customers
+//
+// Each echelon holds inventory. Outflows are MIN(inventory, demand).
+// Inflows are delayed replenishment orders.
+
+// ── Customer demand ───────────────────────────────────────────
+aux seasonal_demand: base_demand * (1 + 0.3 * SIN(2 * PI * t / 52))
+aux demand_shock: PULSE(150, 26, 4)
+aux raw_demand: seasonal_demand + demand_shock + NOISE(20)
+
+// ── Retailer ──────────────────────────────────────────────────
+// Retailer ships what it can: min of inventory and demand
+aux retailer_ships: MIN(Retailer_Inventory, raw_demand)
+// Retailer orders from warehouse based on inventory gap
+aux retailer_order: MAX(0, reorder_point - Retailer_Inventory) / smoothing_time + raw_demand
+// Warehouse ships to retailer (3-day fixed processing delay)
+aux warehouse_to_retailer: DELAY_FIXED(MIN(Warehouse_Inventory, retailer_order), 3)
+
+// ── Warehouse ─────────────────────────────────────────────────
+// Warehouse ships what it can
+aux warehouse_ships: MIN(Warehouse_Inventory, retailer_order)
+// Warehouse orders from factory based on inventory gap
+aux warehouse_order: MAX(0, reorder_point * 2 - Warehouse_Inventory) / smoothing_time + raw_demand
+// Factory ships to warehouse (3-stage shipping delay)
+aux factory_to_warehouse: DELAY3(MIN(Factory_Inventory, warehouse_order), shipping_delay)
+
+// ── Factory ───────────────────────────────────────────────────
+// Production limited by capacity
+aux factory_production: MIN(factory_capacity, Factory_Inventory + 500)
+
+// ── Stocks ────────────────────────────────────────────────────
+stock Retailer_Inventory: 3000
+  + warehouse_to_retailer
+  - retailer_ships
+
+stock Warehouse_Inventory: 4000
+  + factory_to_warehouse
+  - warehouse_ships
+
+stock Factory_Inventory: 5000
+  + factory_production
+  - factory_to_warehouse
+
+// Cumulative trackers for fill rate
+stock Cumulative_Demand: 0
+  + raw_demand
+stock Cumulative_Met: 0
+  + retailer_ships
+
+// ── Time settings ────────────────────────────────────────────
+dt 1
+from 0 to 104

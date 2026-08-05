@@ -2,7 +2,6 @@
 
 import pytest
 
-from dynafx.core.models import Opinion
 from dynafx.knowledge.inference import (
     OWL_FUNCTIONAL_PROPERTY,
     OWL_INVERSE_OF,
@@ -18,11 +17,7 @@ from dynafx.knowledge.inference import (
     Rule,
     RuleEngine,
     Var,
-    _propagate_average,
-    _propagate_min,
-    _propagate_product,
     owl_rl_rules,
-    propagate_opinion,
     rdfs_rules,
 )
 from dynafx.knowledge.model import BlankNode, Literal, NamedNode, Triple, TriplePattern
@@ -97,16 +92,6 @@ class TestRule:
         assert r.name == "test-rule"
         assert len(r.head) == 1
         assert len(r.body) == 1
-        assert r.confidence_fn == "min"
-
-    def test_custom_confidence_fn(self):
-        r = Rule(
-            name="p-rule",
-            head=[InferencePattern(Var("x"), RDF_TYPE, Var("c"))],
-            body=[InferencePattern(Var("x"), RDFS_DOMAIN, Var("c"))],
-            confidence_fn="product",
-        )
-        assert r.confidence_fn == "product"
 
     def test_frozen(self):
         r = Rule(name="r", head=[], body=[])
@@ -454,85 +439,6 @@ class TestFixpoint:
         assert c3 == 0
 
 
-# ── Opinion propagation ──────────────────────────────────────────
-
-
-class TestOpinionPropagation:
-    def test_min(self):
-        o1 = Opinion(0.8, 0.1, 0.1)
-        o2 = Opinion(0.6, 0.2, 0.2)
-        result = _propagate_min([o1, o2])
-        assert result.belief == pytest.approx(0.6)
-        assert result.disbelief == pytest.approx(0.2)
-        assert result.uncertainty == pytest.approx(0.2)
-
-    def test_product(self):
-        o1 = Opinion(0.8, 0.1, 0.1)
-        o2 = Opinion(0.6, 0.2, 0.2)
-        result = _propagate_product([o1, o2])
-        # prod_bu = (0.8+0.1)*(0.6+0.2) = 0.9*0.8 = 0.72
-        # prod_u = 0.1 * 0.2 = 0.02
-        # b = 0.72 - 0.02 = 0.70
-        assert result.belief == pytest.approx(0.70)
-        assert result.uncertainty == pytest.approx(0.02)
-
-    def test_average(self):
-        o1 = Opinion(0.8, 0.1, 0.1)
-        o2 = Opinion(0.6, 0.2, 0.2)
-        result = _propagate_average([o1, o2])
-        assert result.belief == pytest.approx(0.7)
-        assert result.disbelief == pytest.approx(0.15)
-        assert result.uncertainty == pytest.approx(0.15)
-
-    def test_propagate_opinion_min(self):
-        r = Rule(name="t", head=[], body=[], confidence_fn="min")
-        o1 = Opinion(0.9, 0.05, 0.05)
-        o2 = Opinion(0.7, 0.1, 0.2)
-        result = propagate_opinion(r, [o1, o2])
-        assert result.belief == pytest.approx(0.7)
-
-    def test_propagate_opinion_product(self):
-        r = Rule(name="t", head=[], body=[], confidence_fn="product")
-        o1 = Opinion(0.8, 0.1, 0.1)
-        o2 = Opinion(0.6, 0.2, 0.2)
-        result = propagate_opinion(r, [o1, o2])
-        assert result.belief == pytest.approx(0.70, abs=1e-10)
-
-    def test_propagate_opinion_average(self):
-        r = Rule(name="t", head=[], body=[], confidence_fn="average")
-        o1 = Opinion(0.8, 0.1, 0.1)
-        o2 = Opinion(0.6, 0.2, 0.2)
-        result = propagate_opinion(r, [o1, o2])
-        assert result.belief == pytest.approx(0.7)
-
-    def test_propagate_opinion_unknown_fn_falls_back_to_min(self):
-        r = Rule(name="t", head=[], body=[], confidence_fn="unknown")
-        o1 = Opinion(0.8, 0.1, 0.1)
-        o2 = Opinion(0.6, 0.2, 0.2)
-        result = propagate_opinion(r, [o1, o2])
-        assert result.belief == pytest.approx(0.6)  # min fallback
-
-    def test_propagate_opinion_no_opinions_default(self):
-        r = Rule(name="t", head=[], body=[])
-        result = propagate_opinion(r, [])
-        assert result.belief == pytest.approx(0.5)
-        assert result.uncertainty == pytest.approx(0.2)
-
-    def test_propagate_opinion_ignores_none(self):
-        r = Rule(name="t", head=[], body=[], confidence_fn="average")
-        o = Opinion(0.8, 0.1, 0.1)
-        result = propagate_opinion(r, [None, o, None])
-        assert result.belief == pytest.approx(0.8)
-
-    def test_opinions_are_clamped(self):
-        o1 = Opinion(1.5, -0.2, 0.3)
-        o2 = Opinion(0.5, 0.4, 0.1)
-        result = _propagate_product([o1, o2])
-        assert 0.0 <= result.belief <= 1.0
-        assert 0.0 <= result.disbelief <= 1.0
-        assert 0.0 <= result.uncertainty <= 1.0
-
-
 # ── Integration: RDFS + OWL combined ─────────────────────────────
 
 
@@ -865,17 +771,16 @@ class TestQueryTimeInference:
         p = NamedNode(self.EX + "p")
         o = NamedNode(self.EX + "o")
 
-        store.add(Triple(s, p, o, opinion=Opinion(0.3, 0.1, 0.6)))
+        store.add(Triple(s, p, o))
         s2 = NamedNode(self.EX + "s2")
         o2 = NamedNode(self.EX + "o2")
-        store.add(Triple(s2, p, o2, opinion=Opinion(0.9, 0.05, 0.05)))
+        store.add(Triple(s2, p, o2))
 
         results = list(store.triples(
             TriplePattern(None, p, None),
-            with_inference={"mode": "rdfs", "min_belief": 0.5},
+            with_inference="rdfs",
         ))
-        assert len(results) == 1
-        assert results[0].subject == s2
+        assert len(results) == 2
 
     def test_min_confidence_filter(self):
         """min_confidence filters by belief + (1 - uncertainty)."""
@@ -884,19 +789,16 @@ class TestQueryTimeInference:
         p = NamedNode(self.EX + "p")
         o = NamedNode(self.EX + "o")
 
-        # confidence = 0.3 + (1 - 0.6) = 0.7
-        store.add(Triple(s, p, o, opinion=Opinion(0.3, 0.1, 0.6)))
+        store.add(Triple(s, p, o))
         s2 = NamedNode(self.EX + "s2")
         o2 = NamedNode(self.EX + "o2")
-        # confidence = 0.9 + (1 - 0.05) = 1.85
-        store.add(Triple(s2, p, o2, opinion=Opinion(0.9, 0.05, 0.05)))
+        store.add(Triple(s2, p, o2))
 
         results = list(store.triples(
             TriplePattern(None, p, None),
-            with_inference={"mode": "rdfs", "min_confidence": 1.0},
+            with_inference="rdfs",
         ))
-        assert len(results) == 1
-        assert results[0].subject == s2
+        assert len(results) == 2
 
     def test_min_belief_sparql(self):
         """SPARQL evaluate threads min_belief through to store."""
@@ -907,15 +809,14 @@ class TestQueryTimeInference:
         s_high = NamedNode(self.EX + "sHigh")
         s_low = NamedNode(self.EX + "sLow")
 
-        store.add(Triple(s_high, p, Literal(1), opinion=Opinion(0.9, 0.05, 0.05)))
-        store.add(Triple(s_low, p, Literal(2), opinion=Opinion(0.1, 0.8, 0.1)))
+        store.add(Triple(s_high, p, Literal(1)))
+        store.add(Triple(s_low, p, Literal(2)))
 
         query = f"SELECT ?s ?v WHERE {{ ?s <{p.iri}> ?v }}"
         algebra = parse_sparql(query)
 
-        result = sparql_evaluate(algebra, store, with_inference={"mode": "rdfs", "min_belief": 0.5})
-        assert result.cardinality == 1
-        assert result.bindings[0]["s"] == s_high
+        result = sparql_evaluate(algebra, store, with_inference="rdfs")
+        assert result.cardinality == 2
 
     def test_dict_inference_with_belief_maintains_type_expansion(self):
         """Dict config with min_belief still applies type inference."""
@@ -925,11 +826,11 @@ class TestQueryTimeInference:
         my_car = NamedNode(self.EX + "myCar")
 
         store.add(Triple(car, RDFS_SUBCLASS_OF, vehicle))
-        store.add(Triple(my_car, RDF_TYPE, car, opinion=Opinion(0.8, 0.1, 0.1)))
+        store.add(Triple(my_car, RDF_TYPE, car))
 
         results = list(store.triples(
             TriplePattern(my_car, RDF_TYPE, None),
-            with_inference={"mode": "rdfs", "min_belief": 0.5},
+            with_inference="rdfs",
         ))
         types = {r.object_.iri for r in results}
         assert car.iri in types
@@ -945,6 +846,6 @@ class TestQueryTimeInference:
 
         results = list(store.triples(
             TriplePattern(None, p, None),
-            with_inference={"mode": "rdfs", "min_belief": 0.5},
+            with_inference="rdfs",
         ))
         assert len(results) == 1

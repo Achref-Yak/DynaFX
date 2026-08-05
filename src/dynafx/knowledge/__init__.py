@@ -1,34 +1,17 @@
-"""Knowledge — RDF/OWL/SPARQL triple store with SL confidence grading.
+"""Knowledge — RDF/OWL/SPARQL triple store.
 
 Submodules:
     model      — RDF data model (NamedNode, BlankNode, Literal, Triple)
-    store      — TripleStore with named graphs and opinion dedup
+    store      — TripleStore with named graphs
     turtle     — Turtle/N-Triples parser and serializer
     sparql     — SPARQL 1.1 query parser and evaluator
     inference  — Forward-chaining rule engine (RDFS, OWL RL)
-    confidence — Graph fusion and query grading
     hierarchy  — OWL2-style type hierarchy
     loader     — TBox loader
-
-Integration:
-    - `epistemics/` provides SL Opinion, cumulative_fusion, EvidenceMatrix
 """
 
-from dynafx.core.models import (
-    FusionSituation,
-    Opinion,
-)
-from dynafx.epistemics.fusion import (
-    consensus_compromise,
-    cumulative_fusion,
-)
-from dynafx.knowledge.confidence import (
-    FusionResult,
-    QueryGrade,
-    argumentative_filter,
-    fuse_graphs,
-    grade_query,
-)
+import warnings as _warnings
+
 from dynafx.knowledge.execution import (
     ExecutionRecord,
     ExecutionStore,
@@ -40,7 +23,6 @@ from dynafx.knowledge.inference import (
     RuleEngine,
     Var,
     owl_rl_rules,
-    propagate_opinion,
     rdfs_rules,
 )
 from dynafx.knowledge.ingest_csv import (
@@ -93,8 +75,6 @@ from dynafx.knowledge.turtle import parse_turtle, serialize_turtle
 
 sparql_evaluate = _evaluate
 
-import warnings as _warnings
-
 
 def __getattr__(name: str):
     if name == "evaluate":
@@ -107,7 +87,7 @@ def __getattr__(name: str):
 
 parse_sparql = _parse_sparql
 
-__all__ = [
+__all__ = [  # noqa: RUF022  section-grouped, not alphabetical
     # Model
     "BlankNode",
     "Literal",
@@ -131,14 +111,7 @@ __all__ = [
     "RuleEngine",
     "Var",
     "owl_rl_rules",
-    "propagate_opinion",
     "rdfs_rules",
-    # Confidence
-    "FusionResult",
-    "QueryGrade",
-    "argumentative_filter",
-    "fuse_graphs",
-    "grade_query",
     # CSV ingestion
     "ColumnMapping",
     "IngestReport",
@@ -178,9 +151,4 @@ __all__ = [
     # Execution
     "ExecutionRecord",
     "ExecutionStore",
-    # SL integration
-    "Opinion",
-    "FusionSituation",
-    "cumulative_fusion",
-    "consensus_compromise",
 ]

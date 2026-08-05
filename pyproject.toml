@@ -9,6 +9,9 @@ description = "Multi-paradigm simulation framework (SD + ABM + DES) with cogniti
 readme = "README.md"
 requires-python = ">=3.12"
 license = {text = "MIT"}
+authors = [
+    {name = "Achref Yak"},
+]
 keywords = [
     "system-dynamics", "agent-based-modeling", "discrete-event-simulation",
     "cognitive-digital-twin", "knowledge-graph", "simulation",
@@ -57,15 +60,15 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Achref-Yak/reasoning_engine"
-Repository = "https://github.com/Achref-Yak/reasoning_engine"
-Documentation = "https://github.com/Achref-Yak/reasoning_engine#readme"
+Homepage = "https://github.com/Achref-Yak/DynaFX"
+Repository = "https://github.com/Achref-Yak/DynaFX"
+"Source Code" = "https://github.com/Achref-Yak/DynaFX"
+Documentation = "https://github.com/Achref-Yak/DynaFX#readme"
+Issues = "https://github.com/Achref-Yak/DynaFX/issues"
+Changelog = "https://github.com/Achref-Yak/DynaFX/blob/main/CHANGELOG.md"
 
-[project.scripts]
-dynafx = "dynafx.dynamics.__main__:main"
-
-[tool.setuptools.package-data]
-dynafx = ["default_priors.json"]
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -94,7 +97,6 @@ ignore = [
 python_version = "3.12"
 warn_unused_ignores = true
 ignore_missing_imports = true
-exclude = ["examples/"]
 
 [tool.pyright]
 pythonVersion = "3.12"
@@ -103,9 +105,9 @@ include = ["src/dynafx"]
 exclude = ["**/__pycache__", "**/.venv"]
 
 # Suppress noisy-but-safe patterns in this dynamic/eval-heavy codebase.
-# All are false positives at runtime — Opinion is a tuple alias, patterns
-# like `.get()` returning None are safe, and dynamic attributes on dataclasses
-# are resolved at runtime.
+# All are false positives at runtime — patterns like `.get()` returning
+# None are safe, and dynamic attributes on dataclasses are resolved at
+# runtime.
 reportOptionalMemberAccess = false
 reportOptionalSubscript = false
 reportOptionalOperand = false

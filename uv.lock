@@ -389,6 +389,7 @@ docs = [
 ]
 viz = [
     { name = "matplotlib" },
+    { name = "plotly" },
 ]
 
 [package.metadata]
