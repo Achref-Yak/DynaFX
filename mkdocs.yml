@@ -1,6 +1,6 @@
 site_name: DynaFX
-site_description: A semantic simulation platform for building cognitive digital twins — multi-paradigm simulation (SD + ABM + DES) unified with symbolic knowledge representation (RDF/OWL/SPARQL)
-repo_url: https://github.com/Achref-Yak/DynaFX
+site_description: Multi-paradigm simulation framework (SD + ABM + DES) with cognitive reasoning — knowledge graphs, confidence grading, and argumentation for simulation-driven decisions
+repo_url: https://github.com/Achref-Yak/reasoning_engine
 edit_uri: edit/main/docs/
 theme:
   name: material

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "dynafx"
 version = "0.2.0"
-description = "Multi-paradigm system dynamics framework (SD + ABM + DES) with an RDF/OWL/SPARQL knowledge engine and a KB-simulation bridge"
+description = "Multi-paradigm simulation framework (SD + ABM + DES) with cognitive reasoning — knowledge graphs, confidence grading, and argumentation for simulation-driven decision support"
 readme = "README.md"
 requires-python = ">=3.12"
 license = {text = "MIT"}
@@ -14,7 +14,9 @@ authors = [
 ]
 keywords = [
     "system-dynamics", "agent-based-modeling", "discrete-event-simulation",
-    "vensim", "rdf", "owl", "sparql", "knowledge-graph", "multi-paradigm",
+    "cognitive-digital-twin", "knowledge-graph", "simulation",
+    "subjective-logic", "argumentation", "decision-intelligence",
+    "vensim", "open-source", "multi-paradigm",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -31,6 +33,8 @@ dependencies = [
     "numpy>=1.24",
     "scipy>=1.10",
     "pydantic>=2.0",
+    "pyyaml>=6.0",
+    "plotly>=5.0",
 ]
 
 [project.optional-dependencies]
@@ -41,10 +45,10 @@ dev = [
     "mypy>=1.15",
     "pyright>=1.1",
     "pre-commit>=3.0",
+    "build>=1.0",
 ]
 viz = [
     "matplotlib>=3.7",
-    "plotly>=5.0",
 ]
 docs = [
     "mkdocs-material>=9.0",

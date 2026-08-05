@@ -1,8 +1,6 @@
 # DynaFX
 
-> **DynaFX is a semantic simulation platform for building cognitive digital twins.**
->
-> It unifies multi-paradigm simulation (System Dynamics, Agent-Based Modeling, and Discrete Event Simulation) with symbolic knowledge representation (RDF/OWL/SPARQL), enabling digital twins that reason over knowledge and continuously adapt through feedback.
+Multi-paradigm simulation (**SD + ABM + DES**) with cognitive reasoning — knowledge graphs, confidence grading, and argumentation for simulation-driven decisions.
 
 ---
 
@@ -36,42 +34,7 @@ graph LR
     EV --> KB
 ```
 
-The same loop, in words: **Knowledge Graph → Bridge → Simulation → Evidence → Knowledge Update.**
-
----
-
-## Main Capabilities
-
-| Capability | What it does |
-|------------|--------------|
-| **System Dynamics** | Vensim-style `.sysd` DSL (or Python API): stocks, flows, auxes, lookup tables, submodels, RK4/Euler, SMOOTH/DELAY3/DELAYN/DELAY_FIXED/CONVEY_BATCH, PULSE/STEP/RAMP/NOISE, `~Unit~` checking. |
-| **Agent-Based Modeling** | Typed agents, rule-based perceive→decide→act, topic-based message passing (`SEND`), strategy switching with cooldown (`SWITCH_STRATEGY`), meta-rules, 4-phase step cycle. |
-| **Discrete Event Simulation** | Queues with capacity/service-time expressions, multi-server departure, resource pools, utilization tracking. |
-| **Knowledge Graph** | Self-contained RDF model, `TripleStore` with named graphs, Turtle/N-Triples parse + serialize, RDFS (7 rules) and OWL-RL (4 rules) inference, TBox hierarchies. |
-| **Semantic Queries** | SPARQL 1.1 parser/evaluator: SELECT, FILTER, DISTINCT, LIMIT, OFFSET, ASK, DESCRIBE. |
-| **Bridge** | `KBSimBridge` — KB→parameter extraction, mid-flight `KB_QUERY`/`KB_ASSERT`, post-flight evidence triples, provenance recording. `ClosedLoopReasoner` for iterative sense→grade→nudge cycles. |
-| **Analysis** | Causal tracing (`causes_strip`, `causal_trace`), feedback-loop detection, scenario comparison (tornado/deviation/summary), sensitivity ensembles, LP/Pareto optimization. |
-| **Ingestion** | Declarative CSV→RDF via YAML mapping files; transactions; execution provenance. |
-
----
-
-## Research Applications
-
-DynaFX is designed to support published, reproducible research:
-
-- **Cognitive digital twins** for supply chains, factories, grids, hospitals, buildings, and logistics networks.
-- **Semantic simulation** — how symbolic knowledge (ontology, rules) and quantitative dynamics interact in a closed loop.
-- **Multi-paradigm methodology** — when to use SD vs. ABM vs. DES, and how to couple them on shared state.
-- **Decision and policy studies** — scenario grading, constraint-filtered ranking, and knowledge-graph-constrained LP mitigation.
-- **Benchmarking and reproducibility** — every run is parameterized, seeded, and recorded with provenance triples.
-
-See [Scientific Foundations](foundations.md) for the design rationale and [Open Research Problems](open-problems.md) for concrete problems we are looking to collaborate on.
-
----
-
-## Quick Example
-
-A minimal closed-loop digital twin: a knowledge graph fact steers a stock/flow model, and the result becomes an evidence triple.
+### Simulate a model
 
 ```python
 from dynafx.knowledge import TripleStore
@@ -105,9 +68,31 @@ result = model.simulate(params=params, method="euler", dt=1.0)
 print(result.values["Inventory"][-1])
 ```
 
-The flagship, fully-featured example — a solar EPC supply chain reasoning through a typhoon-induced port closure, spanning L1 (sense) to L5 (decide) — is covered in the [Digital Twin](digital-twin.md) walkthrough.
+### Query a knowledge graph with confidence
 
----
+```python
+from dynafx import TripleStore, parse_turtle, cumulative_fusion, grade_query
+
+store = TripleStore()
+for t in parse_turtle(source_a).triples():
+    store.add(t, graph="alpha")
+for t in parse_turtle(source_b).triples():
+    store.add(t, graph="bravo")
+
+fused = cumulative_fusion(store, ["alpha", "bravo"])
+result = grade_query(fused, "SELECT ?revenue WHERE { ?s :revenue ?revenue }")
+print(f"Confidence: {result.confidence:.2f}")
+```
+
+## Features
+
+| Paradigm | Description |
+|----------|-------------|
+| **System Dynamics** | Stock/flow models, Vensim-style DSL, RK4/Euler integration, submodels, unit checking |
+| **Cognitive Reasoning** | RDF triple store, SPARQL, RDFS/OWL inference, KBT source trust, argumentation, SL fusion |
+| **Agent-Based** | Strategies, rules, message passing, strategy switching with cooldown |
+| **Discrete Event** | Queues, resources, event-driven simulation, DES clock |
+| **Knowledge Bridge** | `KB_QUERY` / `KB_ASSERT` in simulation — models query and update the knowledge graph at runtime |
 
 ## Installation
 
@@ -123,10 +108,8 @@ Python 3.12+. Full documentation is hosted on GitHub Pages: <https://achref-yak.
 
 ## Getting Oriented
 
-- **New here?** Read [Concepts](concepts.md) — the mental model, no code.
-- **Researcher?** Read [Scientific Foundations](foundations.md) and [Open Research Problems](open-problems.md).
-- **Citing the project?** See [Citation](citation.md).
-- **Looking for a symbol?** Browse the [API Reference](api.md).
-- **Builder?** Run the flagship [Digital Twin](digital-twin.md) and study the [Examples](examples.md).
-- **Architect?** Read [Architecture](architecture.md).
-- **Contributor?** See [Development](development.md) for setup, tests, and contribution paths.
+- `multi_paradigm_student.py` — **Full cognitive pipeline:** KG → trust → argumentation → fusion → SD+ABM+DES → feedback loop
+- `cognitive_twin_demo.py` — **Self-healing digital twin:** ABM agents update KB mid-simulation
+- `knowledge_fusion_showcase.py` — **End-to-end epistemics:** KBT → argumentation → fusion → SPARQL grading
+- `decision_toy.py` — **KB-driven scenario ranking:** 4 scenarios, constraint filtering, goal grading
+- `full_showcase.py` — **Feature tour:** 14 simulation capabilities in one script

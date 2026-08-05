@@ -8,13 +8,25 @@
 [![pytest](https://img.shields.io/badge/tests-1028-passing-2ea44f)](https://github.com/Achref-Yak/DynaFX/actions)
 [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://achref-yak.github.io/DynaFX/)
 
-DynaFX is a semantic simulation platform for building cognitive digital twins.
+Multi-paradigm simulation (**SD + ABM + DES**) with cognitive reasoning — knowledge graphs, confidence grading, and argumentation for simulation-driven decisions.
 
-It unifies multi-paradigm simulation (System Dynamics, Agent-Based Modeling, and Discrete Event Simulation) with symbolic knowledge representation (RDF/OWL/SPARQL). Build SD + ABM + DES models in Python or a single `.sysd` file, connect them to knowledge graphs via `KB_QUERY`, and close the loop when simulation results come back as evidence triples.
+---
 
-Enabling digital twins that reason over knowledge and continuously adapt through feedback.
+## Why DynaFX?
 
-The KB and the simulation are one living system: knowledge graph → parameters → multi-paradigm simulation → evidence triples → rules/optimization — closed-loop digital twins from visibility (L1) to autonomy (L5).
+Most simulation tools stop at modeling. DynaFX goes further — your models can **query knowledge graphs at runtime**, **fuse uncertain evidence from conflicting sources**, and **grade source trust automatically**.
+
+| Capability | Vensim | AnyLogic | DynaFX |
+|---|---|---|---|
+| System Dynamics | ✅ | ✅ | ✅ |
+| Agent-Based Modeling | ❌ | ✅ | ✅ |
+| Discrete Event Simulation | ⚠️ | ✅ | ✅ |
+| Knowledge Graph (RDF/OWL/SPARQL) | ❌ | ❌ | ✅ |
+| Source trust scoring (KBT) | ❌ | ❌ | ✅ |
+| Argumentation & evidence fusion | ❌ | ❌ | ✅ |
+| Causal tracing & feedback loops | ✅ | ❌ | ✅ |
+| Open source | ❌ | ❌ | ✅ |
+| Python-native | ❌ | ❌ | ✅ |
 
 ---
 
@@ -43,6 +55,22 @@ The KB and the simulation are one living system: knowledge graph → parameters 
 | Model validation (name resolution, flow conservation, bounds) | Stable |
 | Python API model construction (`SysdModel`, `StockDef`, `FlowDef`, `AuxDef`) | Stable |
 | Plotting API (`.plot()`, `.plot_with_bands()`) | Stable |
+
+### Cognitive Reasoning Engine (KB)
+
+| Feature | Status |
+|---------|--------|
+| RDF data model (NamedNode, BlankNode, Literal, Triple) | Stable |
+| TripleStore with SPO/POS/OSP indices, named graphs | Stable |
+| Turtle / N-Triples parser and serializer | Stable |
+| SPARQL query parser and evaluator | Stable |
+| RDFS inference (7 rules) | Stable |
+| OWL RL inference (4 rules) | Stable |
+| SL confidence layer (`fuse_graphs`, `grade_query`) | Stable |
+| Evidence Matrix (L1-distance consensus) | Stable |
+| KBT (Knowledge-Based Trust) — source reliability scoring via EM | Stable |
+| Dung argumentation framework (grounded / preferred semantics) | Stable |
+| Argumentation filter in fusion pipeline | Stable |
 
 ### Agent-Based Modeling (ABM)
 
@@ -81,29 +109,6 @@ The KB and the simulation are one living system: knowledge graph → parameters 
 | `KBSimBridge` — KB-to-simulation parameter extraction + mid-flight `KB_QUERY` + post-flight evidence triples | Stable |
 | `ClosedLoopReasoner` — multi-pass reasoning-simulation cycles | Stable |
 | KB→Sim→Evidence loop — live KB mutation mid-run + evidence round-trip (L1–L5) | Stable |
-
-### Knowledge Graph Engine (KB)
-
-| Feature | Status |
-|---------|--------|
-| RDF data model (NamedNode, BlankNode, Literal, Triple) | Stable |
-| TripleStore with SPO/POS/OSP indices, named graphs | Stable |
-| Turtle / N-Triples parser and serializer | Stable |
-| SPARQL query parser and evaluator (SELECT, FILTER, DISTINCT, LIMIT, OFFSET) | Stable |
-| RDFS inference (7 rules: subClassOf, subPropertyOf, domain, range, etc.) | Stable |
-| OWL RL inference (4 rules: equivalentClass, equivalentProperty, inverseOf, TransitiveProperty) | Stable |
-| TBox / OWL2-style type hierarchy (`TypeHierarchy`, `load_tbox`) | Stable |
-| Production rules (7 condition types, 5 action types, fire-once, priority) | Stable |
-| CSV ingestion (`ingest_csv`) with YAML mapping files | Stable |
-| Transaction log (append-only temporal store) | Stable |
-| Execution provenance tracking | Stable |
-
-### Patterns
-
-| Feature | Status |
-|---------|--------|
-| `SignalChain` — leading-indicator → outcome factory | Stable |
-| `DisruptionCascade` — supply chain disruption modeling | Stable |
 
 ---
 
@@ -203,9 +208,14 @@ Ten verified, runnable walkthroughs — every code block executed against the in
 python examples/global_solar_epc_twin.py
 ```
 
-The run verifies the closed loop end-to-end: baseline profit **$931,425K**, a 30-day typhoon port closure costs **−$2,795K** (supplier reliability 0.82, 22 projects at risk), and the LP allocates a mitigation budget over the chokepoint port.
-
-All demo resources live under `data/`: datasets (`data/epc_*.csv`), ontology (`data/epc-ontology.ttl`), ingestion mappings (`data/mappings/*.yaml`), and `.sysd` models (`data/models/*.sysd`). Data is regenerable via `scripts/generate_epc_csvs.py` (seed=42).
+| Example | What it shows |
+|---------|---------------|
+| `examples/multi_paradigm_student.py` | **Full cognitive pipeline:** KG → trust scoring → argumentation → fusion → SD+ABM+DES → feedback loop |
+| `examples/cognitive_twin_demo.py` | **Self-healing digital twin:** ABM agents update KB mid-simulation, SD reads it via `KB_QUERY` |
+| `examples/decision_toy.py` | **KB-driven scenario ranking:** 4 scenarios, constraint filtering, goal grading |
+| `examples/knowledge_fusion_showcase.py` | **End-to-end epistemics:** KBT → argumentation → evidence fusion → SPARQL grading |
+| `examples/full_showcase.py` | **Feature tour:** 14 simulation capabilities in one script |
+| `examples/supply_chain_bridge.py` | **Enterprise bridge:** KB ↔ simulation with closed-loop reasoning |
 
 ---
 
@@ -245,22 +255,27 @@ If DynaFX contributes to your research, please cite it:
   license      = {MIT},
 }
 ```
+┌─────────────────────────┐         ┌──────────────────────────┐
+│  Simulation Engine      │◄───────►│  Cognitive Reasoning     │
+│  SD + ABM + DES         │  KB_QUERY / KB_ASSERT           │
+│  .sysd DSL              │         │  RDF/OWL/SPARQL          │
+│  Causal tracing         │         │  KBT source scoring      │
+│  Feedback loops         │         │  Dung argumentation      │
+│  Sensitivity analysis   │         │  SL fusion + grading     │
+│  Optimization (LP)      │         │  Evidence matrix         │
+│  Scenario comparison    │         │  RDFS/OWL inference      │
+└─────────────────────────┘         └──────────────────────────┘
+              │                                │
+              └────────────┬───────────────────┘
+                           │
+              ┌────────────┴───────────────┐
+              │  Shared: Opinion,          │
+              │  cumulative_fusion,        │
+              │  EvidenceMatrix            │
+              └────────────────────────────┘
+```
 
-Plain text: *Achref Yakdhane. (2026). DynaFX: A semantic simulation platform for cognitive digital twins (Version 0.2.0). https://github.com/Achref-Yak/DynaFX*
-
-A persistent DOI (via Zenodo) will be added here once a release is published. See [citation](docs/citation.md) for details.
-
----
-
-## Documentation
-
-Full documentation is hosted on GitHub Pages: [achref-yak.github.io/DynaFX](https://achref-yak.github.io/DynaFX/)
-
-- **Tutorials** — 10 verified walkthroughs
-- **Concepts** — the mental model, no code
-- **Scientific Foundations** — design rationale
-- **Open Research Problems** — collaboration opportunities
-- **Digital Twin** — flagship closed-loop twin walkthrough
+Models can **query the knowledge graph at runtime** via `KB_QUERY` and **update it** via `KB_ASSERT` — the simulation and knowledge layers are bidirectionally connected.
 
 ---
 
