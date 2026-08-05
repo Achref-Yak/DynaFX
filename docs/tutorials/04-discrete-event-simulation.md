@@ -101,4 +101,4 @@ print(len(result.abm_engine.instances))         # ABM: 3 patients
 ## What's next
 
 - Store what the system *knows* in [Knowledge Graphs](05-knowledge-graph.md).
-- Drive DES arrival rates from KB queries in [Closed-Loop Twin](07-closed-loop-twin.md).
+- Drive DES arrival rates from KB queries in [Closed-Loop Simulation](07-closed-loop-simulation.md).

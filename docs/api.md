@@ -12,7 +12,7 @@ public API contract (yet).
 ## Flagship types
 
 The three types you will use in almost every script. Full details in
-Tutorials [7](tutorials/07-closed-loop-twin.md), [1](tutorials/01-hello-world.md),
+Tutorials [7](tutorials/07-closed-loop-simulation.md), [1](tutorials/01-hello-world.md),
 and [5](tutorials/05-knowledge-graph.md).
 
 ### `dynafx.dynamics.SysdModel`
@@ -80,7 +80,7 @@ Key methods: `add`, `remove`, `triples`, `triples_in_graph`, `graphs`,
 ### `dynafx.bridge.KBSimBridge`
 
 The two-way connector: KB facts → simulation params → evidence triples back
-into the KB. See [Tutorial 7](tutorials/07-closed-loop-twin.md).
+into the KB. See [Tutorial 7](tutorials/07-closed-loop-simulation.md).
 
 | Method | Direction | Purpose |
 |--------|-----------|---------|
@@ -104,7 +104,7 @@ into the KB. See [Tutorial 7](tutorials/07-closed-loop-twin.md).
 | `SysdModel` | Multi-paradigm model container (see flagship) | [1](tutorials/01-hello-world.md) |
 | `SysdModelResult` | Simulation trajectory (see flagship) | [1](tutorials/01-hello-world.md) |
 | `parse_sysd(source)` | Parse a `.sysd` string into a `SysdModel` | [1](tutorials/01-hello-world.md) |
-| `parse_sysd_file(path)` | Parse a `.sysd` file into a `SysdModel` | [7](tutorials/07-closed-loop-twin.md) |
+| `parse_sysd_file(path)` | Parse a `.sysd` file into a `SysdModel` | [7](tutorials/07-closed-loop-simulation.md) |
 | `StockDef` | Stock declaration (`name`, `initial`, `flows`) | [2](tutorials/02-system-dynamics.md) |
 | `FlowDef` | Flow declaration (`name`, `direction` `+`/`-`, `expr`) | [2](tutorials/02-system-dynamics.md) |
 | `AuxDef` | Derived quantity (recomputed each step) | [2](tutorials/02-system-dynamics.md) |

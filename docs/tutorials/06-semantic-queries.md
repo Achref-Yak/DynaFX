@@ -104,7 +104,7 @@ DISRUPTION_Q = "ASK WHERE { <http://epc.org/GlobalDisruption> <http://epc.org/ac
 ```
 
 When the triple exists in the KB, `KB_QUERY(DISRUPTION_Q)` returns 1.0, which
-cuts port throughput. See [Closed-Loop Twin](07-closed-loop-twin.md) for the
+cuts port throughput. See [Closed-Loop Simulation](07-closed-loop-simulation.md) for the
 full pattern.
 
 ## KB_ASSERT — writing back from inside
@@ -137,5 +137,5 @@ for t in kb.triples(TriplePattern(
 
 ## What's next
 
-- Close the loop: KB facts in, simulation evidence out, in [Closed-Loop Twin](07-closed-loop-twin.md).
+- Close the loop: KB facts in, simulation evidence out, in [Closed-Loop Simulation](07-closed-loop-simulation.md).
 - Add inference rules so the KB derives more than it was told, in [Custom Ontology](09-custom-ontology.md).

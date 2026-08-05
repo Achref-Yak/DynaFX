@@ -1,4 +1,4 @@
-# Tutorial 7 — Closed-Loop Twin
+# Tutorial 7 — Closed-Loop Simulation
 
 This is where DynaFX earns the "cognitive digital twin" label. Facts flow
 **KB → simulation**, and simulation results flow **simulation → KB** as

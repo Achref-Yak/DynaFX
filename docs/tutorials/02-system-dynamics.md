@@ -61,7 +61,7 @@ print(round(fast.values["Population"][-1], 1))   # ~2225.5
 ```
 
 This is the mechanism `KBSimBridge.params_from_kb` uses to inject knowledge
-facts as model inputs (see [Tutorial 7](07-closed-loop-twin.md)).
+facts as model inputs (see [Tutorial 7](07-closed-loop-simulation.md)).
 
 ## Auxes can reference stocks, flows, and time
 

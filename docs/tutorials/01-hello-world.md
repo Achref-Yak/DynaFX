@@ -103,4 +103,4 @@ print(model.stocks[0].name)    # 'X'
 ## What's next
 
 - Add parameters and richer stocks/flows in [System Dynamics](02-system-dynamics.md).
-- Skip ahead to a complete KB + simulation loop in [Closed-Loop Twin](07-closed-loop-twin.md).
+- Skip ahead to a complete KB + simulation loop in [Closed-Loop Simulation](07-closed-loop-simulation.md).
