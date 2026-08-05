@@ -20,7 +20,7 @@ script and they work.
 | 4 | [Discrete Events](04-discrete-event-simulation.md) | 1 | Model queues, resources, and events |
 | 5 | [Knowledge Graphs](05-knowledge-graph.md) | — | Build an RDF knowledge base from Turtle |
 | 6 | [Semantic Queries](06-semantic-queries.md) | 5 | Query the KB with SPARQL, from inside expressions |
-| 7 | [Closed-Loop Twin](07-closed-loop-twin.md) | 5, 6 | Connect KB → simulation → KB into a loop |
+| 7 | [Closed-Loop Simulation](07-closed-loop-simulation.md) | 5, 6 | Connect KB → simulation → KB into a loop |
 | 8 | [Scenarios & Sensitivity](08-scenarios-and-sensitivity.md) | 2 | Compare scenarios and rank parameter influence |
 | 9 | [Custom Ontology](09-custom-ontology.md) | 5 | Define inference rules and type hierarchies |
 | 10 | [Publishing Results](10-publishing-results.md) | 2, 8 | Run causal analysis, optimize, and record provenance |

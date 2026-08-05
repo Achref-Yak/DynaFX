@@ -1,6 +1,6 @@
 site_name: DynaFX
 site_description: Multi-paradigm simulation framework (SD + ABM + DES) with cognitive reasoning — knowledge graphs, confidence grading, and argumentation for simulation-driven decisions
-repo_url: https://github.com/Achref-Yak/reasoning_engine
+repo_url: https://github.com/Achref-Yak/DynaFX
 edit_uri: edit/main/docs/
 theme:
   name: material
@@ -29,7 +29,7 @@ nav:
       - 4. Discrete-Event Simulation: tutorials/04-discrete-event-simulation.md
       - 5. Knowledge Graphs: tutorials/05-knowledge-graph.md
       - 6. Semantic Queries: tutorials/06-semantic-queries.md
-      - 7. Closed-Loop Twin: tutorials/07-closed-loop-twin.md
+      - 7. Closed-Loop Simulation: tutorials/07-closed-loop-simulation.md
       - 8. Scenarios & Sensitivity: tutorials/08-scenarios-and-sensitivity.md
       - 9. Custom Ontology: tutorials/09-custom-ontology.md
       - 10. Publishing Results: tutorials/10-publishing-results.md

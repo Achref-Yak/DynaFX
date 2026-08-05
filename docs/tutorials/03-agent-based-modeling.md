@@ -179,4 +179,4 @@ print(metrics["Buyer_budget_min"])    # minimum budget
 ## What's next
 
 - Layer discrete events on top in [Discrete Events](04-discrete-event-simulation.md).
-- Have agents write live KB triples mid-run in [Closed-Loop Twin](07-closed-loop-twin.md).
+- Have agents write live KB triples mid-run in [Closed-Loop Simulation](07-closed-loop-simulation.md).
