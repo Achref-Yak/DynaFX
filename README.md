@@ -1,6 +1,6 @@
 # DynaFX
 
-[![CI](https://github.com/Achref-Yak/reasoning_engine/actions/workflows/ci.yml/badge.svg)](https://github.com/Achref-Yak/reasoning_engine/actions/workflows/ci.yml)
+[![CI](https://github.com/Achref-Yak/DynaFX/actions/workflows/ci.yml/badge.svg)](https://github.com/Achref-Yak/DynaFX/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Code style](https://img.shields.io/badge/code%20style-ruff-000000)](https://docs.astral.sh/ruff/)
@@ -56,15 +56,17 @@ The `KBSimBridge` connects the knowledge graph to the simulation: it extracts pa
 
 ### Install
 
+Download the wheel from [GitHub Releases](https://github.com/Achref-Yak/DynaFX/releases/tag/v0.2.0):
+
 ```bash
-pip install dynafx    # once published
+pip install dynafx-0.2.0-py3-none-any.whl
 ```
 
-Or from source:
+Or install from source:
 
 ```bash
-git clone https://github.com/Achref-Yak/reasoning_engine.git
-cd reasoning_engine
+git clone https://github.com/Achref-Yak/DynaFX.git
+cd DynaFX
 uv pip install -e ".[all]"
 ```
 
