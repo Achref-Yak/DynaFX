@@ -14,7 +14,7 @@
 - `docs/citation.md` — citation guide + planned Zenodo DOI path
 
 ### Changed
-- README + docs/ (index, architecture, development, knowledge, digital-twin, examples) rewritten from scratch
+- README + docs/ (index, architecture, development, knowledge, case-study-solar-epc, examples) rewritten from scratch; `docs/digital-twin.md` renamed to `docs/case-study-solar-epc.md` and re-positioned as a flagship example
 - Updated `pyproject.toml` metadata: version bump, license, keywords, classifiers, URLs, `[project.urls]`, `authors`
 - README gains a Citation section (BibTeX + plain text); docs nav gains Citation page
 - `CONTRIBUTING.md` rewritten with accurate `uv run` commands and contributor links

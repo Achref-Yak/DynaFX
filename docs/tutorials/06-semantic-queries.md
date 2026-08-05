@@ -97,7 +97,7 @@ The stock `X` now drains by 90% per step instead of the (unset) default.
 ## KB_QUERY in agents and DES
 
 The same builtin works in ABM rule conditions and DES arrival rates. The
-flagship twin gates its port outflow on an `ASK` query:
+flagship example gates its port outflow on an `ASK` query:
 
 ```python
 DISRUPTION_Q = "ASK WHERE { <http://epc.org/GlobalDisruption> <http://epc.org/active> true }"

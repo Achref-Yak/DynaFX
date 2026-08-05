@@ -1,24 +1,22 @@
 # DynaFX
 
-Multi-paradigm simulation (**SD + ABM + DES**) with cognitive reasoning — knowledge graphs, confidence grading, and argumentation for simulation-driven decisions.
+Multi-paradigm simulation (**SD + ABM + DES**) with a knowledge-graph engine — RDF/OWL/SPARQL semantics, production rules, and closed-loop KB↔simulation reasoning for decision support.
 
 ---
 
 ## Why DynaFX Exists
 
-Modern enterprises are not just physical systems; they are *knowledge systems*. Decisions are made against a backdrop of contracts, suppliers, risk facts, policies, and obligations — most of which live in documents and databases, not in differential equations. Classical simulation toolkits model the physics of a system but cannot read its knowledge. Classical knowledge engines can reason about facts but cannot *run the system forward in time*.
+Modern systems are not just physical; they are *knowledge systems*. Decisions are made against a backdrop of contracts, suppliers, risk facts, policies, and obligations — most of which live in documents and databases, not in differential equations. Classical simulation toolkits model the physics of a system but cannot read its knowledge. Classical knowledge engines can reason about facts but cannot *run the system forward in time*.
 
-DynaFX exists to close that gap. It treats the knowledge base and the simulation as **one living system**: enterprise facts are ingested into a knowledge graph, a multi-paradigm simulation is steered by those facts, and the results flow back into the knowledge graph as evidence — which then triggers rules, optimization, and the next round of reasoning.
-
-The result is a digital twin that does not merely mirror an asset. It **senses** its enterprise context, **learns** from every run, **foresees** the future through scenario analysis, and **acts** through policies and optimization. In the vocabulary of the Digital Twin Consortium, this is a *cognitive digital twin*: a twin that learns at run time, foresees the future, and acts accordingly.
+DynaFX exists to close that gap. It treats the knowledge base and the simulation as **one connected system**: enterprise facts are ingested into a knowledge graph, a multi-paradigm simulation is steered by those facts, and the results flow back into the knowledge graph as evidence — which then triggers rules, optimization, and the next round of reasoning.
 
 ---
 
 ## What Makes DynaFX Different
 
-- **Model-based reasoning, not just data-driven ML.** Most "cognitive" digital twin work couples a twin to machine-learned anomaly/RUL models. DynaFX instead reasons with *explicit symbolic models*: RDF/OWL semantics, SPARQL queries, production rules, and causal structure — all auditable and reproducible. This is complementary to, and composable with, data-driven methods.
+- **Model-based reasoning, not just data-driven ML.** Much "cognitive" work couples a model to machine-learned anomaly/RUL predictions. DynaFX instead reasons with *explicit symbolic models*: RDF/OWL semantics, SPARQL queries, production rules, and causal structure — all auditable and reproducible. This is complementary to, and composable with, data-driven methods.
 - **Three simulation paradigms under one roof.** System Dynamics (aggregate stocks and flows), Agent-Based Modeling (heterogeneous actors and strategies), and Discrete Event Simulation (queues, resources, schedules) share a single state namespace and run together in one model file. Each paradigm is right for a different kind of question; DynaFX lets you ask them all at once.
-- **The knowledge graph is live, not decorative.** Simulation models execute `KB_QUERY` / `KB_ASSERT` builtins *mid-flight*: they read knowledge-graph facts each timestep and write observations back. The twin's dynamics are numerically steered by its ontology.
+- **The knowledge graph is live, not decorative.** Simulation models execute `KB_QUERY` / `KB_ASSERT` builtins *mid-flight*: they read knowledge-graph facts each timestep and write observations back. The model's dynamics are numerically steered by its ontology.
 - **A closed learning loop.** `KBSimBridge` extracts KB facts into parameters, the simulation runs, and results return as evidence triples. `ClosedLoopReasoner` drives simulate → grade → nudge → re-simulate cycles until targets are met.
 - **A research platform, not an appliance.** Everything is a Python API with extension points — custom builtins, a plugin registry, model factories, and a fully self-contained RDF/SPARQL engine with zero external dependencies.
 
@@ -68,20 +66,19 @@ result = model.simulate(params=params, method="euler", dt=1.0)
 print(result.values["Inventory"][-1])
 ```
 
-### Query a knowledge graph with confidence
+### Grade a knowledge graph against a target
 
 ```python
-from dynafx import TripleStore, parse_turtle, cumulative_fusion, grade_query
+from dynafx import parse_turtle, grade_queries
 
-store = TripleStore()
-for t in parse_turtle(source_a).triples():
-    store.add(t, graph="alpha")
-for t in parse_turtle(source_b).triples():
-    store.add(t, graph="bravo")
+store = parse_turtle("""
+    @prefix ex: <http://ex.org/> .
+    ex:portfolio ex:revenue 950.0 .
+""")
 
-fused = cumulative_fusion(store, ["alpha", "bravo"])
-result = grade_query(fused, "SELECT ?revenue WHERE { ?s :revenue ?revenue }")
-print(f"Confidence: {result.confidence:.2f}")
+query = "PREFIX ex: <http://ex.org/> SELECT ?v WHERE { ex:portfolio ex:revenue ?v }"
+grades = grade_queries([(query, "v", 0.5, 0.0)], store)
+print(grades)   # {'0': 1.0} — score in [0, 1]
 ```
 
 ## Features
@@ -89,7 +86,7 @@ print(f"Confidence: {result.confidence:.2f}")
 | Paradigm | Description |
 |----------|-------------|
 | **System Dynamics** | Stock/flow models, Vensim-style DSL, RK4/Euler integration, submodels, unit checking |
-| **Cognitive Reasoning** | RDF triple store, SPARQL, RDFS/OWL inference, KBT source trust, argumentation, SL fusion |
+| **Knowledge Engine** | RDF triple store, SPARQL, RDFS/OWL inference, production rules |
 | **Agent-Based** | Strategies, rules, message passing, strategy switching with cooldown |
 | **Discrete Event** | Queues, resources, event-driven simulation, DES clock |
 | **Knowledge Bridge** | `KB_QUERY` / `KB_ASSERT` in simulation — models query and update the knowledge graph at runtime |
@@ -108,8 +105,5 @@ Python 3.12+. Full documentation is hosted on GitHub Pages: <https://achref-yak.
 
 ## Getting Oriented
 
-- `multi_paradigm_student.py` — **Full cognitive pipeline:** KG → trust → argumentation → fusion → SD+ABM+DES → feedback loop
-- `cognitive_twin_demo.py` — **Self-healing digital twin:** ABM agents update KB mid-simulation
-- `knowledge_fusion_showcase.py` — **End-to-end epistemics:** KBT → argumentation → fusion → SPARQL grading
-- `decision_toy.py` — **KB-driven scenario ranking:** 4 scenarios, constraint filtering, goal grading
-- `full_showcase.py` — **Feature tour:** 14 simulation capabilities in one script
+- `examples/global_solar_epc.py` — **Flagship example:** 7 EPC CSVs → knowledge graph → KB-steered SD+ABM+DES model → evidence round-trip → scenario grading → production rules → LP optimization → causal analysis. See the [case study](case-study-solar-epc.md).
+- The `.sysd` model library lives in `data/models/` (see [Examples](examples.md)).

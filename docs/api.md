@@ -58,7 +58,7 @@ Also supports dict-style access (`result["values"]`) for backward compat, and
 ### `dynafx.knowledge.TripleStore`
 
 An RDF store with named graphs and SPO/POS/OSP indices. The KB half of the
-twin.
+closed loop.
 
 ```python
 store = TripleStore()

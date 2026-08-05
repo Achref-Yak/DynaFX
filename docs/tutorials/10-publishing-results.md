@@ -2,7 +2,7 @@
 
 A research result is reproducible numbers plus an audit trail. DynaFX gives
 you optimization, causal anatomy, feedback detection, grading, provenance, and
-plotting — the six pieces a citable twin study needs.
+plotting — the six pieces a citable simulation study needs.
 
 ## Optimization with linear programming
 
@@ -147,6 +147,6 @@ graph_json = decomposer.graph.to_json()     # reproducible model artifact
 
 ## Wrap-up
 
-You now have the full loop: model (Tutorials 1–4) → knowledge (5–6) → twin
-(7) → scenarios (8) → ontology (9) → reproducible publication (10). See
-[Examples](../examples.md) for the complete flagship twin wired this way.
+You now have the full loop: model (Tutorials 1–4) → knowledge (5–6) →
+closed-loop (7) → scenarios (8) → ontology (9) → reproducible publication (10). See
+[Examples](../examples.md) for the complete flagship example wired this way.

@@ -1,5 +1,5 @@
 site_name: DynaFX
-site_description: Multi-paradigm simulation framework (SD + ABM + DES) with cognitive reasoning — knowledge graphs, confidence grading, and argumentation for simulation-driven decisions
+site_description: Multi-paradigm simulation framework (SD + ABM + DES) with a semantic knowledge engine — RDF/OWL/SPARQL knowledge graphs and closed-loop KB↔simulation reasoning for decision support
 repo_url: https://github.com/Achref-Yak/DynaFX
 edit_uri: edit/main/docs/
 theme:
@@ -34,7 +34,7 @@ nav:
       - 9. Custom Ontology: tutorials/09-custom-ontology.md
       - 10. Publishing Results: tutorials/10-publishing-results.md
   - Knowledge Base: knowledge.md
-  - Digital Twin: digital-twin.md
+  - Case Study: case-study-solar-epc.md
   - Examples: examples.md
   - Development: development.md
 markdown_extensions:

@@ -1,11 +1,11 @@
 # Examples
 
-## The Digital Twin
+## Flagship Example
 
-The flagship example is `examples/global_solar_epc_twin.py` — a living digital twin of a solar EPC supply chain reasoning through a typhoon port closure. It spans L1 (sense) through L5 (decide). See [Digital Twin](digital-twin.md) for the full walkthrough.
+The flagship example is `examples/global_solar_epc.py` — a solar EPC supply chain reasoning through a typhoon port closure, closing the full KB→Sim→Evidence loop. See [Case Study](case-study-solar-epc.md) for the full walkthrough.
 
 ```bash
-python examples/global_solar_epc_twin.py
+python examples/global_solar_epc.py
 ```
 
 ## Model Library
@@ -14,7 +14,7 @@ The `.sysd` models under `data/models/`:
 
 | Model | Role |
 |-------|------|
-| `global_solar_epc.sysd` | The twin's SD + ABM + DES supply-chain model (11 stocks, 57 auxes, 5 DES queues, 3 resources, 2 agent types, `KB_QUERY` auxes) |
+| `global_solar_epc.sysd` | The flagship SD + ABM + DES supply-chain model (11 stocks, 57 auxes, 5 DES queues, 3 resources, 2 agent types, `KB_QUERY` auxes) |
 | `vmi.sysd` | Vendor-managed inventory — test fixture |
 | `reverse_logistics.sysd` | Reverse logistics — test fixture |
 | `cold_chain.sysd` | Cold-chain distribution — test fixture |

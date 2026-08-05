@@ -2,18 +2,15 @@ cff-version: 1.2.0
 message: "If you use DynaFX in your research, please cite it as follows."
 title: "DynaFX"
 abstract: >-
-  A semantic simulation platform for building cognitive digital twins. It
-  unifies multi-paradigm simulation (System Dynamics, Agent-Based Modeling,
-  Discrete Event Simulation) with symbolic knowledge representation
-  (RDF/OWL/SPARQL), enabling digital twins that reason over knowledge and
-  continuously adapt through feedback. The KB and simulation form one living
-  system: knowledge graph to parameters, multi-paradigm simulation, evidence
+  A multi-paradigm simulation framework (System Dynamics, Agent-Based
+  Modeling, Discrete Event Simulation) with a semantic knowledge engine
+  (RDF/OWL/SPARQL). The KB and simulation form one connected system:
+  knowledge graph to parameters, multi-paradigm simulation, evidence
   triples back into the graph, then rules and optimization.
 keywords:
   - system dynamics
   - agent-based modeling
   - discrete-event simulation
-  - digital twin
   - knowledge graph
   - RDF
   - OWL

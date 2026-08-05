@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
-"""Global Solar EPC Supply Chain Digital Twin.
+"""Global Solar EPC — flagship end-to-end example.
 
-A living digital twin of a solar EPC enterprise that continuously reasons
-about its supply chain during a typhoon-induced port closure disruption.
-The twin spans the full L1->L5 decision spectrum:
+A full KB -> simulation -> evidence loop over a solar EPC (engineering,
+procurement, construction) enterprise reasoning through a typhoon-induced
+port closure disruption. The pipeline spans the full decision spectrum:
 
-  L1 Sense    - ingest 7 EPC enterprise CSVs into named graphs + RDFS inference
-  L2 Assemble - pull KB facts into simulation params (params_from_kb)
-  L3 Model    - SD + ABM + DES model of the global supply chain
-  L4 Live     - baseline run, inject typhoon disruption via KB flag,
-                ABM agents write live KB triples mid-run
-  L5 Decide   - evidence round-trip, scenario grading/ranking/filtering,
-                production rules, LP mitigation allocation, causal trace,
-                feedback loops, provenance, maturity mapping
+  Sense    - ingest 7 EPC enterprise CSVs into named graphs + RDFS inference
+  Assemble - pull KB facts into simulation params (params_from_kb)
+  Model    - SD + ABM + DES model of the global supply chain
+  Live     - baseline run, inject typhoon disruption via KB flag,
+             ABM agents write live KB triples mid-run
+  Decide   - evidence round-trip, scenario grading/ranking/filtering,
+             production rules, LP mitigation allocation, causal trace,
+             feedback loops, provenance
 
 Built on the KB + KBSimBridge + ProductionRules + ScenarioComparison +
-SensitivityAnalyzer + lp_minimize stack. Run:  python examples/global_solar_epc_twin.py
+SensitivityAnalyzer + lp_minimize stack. Run:  python examples/global_solar_epc.py
 """
 
 import sys
@@ -24,26 +24,33 @@ from statistics import mean
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from dynafx.bridge import KBSimBridge
 from dynafx.dynamics import parse_sysd_file
 from dynafx.dynamics.causal import causes_strip
 from dynafx.dynamics.feedback import detect_feedback_loops
-from dynafx.dynamics.scenario import ScenarioComparison, ScenarioDef
-from dynafx.dynamics.sensitivity import SensitivityAnalyzer
 from dynafx.dynamics.optimization import kb_lp_minimize
-
-from dynafx.bridge import KBSimBridge
-from dynafx.knowledge import sparql_evaluate, parse_sparql
-from dynafx.knowledge.store import TripleStore
+from dynafx.dynamics.scenario import ScenarioComparison, ScenarioDef
+from dynafx.knowledge import parse_sparql, sparql_evaluate
 from dynafx.knowledge.inference import InferencePattern, RuleEngine, rdfs_rules
+from dynafx.knowledge.ingest_csv import ingest_csv, load_all_mappings
 from dynafx.knowledge.model import (
-    NamedNode, Literal, Triple, TriplePattern,
-    XSD_BOOLEAN, XSD_DOUBLE, XSD_INTEGER,
+    XSD_BOOLEAN,
+    XSD_DOUBLE,
+    XSD_INTEGER,
+    Literal,
+    NamedNode,
+    Triple,
+    TriplePattern,
 )
 from dynafx.knowledge.production import (
-    ProductionRule, ProductionRuleEngine, TripleCondition,
-    ComparisonCondition, LogAction, TripleAction,
+    ComparisonCondition,
+    LogAction,
+    ProductionRule,
+    ProductionRuleEngine,
+    TripleAction,
+    TripleCondition,
 )
-from dynafx.knowledge.ingest_csv import ingest_csv, load_all_mappings
+from dynafx.knowledge.store import TripleStore
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
@@ -182,10 +189,10 @@ def assemble(store: TripleStore) -> dict:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 3. MODEL — parse SD+ABM+DES twin
+# 3. MODEL — parse SD+ABM+DES model
 # ══════════════════════════════════════════════════════════════════════════════
 
-def model_twin() -> object:
+def build_model() -> object:
     print("\n" + "=" * 78)
     print("3. MODEL  — global solar EPC supply chain (SD + ABM + DES)")
     print("=" * 78)
@@ -500,23 +507,23 @@ def provenance(store: TripleStore, bridge: KBSimBridge, dis, params: dict) -> No
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 11. MAP — L1->L5 maturity ladder
+# 11. MAP — reasoning-loop stages
 # ══════════════════════════════════════════════════════════════════════════════
 
 def maturity() -> None:
     print("\n" + "=" * 78)
-    print("11. MAP    — digital twin maturity ladder")
+    print("11. MAP    — closed-loop reasoning stages")
     print("=" * 78)
     ladder = [
-        ("L1 Sense", "Named-graph enterprise KB + RDFS inference"),
-        ("L2 Assemble", "KB facts -> simulation params"),
-        ("L3 Model", "SD stocks + DES queues + ABM agents"),
-        ("L4 Live", "KB-driven disruption + live ABM KB writes"),
-        ("L5 Decide", "Evidence, scenarios, rules, LP, causal, provenance"),
+        ("Sense", "Named-graph enterprise KB + RDFS inference"),
+        ("Assemble", "KB facts -> simulation params"),
+        ("Model", "SD stocks + DES queues + ABM agents"),
+        ("Live", "KB-driven disruption + live ABM KB writes"),
+        ("Decide", "Evidence, scenarios, rules, LP, causal, provenance"),
     ]
     for level, desc in ladder:
         print(f"    {level:<10} {desc}")
-    print("    This twin implements all five levels end-to-end.")
+    print("    This example implements all five stages end-to-end.")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -531,7 +538,7 @@ def takeaway(store: TripleStore, dis, impact: float) -> None:
     risk = _sparql_val(store, PROJECTS_Q)
     print(f"  A typhoon-induced port closure of 30 days costs ${abs(impact):,.0f}K in profit "
           f"with supplier reliability at {rel:.2f} and {int(risk)} projects at risk.")
-    print("  The twin turned static CSVs into a closed loop: enterprise facts drive")
+    print("  The example turned static CSVs into a closed loop: enterprise facts drive")
     print("  the simulation, results return as evidence, rules flag risk, and LP")
     print("  allocates a mitigation budget - all in one living knowledge graph.")
     print(f"  (evidence graph: {G_EVIDENCE}; disruption flag: {_disruption_active(store)})")
@@ -540,7 +547,7 @@ def takeaway(store: TripleStore, dis, impact: float) -> None:
 def main() -> int:
     store = sense()
     assemble(store)
-    model = model_twin()
+    model = build_model()
     base, dis, base_params = live(store, model)
     bridge = KBSimBridge(store)
     evidence = learn(store, bridge, dis)
@@ -555,7 +562,7 @@ def main() -> int:
     impact = (dis.values["Portfolio_Revenue"][-1] - dis.values["Portfolio_Cost"][-1]) - \
              (base.values["Portfolio_Revenue"][-1] - base.values["Portfolio_Cost"][-1])
     takeaway(store, dis, impact)
-    print("\nDigital twin example complete. exit 0")
+    print("\nGlobal Solar EPC example complete. exit 0")
     return 0
 
 
