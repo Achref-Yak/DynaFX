@@ -1,5 +1,6 @@
 """Core — foundational data models and utilities."""
 
+from dynafx.core.decomposer import SystemDecomposer
 from dynafx.core.models import (
     Edge,
     EdgeType,
@@ -21,5 +22,6 @@ __all__ = [
     "NodeType",
     "ReasoningMode",
     "Span",
+    "SystemDecomposer",
     "WorldRelation",
 ]

@@ -18,7 +18,7 @@ Most simulation tools stop at modeling. DynaFX goes further — your models can 
 
 ## System Dynamics
 
-DynaFX provides a Vensim-style `.sysd` DSL for building stock-and-flow models with full arithmetic, lookup tables, and comparisons. The engine supports RK4 and Euler integration, automatic topological sorting of auxiliary variables, and higher-order delays (SMOOTH, SMOOTHI, DELAY3, DELAYN, DELAY_FIXED, CONVEY_BATCH). Time functions like PULSE, STEP, RAMP, and NOISE are built in.
+DynaFX provides a `.sysd` DSL for building stock-and-flow models with full arithmetic, lookup tables, and comparisons. The engine supports RK4 and Euler integration, automatic topological sorting of auxiliary variables, and higher-order delays (SMOOTH, SMOOTHI, DELAY3, DELAYN, DELAY_FIXED, CONVEY_BATCH). Time functions like PULSE, STEP, RAMP, and NOISE are built in.
 
 ## Knowledge Engine
 
