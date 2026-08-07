@@ -85,7 +85,7 @@ print(grades)   # {'0': 1.0} — score in [0, 1]
 
 | Paradigm | Description |
 |----------|-------------|
-| **System Dynamics** | Stock/flow models, Vensim-style DSL, RK4/Euler integration, submodels, unit checking |
+| **System Dynamics** | Stock/flow models, RK4/Euler integration, submodels, unit checking |
 | **Knowledge Engine** | RDF triple store, SPARQL, RDFS/OWL inference, production rules |
 | **Agent-Based** | Strategies, rules, message passing, strategy switching with cooldown |
 | **Discrete Event** | Queues, resources, event-driven simulation, DES clock |
