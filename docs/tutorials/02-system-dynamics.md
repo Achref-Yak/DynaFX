@@ -126,7 +126,7 @@ RK4 to avoid numerical drift.
 
 ## Unit checking
 
-You can annotate units and verify dimensional consistency. Units use Vensim
+You can annotate units and verify dimensional consistency. Units use
 `~unit~` syntax:
 
 ```python

@@ -15,7 +15,7 @@ authors = [
 keywords = [
     "system-dynamics", "agent-based-modeling", "discrete-event-simulation",
     "knowledge-graph", "semantic-simulation", "rdf", "sparql", "simulation",
-    "decision-support", "vensim", "open-source", "multi-paradigm",
+    "decision-support", "open-source", "multi-paradigm",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",

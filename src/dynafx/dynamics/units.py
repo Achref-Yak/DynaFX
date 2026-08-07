@@ -1,7 +1,7 @@
 """Dimensional analysis and unit checking for system dynamics models.
 
-Provides Vensim-style unit annotation (~Unit~ syntax) with automatic
-unit propagation and consistency checking.
+Provides `~Unit~`-style unit annotation with automatic unit propagation
+and consistency checking.
 
 Unit syntax:
     stock "Population": 1000 ~people~
