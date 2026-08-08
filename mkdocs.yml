@@ -20,7 +20,43 @@ nav:
   - Scientific Foundations: foundations.md
   - Open Research Problems: open-problems.md
   - Citation: citation.md
-  - API Reference: api.md
+  - API Reference:
+      - Overview: api/index.md
+      - Dynamics:
+          - Overview: api/dynamics/index.md
+          - SysdModel: api/dynamics/SysdModel.md
+          - SysdModelResult: api/dynamics/SysdModelResult.md
+          - parse_sysd: api/dynamics/parse_sysd.md
+          - StockDef: api/dynamics/StockDef.md
+          - FlowDef: api/dynamics/FlowDef.md
+          - AuxDef: api/dynamics/AuxDef.md
+          - AgentDef: api/dynamics/AgentDef.md
+          - DESEngine: api/dynamics/DESEngine.md
+          - Causal Analysis: api/dynamics/causal.md
+          - Scenario Comparison: api/dynamics/scenario.md
+          - Sensitivity Analysis: api/dynamics/sensitivity.md
+          - Optimization: api/dynamics/optimization.md
+          - Unit Checking: api/dynamics/units.md
+      - Knowledge:
+          - Overview: api/knowledge/index.md
+          - TripleStore: api/knowledge/TripleStore.md
+          - NamedNode / Literal: api/knowledge/NamedNode.md
+          - Triple / TriplePattern: api/knowledge/Triple.md
+          - SPARQL: api/knowledge/sparql.md
+          - Turtle: api/knowledge/turtle.md
+          - Inference: api/knowledge/inference.md
+          - Production Rules: api/knowledge/production.md
+          - CSV Ingestion: api/knowledge/ingest_csv.md
+          - Type Hierarchy: api/knowledge/hierarchy.md
+      - Bridge:
+          - Overview: api/bridge/index.md
+          - KBSimBridge: api/bridge/KBSimBridge.md
+          - ClosedLoopReasoner: api/bridge/ClosedLoopReasoner.md
+          - CognitiveOrchestrator: api/bridge/CognitiveOrchestrator.md
+      - Patterns:
+          - Overview: api/patterns/index.md
+          - SignalChain: api/patterns/SignalChain.md
+          - DisruptionCascade: api/patterns/DisruptionCascade.md
   - Tutorials:
       - Tutorials: tutorials/index.md
       - 1. Hello World: tutorials/01-hello-world.md
