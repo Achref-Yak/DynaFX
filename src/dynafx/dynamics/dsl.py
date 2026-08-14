@@ -390,6 +390,61 @@ class SysdModel:
         }
         return d
 
+    def to_dict(self) -> dict:
+        """Export model structure as a plain dict.
+
+        Returns::
+
+            {
+                "nodes": [{"id": ..., "type": "stock"|"flow"|"auxiliary", "label": ...}, ...],
+                "edges": [{"source": ..., "target": ..., "polarity": "+"|"-"}, ...],
+                "loops": [{"name": ..., "nodes": [...], "polarity": ...}, ...]
+            }
+        """
+        from dynafx.dynamics.causal import get_dependencies
+        from dynafx.dynamics.feedback import detect_feedback_loops
+
+        nodes: list[dict] = []
+        edges: list[dict] = []
+        known: set[str] = set()
+        seen_edges: set[tuple[str, str]] = set()
+
+        def _add_edge(source: str, target: str, polarity: str) -> None:
+            key = (source, target)
+            if key not in seen_edges:
+                edges.append({"source": source, "target": target, "polarity": polarity})
+                seen_edges.add(key)
+
+        # Stocks
+        for s in self.stocks:
+            nodes.append({"id": s.name, "type": "stock", "label": s.name, "initial": s.initial})
+            known.add(s.name)
+
+        # Flows (connected to parent stock)
+        for s in self.stocks:
+            for f in s.flows:
+                if f.name not in known:
+                    nodes.append({"id": f.name, "type": "flow", "label": f.name})
+                    known.add(f.name)
+                pol = "+" if f.direction == "+" else "-"
+                _add_edge(f.name, s.name, pol)
+
+        # Auxiliaries and their connections
+        deps = get_dependencies(self)
+        for name, (expr, refs) in deps.items():
+            if name not in known:
+                nodes.append({"id": name, "type": "auxiliary", "label": name, "expr": expr})
+                known.add(name)
+            for ref in refs:
+                if ref in known and ref != name:
+                    _add_edge(ref, name, "+")
+
+        # Feedback loops
+        analysis = detect_feedback_loops(self)
+        loops = [l.to_dict() for l in analysis.loops]
+
+        return {"nodes": nodes, "edges": edges, "loops": loops}
+
     # ── Python-native DSL methods ────────────────────────────────
 
     def stock(self, name: str, initial: float = 0.0, unit: str = "") -> _StockCtx:
@@ -485,6 +540,8 @@ class SysdModel:
         path: str,
         fill: str = "forward",
         time_unit: str = "auto",
+        mode: str = "replace",
+        encoding: str = "utf-8",
     ) -> dict[str, Any]:
         """Import time series data from a CSV file.
 
@@ -501,22 +558,39 @@ class SysdModel:
             time_unit: "auto" (auto-detect datetime or float),
                        "hours", "days", "seconds" (convert datetime to this unit).
                        For float columns, parsed directly regardless of time_unit.
+            mode: "replace" (default) overwrites existing imported data.
+                  "merge" adds new variables and overwrites existing ones with
+                  the same name. Raises ValueError on duplicate variable names
+                  if you want strict conflict detection.
+            encoding: CSV file encoding (default "utf-8").
         """
+        if mode not in ("replace", "merge"):
+            raise ValueError(f"Invalid mode '{mode}', expected 'replace' or 'merge'")
 
-        raw = self._read_csv_auto(path, time_unit)
+        raw = self._read_csv_auto(path, time_unit, encoding=encoding)
         data = self._fill_missing(raw, fill)
-        self._imported_data = data
-        return data
+
+        if mode == "merge" and hasattr(self, "_imported_data") and self._imported_data:
+            overlapping = set(data.keys()) & set(self._imported_data.keys())
+            if overlapping:
+                raise ValueError(
+                    f"Duplicate variable(s) {sorted(overlapping)} — "
+                    "use mode='replace' to overwrite or rename columns"
+                )
+            self._imported_data.update(data)
+        else:
+            self._imported_data = data
+        return self._imported_data
 
     def _read_csv_auto(
-        self, path: str, time_unit: str = "auto",
+        self, path: str, time_unit: str = "auto", encoding: str = "utf-8",
     ) -> dict[str, list[tuple[float, float]]]:
         """Read CSV, auto-detecting datetime vs float time column."""
         import csv
         from datetime import datetime
 
         data: dict[str, list[tuple[float, float]]] = {}
-        with open(path, newline="", encoding="utf-8") as f:
+        with open(path, newline="", encoding=encoding) as f:
             reader = csv.reader(f)
             header = next(reader)
             for col_name in header[1:]:
@@ -619,7 +693,7 @@ class SysdModel:
             result[name] = filled
         return result
 
-    def merge_data(self, paths: list[str], fill: str = "forward", time_unit: str = "auto") -> dict[str, Any]:
+    def merge_data(self, paths: list[str], fill: str = "forward", time_unit: str = "auto", encoding: str = "utf-8") -> dict[str, Any]:
         """Import and merge data from multiple CSV files.
 
         All files are read with the same time reference. Returns a single
@@ -627,7 +701,7 @@ class SysdModel:
         """
         merged: dict[str, list[tuple[float, float]]] = {}
         for path in paths:
-            raw = self._read_csv_auto(path, time_unit)
+            raw = self._read_csv_auto(path, time_unit, encoding=encoding)
             for name, series in raw.items():
                 if name in merged:
                     raise ValueError(f"Duplicated variable '{name}' across CSV files")
@@ -639,8 +713,11 @@ class SysdModel:
     def get_imported_interpolator(self, name: str):
         """Get a linear interpolation function for imported data.
 
-        Returns a callable f(t) that interpolates the imported data.
+        Returns a callable f(t) that performs O(log n) binary-search
+        interpolation. Clamps to endpoint values outside the data range.
         """
+        import bisect
+
         if not hasattr(self, "_imported_data") or name not in self._imported_data:
             return lambda t: 0.0
         series = self._imported_data[name]
@@ -648,18 +725,19 @@ class SysdModel:
             return lambda t: 0.0
         times = [p[0] for p in series]
         values = [p[1] for p in series]
+
         def interpolator(t: float) -> float:
             if t <= times[0]:
                 return values[0]
             if t >= times[-1]:
                 return values[-1]
-            # Linear interpolation
-            for i in range(len(times) - 1):
-                if times[i] <= t <= times[i + 1]:
-                    denom = times[i + 1] - times[i]
-                    frac = (t - times[i]) / denom if denom > 0 else 0.0
-                    return values[i] + frac * (values[i + 1] - values[i])
-            return values[-1]
+            idx = bisect.bisect_right(times, t) - 1
+            idx = max(0, min(idx, len(times) - 2))
+            t0, t1 = times[idx], times[idx + 1]
+            denom = t1 - t0
+            frac = (t - t0) / denom if denom > 0 else 0.0
+            return values[idx] + frac * (values[idx + 1] - values[idx])
+
         return interpolator
 
     def simulate(
@@ -1309,17 +1387,37 @@ class SysdModelResult:
     def export_results(self, path: str) -> None:
         """Export simulation results to a CSV file.
 
-        First column is time, subsequent columns are variable values.
+        First column is time, subsequent columns are stock and auxiliary values.
         """
         import csv
         with open(path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
-            # Header
-            writer.writerow(["time", *self.stocks])
-            # Data rows
+            all_vars = list(self.stocks) + list(self.aux_values)
+            writer.writerow(["time", *all_vars])
             for i, t in enumerate(self.times):
-                row = [t, *[self.values[name][i] for name in self.stocks]]
+                row = [t]
+                for name in self.stocks:
+                    row.append(self.values[name][i])
+                for name in self.aux_values:
+                    row.append(self.aux_values[name][i])
                 writer.writerow(row)
+
+    def to_dict(self) -> dict:
+        """Export simulation results as a plain dict.
+
+        Returns::
+
+            {
+                "times": [float, ...],
+                "stocks": {"name": [float, ...], ...},
+                "auxiliaries": {"name": [float, ...], ...}
+            }
+        """
+        return {
+            "times": self.times,
+            "stocks": {name: self.values[name] for name in self.stocks},
+            "auxiliaries": dict(self.aux_values),
+        }
 
 
 # ── Validation Result ────────────────────────────────────────────

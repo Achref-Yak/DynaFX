@@ -179,7 +179,7 @@ result.plot_with_bands("sensitivity.png", result.mean, result.std, result.p5, re
 
 ### `export_results(path)`
 
-Export simulation results to a CSV file.
+Export simulation results to a CSV file. Includes both stock and auxiliary variables.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -189,16 +189,46 @@ Export simulation results to a CSV file.
 
 **CSV format:**
 ```
-time,Stock1,Stock2,Stock3
-0.0,1000.0,500.0,100.0
-1.0,1050.0,520.0,105.0
-2.0,1100.0,540.0,110.0
+time,Inventory,Demand,Turnover,Utilization
+0.0,1000.0,150.0,0.15,0.85
+1.0,1050.0,155.0,0.148,0.85
+2.0,1095.0,160.0,0.146,0.85
 ...
 ```
 
 **Example:**
 ```python
 result.export_results("results.csv")
+```
+
+---
+
+### `to_dict()`
+
+Export simulation results as a plain dict.
+
+**Returns:** `dict` with structure:
+
+```python
+{
+    "times": [0.0, 1.0, 2.0, ...],
+    "stocks": {
+        "Inventory": [1000.0, 1050.0, 1095.0, ...],
+        "Cash": [5000.0, 5100.0, 5180.0, ...],
+    },
+    "auxiliaries": {
+        "Turnover": [0.15, 0.148, 0.146, ...],
+        "Utilization": [0.85, 0.85, 0.85, ...],
+    }
+}
+```
+
+**Example:**
+```python
+result = model.simulate()
+d = result.to_dict()
+print(d["stocks"]["Inventory"][-1])   # final inventory value
+print(d["auxiliaries"]["Turnover"][-1])  # final turnover rate
 ```
 
 ---

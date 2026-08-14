@@ -121,7 +121,7 @@ path = os.path.join(tempfile.gettempdir(), "suppliers.csv")
 with open(path, "w") as f:
     f.write("id,name,reliability\ns1,Acme,0.9\ns2,Beta,0.75\n")
 
-report = ingest_csv(mapping, path, store, strict=True)
+report = ingest_csv(mapping, path, store, strict=True, encoding="utf-8")
 print(report.rows_parsed)     # 2
 print(report.triples_added)   # 6
 ```

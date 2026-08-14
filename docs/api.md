@@ -217,10 +217,10 @@ into the KB. See [Tutorial 7](tutorials/07-closed-loop-simulation.md).
 
 | Symbol | Purpose | Tutorial |
 |--------|---------|----------|
-| `ingest_csv(mapping, path, store, strict=...)` | Declarative CSV→RDF ingestion | [5](tutorials/05-knowledge-graph.md) |
-| `MappingDef` | Mapping spec (target graph, entity class, columns) | [5](tutorials/05-knowledge-graph.md) |
-| `ColumnMapping` | Column → predicate + type coercion | [5](tutorials/05-knowledge-graph.md) |
-| `IngestReport` | `.rows_parsed`, `.triples_added`, `.errors` | [5](tutorials/05-knowledge-graph.md) |
+| `ingest_csv(mapping, csv_source, store, strict=..., encoding=...)` | Declarative CSV→RDF ingestion | [5](tutorials/05-knowledge-graph.md) |
+| `MappingDef` | Mapping spec (csv, target graph, entity class, id_column, id_prefix, columns dict) | [5](tutorials/05-knowledge-graph.md) |
+| `ColumnMapping` | Column → predicate + type coercion (`col_type`, `iri_prefix`) | [5](tutorials/05-knowledge-graph.md) |
+| `IngestReport` | `.rows_parsed`, `.rows_skipped`, `.triples_added`, `.errors`, `.warnings` | [5](tutorials/05-knowledge-graph.md) |
 | `load_all_mappings(dir)` | Load all YAML mapping files | — |
 
 ### TBox & type hierarchy

@@ -65,7 +65,7 @@ def _extract_refs(expr: str, known_names: set[str]) -> set[str]:
     return tokens & known_names
 
 
-def _get_dependencies(model: SysdModel) -> dict[str, tuple[str, set[str]]]:
+def get_dependencies(model: SysdModel) -> dict[str, tuple[str, set[str]]]:
     """Build dependency map: variable -> (expression, referenced_names).
 
     Structure:
@@ -106,6 +106,10 @@ def _get_dependencies(model: SysdModel) -> dict[str, tuple[str, set[str]]]:
     return deps
 
 
+# Backward-compatible alias
+_get_dependencies = get_dependencies
+
+
 def _get_reverse_deps(deps: dict[str, tuple[str, set[str]]]) -> dict[str, set[str]]:
     """Build reverse dependency map: variable -> set of variables that depend on it."""
     reverse: dict[str, set[str]] = {}
@@ -117,7 +121,7 @@ def _get_reverse_deps(deps: dict[str, tuple[str, set[str]]]) -> dict[str, set[st
 
 def _build_causal_graph(model: SysdModel) -> tuple[dict[str, tuple[str, set[str]]], dict[str, set[str]]]:
     """Build both forward and reverse dependency graphs."""
-    deps = _get_dependencies(model)
+    deps = get_dependencies(model)
     reverse_deps = _get_reverse_deps(deps)
     return deps, reverse_deps
 

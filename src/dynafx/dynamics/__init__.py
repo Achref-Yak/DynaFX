@@ -20,6 +20,7 @@ from dynafx.dynamics.causal import (
     causes_strip,
     causes_tree,
     effects_tree,
+    get_dependencies,
 )
 from dynafx.dynamics.des import (
     DESEngine,
@@ -137,6 +138,7 @@ __all__ = [  # noqa: RUF022  section-grouped, not alphabetical
     "causes_tree",
     "effects_tree",
     "causes_strip",
+    "get_dependencies",
     "detect_feedback_loops",
     "loops_for_variable",
     # Scenario comparison

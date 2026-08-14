@@ -361,7 +361,7 @@ model.include("sector", alias="south", params={"birth_rate": 0.03})
 
 ---
 
-### `import_data(path, fill="forward", time_unit="auto")`
+### `import_data(path, fill="forward", time_unit="auto", mode="replace", encoding="utf-8")`
 
 Import time series data from a CSV file.
 
@@ -370,6 +370,8 @@ Import time series data from a CSV file.
 | `path` | `str` | — | Path to CSV file (required) |
 | `fill` | `str` | `"forward"` | Missing data strategy: `"forward"`, `"interpolate"`, `"zero"` |
 | `time_unit` | `str` | `"auto"` | Time unit: `"auto"`, `"hours"`, `"days"`, `"seconds"` |
+| `mode` | `str` | `"replace"` | `"replace"` overwrites existing imported data; `"merge"` adds new variables and raises `ValueError` on duplicate names |
+| `encoding` | `str` | `"utf-8"` | CSV file encoding |
 
 **Returns:** `dict[str, list[tuple[float, float]]]` — imported data
 
@@ -377,6 +379,39 @@ Import time series data from a CSV file.
 ```python
 data = model.import_data("data/sales.csv", fill="interpolate")
 # data = {"sales": [(0, 100), (1, 120), (2, 115), ...]}
+
+# Merge additional variables without overwriting existing ones
+model.import_data("data/prices.csv", mode="merge")
+
+# Non-UTF-8 file
+model.import_data("data/legacy.csv", encoding="latin-1")
+```
+
+---
+
+### `merge_data(paths, fill="forward", time_unit="auto", encoding="utf-8")`
+
+Import and merge data from multiple CSV files into a single dataset.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `paths` | `list[str]` | — | List of CSV file paths (required) |
+| `fill` | `str` | `"forward"` | Missing data strategy: `"forward"`, `"interpolate"`, `"zero"` |
+| `time_unit` | `str` | `"auto"` | Time unit: `"auto"`, `"hours"`, `"days"`, `"seconds"` |
+| `encoding` | `str` | `"utf-8"` | CSV file encoding |
+
+**Returns:** `dict[str, list[tuple[float, float]]]` — merged data
+
+**Raises:** `ValueError` if the same variable name appears in multiple files.
+
+**Example:**
+```python
+data = model.merge_data([
+    "data/demand.csv",
+    "data/supply.csv",
+    "data/prices.csv",
+])
+# data = {"demand": [...], "supply": [...], "prices": [...]}
 ```
 
 ---
@@ -393,6 +428,52 @@ result = model.validate()
 if result.errors:
     for issue in result.errors:
         print(f"{issue.level}: {issue.message}")
+```
+
+---
+
+### `to_dict()`
+
+Export model structure as a plain dict.
+
+**Returns:** `dict` with structure:
+
+```python
+{
+    "nodes": [
+        {"id": "Inventory", "type": "stock", "label": "Inventory", "initial": 1000},
+        {"id": "supply",    "type": "flow",  "label": "supply"},
+        {"id": "demand",    "type": "flow",  "label": "demand"},
+        {"id": "utilization", "type": "auxiliary", "label": "utilization", "expr": "0.85"},
+    ],
+    "edges": [
+        {"source": "supply",    "target": "Inventory", "polarity": "+"},
+        {"source": "demand",    "target": "Inventory", "polarity": "-"},
+    ],
+    "loops": [
+        {"name": "L1", "nodes": ["Inventory", "supply"], "polarity": "+"},
+    ]
+}
+```
+
+Internally calls `get_dependencies()` and `detect_feedback_loops()` to build the
+edge and loop lists. Auxiliaries are included via dependency analysis.
+
+**Example:**
+```python
+model = SysdModel(dt=1.0, t_span=(0, 100))
+with model.stock("Inventory", 1000) as s:
+    s.inflow("supply", "200")
+    s.outflow("demand", "150")
+model.aux("turnover", "demand / inventory")
+
+d = model.to_dict()
+for node in d["nodes"]:
+    print(f"{node['type']:10s} {node['id']}")
+# stock      Inventory
+# flow       supply
+# flow       demand
+# auxiliary  turnover
 ```
 
 ---

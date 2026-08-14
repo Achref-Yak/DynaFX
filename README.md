@@ -46,10 +46,10 @@ The `KBSimBridge` connects the knowledge graph to the simulation: it extracts pa
 
 ### Install
 
-Download the wheel from [GitHub Releases](https://github.com/Achref-Yak/DynaFX/releases/tag/v0.2.0):
+Download the wheel from [GitHub Releases](https://github.com/Achref-Yak/DynaFX/releases/tag/v0.2.1):
 
 ```bash
-pip install dynafx-0.2.0-py3-none-any.whl
+pip install dynafx-0.2.1-py3-none-any.whl
 ```
 
 Or install from source:
