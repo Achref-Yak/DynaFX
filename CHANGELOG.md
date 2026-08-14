@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1 (unreleased)
+
+### Fixed
+- `dsl.py`: RDF model accessors now match the actual API — `NamedNode.iri` (was `uri`) and `Triple.object_` (was `object`); stale alias methods removed
+- `causal.py`: `get_dependencies` and causal-graph helpers hardened for layered DAG layout and polarity-colored edges in notebook visualizations
+
 ## 0.2.0 (unreleased)
 
 ### Added
