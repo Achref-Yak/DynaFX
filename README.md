@@ -72,6 +72,34 @@ print(result.values["Global_Panel_Supply"][-1])
 result.plot("out.png", stocks=["Global_Panel_Supply"])
 ```
 
+### Build a Model in Python
+
+The same stock-and-flow models can be assembled entirely with the Python API — no `.sysd` file needed:
+
+```python
+from dynafx import SysdModel
+
+model = SysdModel(dt=0.5, t_span=(0, 60))
+model.param("soil_quality", 0.6)
+model.param("crop_price", 1.5)
+
+with model.stock("Soil_Nitrogen", 100) as s:
+    s.inflow("fertilizer_add", "10")
+    s.outflow("crop_uptake", "yield_response * 0.7")
+
+model.aux("yield_response",
+          "SQRT(MAX(Soil_Nitrogen, 1)) / 10 * (0.5 + soil_quality * 0.5)")
+
+with model.stock("Farm_Value", 0) as s:
+    s.inflow("revenue", "yield_response * crop_price * 40")
+
+result = model.simulate()
+print(f"Final yield response: {result.aux_values['yield_response'][-1]:.2f}")
+print(f"Final farm value:     ${result.values['Farm_Value'][-1]:,.0f}")
+# Final yield response: 2.02
+# Final farm value:     $5,422
+```
+
 ### Knowledge Graph Pipeline
 
 ```python
