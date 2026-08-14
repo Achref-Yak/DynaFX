@@ -69,6 +69,28 @@ nav:
       - 8. Scenarios & Sensitivity: tutorials/08-scenarios-and-sensitivity.md
       - 9. Custom Ontology: tutorials/09-custom-ontology.md
       - 10. Publishing Results: tutorials/10-publishing-results.md
+  - YouTube Series:
+      - Overview: youtube/index.md
+      - Episodes:
+          - 1. First Simulation: youtube/episodes/01-first-simulation.md
+          - 2. Building Models: youtube/episodes/02-building-models.md
+          - 3. Comparing Scenarios: youtube/episodes/03-comparing-scenarios.md
+          - 4. Sensitivity Analysis: youtube/episodes/04-sensitivity-analysis.md
+          - 5. Agent Modeling: youtube/episodes/05-agent-modeling.md
+          - 6. Queueing Modeling: youtube/episodes/06-queueing-modeling.md
+          - 7. Knowledge Graphs: youtube/episodes/07-knowledge-graphs.md
+          - 8. Closed Loop: youtube/episodes/08-closed-loop.md
+          - 9. Live Disruption: youtube/episodes/09-live-disruption.md
+          - 10. Cognitive Orchestration: youtube/episodes/10-cognitive-orchestration.md
+          - 11. Signal Cascades: youtube/episodes/11-signal-cascades.md
+          - 12. Full Case Study: youtube/episodes/12-full-case-study.md
+      - Bonus:
+          - Common Mistakes: youtube/bonus/common-mistakes.md
+          - Tool Comparison: youtube/bonus/comparison.md
+      - Real-World Projects:
+          - Hospital ED: youtube/real-projects/hospital-ed.md
+          - Supply Chain: youtube/real-projects/supply-chain.md
+          - Climate Policy: youtube/real-projects/climate-policy.md
   - Knowledge Base: knowledge.md
   - Case Study: case-study-solar-epc.md
   - Examples: examples.md

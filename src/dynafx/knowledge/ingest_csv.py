@@ -51,6 +51,14 @@ class MappingDef:
     columns: dict[str, ColumnMapping]
     prefixes: dict[str, str] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        for col_name, col in self.columns.items():
+            if col.col_type == "iri" and not col.iri_prefix:
+                raise ValueError(
+                    f"Column '{col_name}' has col_type='iri' but no iri_prefix — "
+                    "add iri_prefix to the column mapping in your YAML"
+                )
+
     @classmethod
     def from_yaml(cls, path: str | Path) -> MappingDef:
         raw = yaml.safe_load(Path(path).read_text())
@@ -135,6 +143,7 @@ def ingest_csv(
     csv_source: str | Path | list[dict],
     store: TripleStore,
     strict: bool = False,
+    encoding: str = "utf-8",
 ) -> IngestReport:
     """Apply a YAML mapping to a CSV and write result triples into *store*.
 
@@ -149,6 +158,8 @@ def ingest_csv(
     strict:
         If True, raise on first conversion error. If False (default),
         skip bad rows with a warning.
+    encoding:
+        CSV file encoding (default "utf-8").
 
     Returns
     -------
@@ -165,7 +176,7 @@ def ingest_csv(
 
     # 2. Load CSV
     if isinstance(csv_source, (str, Path)):
-        with open(csv_source, newline="") as f:
+        with open(csv_source, newline="", encoding=encoding) as f:
             rows = list(csv.DictReader(f))
         csv_path = str(csv_source)
     else:
@@ -184,7 +195,7 @@ def ingest_csv(
         raw_id = row.get(mapping_def.id_column, "").strip()
         if not raw_id:
             report.rows_skipped += 1
-            msg = f"Row {row_idx}: empty id column '{mapping_def.id_column}'"
+            msg = f"Row {row_idx + 1}: empty id column '{mapping_def.id_column}'"
             report.warnings.append(msg)
             if strict:
                 raise ValueError(msg)
@@ -214,8 +225,8 @@ def ingest_csv(
             report.triples_added += triple_count
         except Exception as exc:
             report.rows_skipped += 1
-            msg = f"Row {row_idx} (id={raw_id}): {exc}"
-            report.warnings.append(msg)
+            msg = f"Row {row_idx + 1} (id={raw_id}): {exc}"
+            report.errors.append(msg)
             if strict:
                 raise ValueError(msg) from exc
 

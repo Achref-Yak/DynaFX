@@ -112,9 +112,9 @@ engine.evaluate()
 
 `dynafx.knowledge.ingest_csv` provides declarative CSV→RDF ingestion driven by YAML mapping files:
 
-- `MappingDef` — loaded from YAML with IRI prefix expansion
+- `MappingDef` — loaded from YAML with IRI prefix expansion; validates that `iri`-typed columns have `iri_prefix` set
 - `ColumnMapping` — CSV column → predicate + type + iri_prefix
-- `ingest_csv(md, path, store, strict=False)` — returns `IngestReport`
+- `ingest_csv(mapping, csv_source, store, strict=False, encoding="utf-8")` — returns `IngestReport`
 - `load_all_mappings(directory)` — load all YAML mappings
 
 Type coercion: string, float, integer, boolean, iri. Foreign-key columns use `type: iri` with `iri_prefix:` to create entity relationships.
