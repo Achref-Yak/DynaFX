@@ -60,13 +60,7 @@ from dynafx.dynamics.emergent import (
     EmergentProperty,
     run_consistency_checks,
 )
-from dynafx.dynamics.equations import (
-    compile_equations,
-    euler_step,
-    get_equation_summary,
-    rk4_step,
-    simulate_equations,
-)
+from dynafx.dynamics.equations import euler_step, rk4_step
 from dynafx.dynamics.feedback import (
     detect_feedback_loops,
     loops_for_variable,
@@ -145,10 +139,7 @@ __all__ = [  # noqa: RUF022  section-grouped, not alphabetical
     "ScenarioComparison",
     "ScenarioDef",
     "ScenarioResult",
-    # Equation compilation
-    "compile_equations",
-    "get_equation_summary",
-    "simulate_equations",
+    # Numerical integration primitives
     "rk4_step",
     "euler_step",
     # Emergent properties

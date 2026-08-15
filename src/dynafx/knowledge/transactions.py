@@ -166,6 +166,7 @@ class TransactionStore:
         t_end: float | None = None,
         source: str | None = None,
         n: int = 0,
+        filters: TransactionQuery | None = None,
     ) -> list[Transaction]:
         """Query transactions by filters, newest first.
 
@@ -175,10 +176,19 @@ class TransactionStore:
             t_end: Include transactions at or before this timestamp.
             source: Filter by source.
             n: Max results (0 = unlimited).
+            filters: A :class:`TransactionQuery` bundling the above filters.
+                Individual keyword args take precedence when also given.
 
         Returns:
             List of matching transactions, newest first.
         """
+        if filters is not None:
+            event_type = filters.event_type if event_type is None else event_type
+            t_start = filters.t_start if t_start is None else t_start
+            t_end = filters.t_end if t_end is None else t_end
+            source = filters.source if source is None else source
+            n = filters.n if n == 0 else n
+
         candidates = list(range(len(self._transactions)))
 
         if event_type is not None:

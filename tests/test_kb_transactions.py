@@ -1,17 +1,10 @@
 """Tests for Transaction Layer (kb/transactions.py)."""
 
 import time
-from dataclasses import dataclass
 
-from dynafx.knowledge.execution import ExecutionRecord, ExecutionStore
-from dynafx.knowledge.model import (
-    Literal,
-    NamedNode,
-    Triple,
-    TriplePattern,
-)
+from dynafx.knowledge.execution import ExecutionStore
 from dynafx.knowledge.store import TripleStore
-from dynafx.knowledge.transactions import Transaction, TransactionStore
+from dynafx.knowledge.transactions import TransactionQuery, TransactionStore
 
 
 def make_store() -> TripleStore:
@@ -168,6 +161,34 @@ class TestTransactionStore:
         assert tx.id is not None
         assert txs.total_count == 1
 
+    def test_query_with_transactionquery_filter(self):
+        st = make_store()
+        txs = TransactionStore(st)
+        now = time.time()
+        txs.record("A", {"v": 1}, source="erp", timestamp=now - 100)
+        txs.record("B", {"v": 2}, source="iot", timestamp=now - 50)
+        txs.record("A", {"v": 3}, source="erp", timestamp=now - 1)
+
+        q = TransactionQuery(event_type="A", source="erp")
+        results = txs.query(filters=q)
+        assert len(results) == 2
+
+        q2 = TransactionQuery(event_type="A", source="erp", n=1)
+        results2 = txs.query(filters=q2)
+        assert len(results2) == 1
+
+    def test_query_explicit_args_override_filters(self):
+        st = make_store()
+        txs = TransactionStore(st)
+        now = time.time()
+        txs.record("A", {"v": 1}, source="erp", timestamp=now - 100)
+        txs.record("B", {"v": 2}, source="iot", timestamp=now - 50)
+
+        q = TransactionQuery(event_type="A")
+        results = txs.query(event_type="B", filters=q)
+        assert len(results) == 1
+        assert results[0].event_type == "B"
+
 
 # ── ExecutionStore tests ────────────────────────────────────────────
 
@@ -190,6 +211,39 @@ class TestExecutionStore:
         es.record("test-rule", "simulate", {}, {"cash": 100.0})
         all_triples = list(st.all_triples())
         assert len(all_triples) >= 5
+
+    def test_record_action_result(self):
+        from dataclasses import dataclass, field
+
+        @dataclass
+        class FakeResult:
+            action_type: str = "log"
+            action_id: str = "xyz"
+            success: bool = True
+            message: str = "done"
+            output: dict = field(default_factory=dict)
+
+        st = make_store()
+        es = ExecutionStore(st)
+        rec = es.record_action_result("rule1", FakeResult(), {"k": "v"})
+        assert rec.action_type == "log"
+        assert rec.status == "executed"
+        assert rec.rule_name == "rule1"
+        assert es.total_count == 1
+
+    def test_record_action_result_failed(self):
+        st = make_store()
+        es = ExecutionStore(st)
+
+        class _Fail:
+            action_type = "bridge"
+            success = False
+            message = "boom"
+            output = {}
+
+        rec = es.record_action_result("r", _Fail(), {})
+        assert rec.status == "failed"
+        assert rec.action_type == "bridge"
 
     def test_get_by_id(self):
         st = make_store()

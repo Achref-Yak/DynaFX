@@ -56,7 +56,7 @@ model.aux("desired", "500")
 | Class | What it does | Example |
 |-------|--------------|---------|
 | [`AgentDef`](AgentDef.md) | Agent type with properties and rules | `Customer`, `Worker`, `Vehicle` |
-| [`ABMEngine`](ABMEngine.md) | Runtime engine that runs agent steps | Used internally by `SysdModel` |
+| [`ABMEngine`](AgentDef.md#abmengine) | Runtime engine that runs agent steps | Used internally by `SysdModel` |
 
 ```python
 # Agents have properties and behavioral rules
@@ -70,7 +70,7 @@ with model.agent("Customer", 100) as a:
 
 | Class | What it does | Example |
 |-------|--------------|---------|
-| [`QueueDef`](QueueDef.md) | A queue with capacity and service time | `checkout`, `assembly_line` |
+| [`QueueDef`](DESEngine.md#queuedef) | A queue with capacity and service time | `checkout`, `assembly_line` |
 | [`DESEngine`](DESEngine.md) | Runtime engine for event-driven simulation | Used internally by `SysdModel` |
 
 ```python

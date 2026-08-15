@@ -620,7 +620,9 @@ class ProductionRuleEngine:
     # ── Internal ──────────────────────────────────────────────
 
     def _on_triple_added(self, triple: Triple, graph: str) -> None:
-        """Called when a triple is added to the store."""
+        """Called when a triple is added to the store (no-op if stopped)."""
+        if not self._started:
+            return
         self.evaluate(trigger_triple=triple, trigger_graph=graph)
 
     @staticmethod

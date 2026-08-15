@@ -85,7 +85,7 @@ class KBSimBridge:
             dict mapping param_name → value (float, int, str, or bool).
         """
         if exclude_graphs is None:
-            exclude_graphs = {"schema", "meta", "fused"}
+            exclude_graphs = {"schema", "meta"}
         params: dict[str, Any] = {}
         for subj, pred, obj, param_name in claim_map:
             coerce_type = (type_coerce or {}).get(param_name, "float")
@@ -665,7 +665,11 @@ def grade_queries(
             elif qr.cardinality > 0:
                 val = 1.0
             grades[f"{prefix}{q_idx}"] = max(0.0, min(1.0, val))
-        except Exception:
+        except Exception as exc:
+            logger.warning(
+                "grade_queries: query %d failed (%s: %s) — grade set to 0.0: %r",
+                q_idx, type(exc).__name__, exc, query_str[:120],
+            )
             grades[f"{prefix}{q_idx}"] = 0.0
     return grades
 
@@ -944,13 +948,10 @@ class CognitiveOrchestrator:
         def recorded_execute(store, bindings):
             try:
                 result = original_execute(store, bindings)
-                self.exec_store.record(
+                self.exec_store.record_action_result(
                     rule_name=rule_name,
-                    action_type=getattr(result, "action_type", type(action).__name__),
+                    action_result=result,
                     bindings={k: self._node_str(v) for k, v in bindings.items()},
-                    output=getattr(result, "output", {}),
-                    status="executed" if getattr(result, "success", True) else "failed",
-                    message=getattr(result, "message", ""),
                 )
                 return result
             except Exception as e:

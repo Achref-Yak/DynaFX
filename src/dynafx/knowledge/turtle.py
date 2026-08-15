@@ -12,6 +12,7 @@ Handles the common subset:
 
 from __future__ import annotations
 
+import logging
 import re
 
 from dynafx.knowledge.model import (
@@ -22,6 +23,8 @@ from dynafx.knowledge.model import (
     Triple,
 )
 from dynafx.knowledge.store import TripleStore
+
+logger = logging.getLogger(__name__)
 
 # ── Tokenizer ────────────────────────────────────────────────────
 
@@ -444,6 +447,8 @@ def parse_ntriples(text: str, graph: str = "default") -> TripleStore:
     """Parse N-Triples text into a TripleStore.
 
     N-Triples is line-based: one triple per line.
+    Malformed lines are skipped, but each one is reported via a
+    ``logger.warning`` so failures are not silently swallowed.
     """
     store = TripleStore()
     for _line_num, line in enumerate(text.strip().split("\n"), 1):
@@ -455,6 +460,10 @@ def parse_ntriples(text: str, graph: str = "default") -> TripleStore:
         # Very simple N-Triples parser — just handle <s> <p> <o> .
         parts = _split_ntriples_line(line)
         if len(parts) < 3:
+            logger.warning(
+                "N-Triples line %d malformed (expected 3 fields, got %d): %r",
+                _line_num, len(parts), line[:80],
+            )
             continue
         try:
             s = _parse_ntriples_node(parts[0])
@@ -462,8 +471,16 @@ def parse_ntriples(text: str, graph: str = "default") -> TripleStore:
             o = _parse_ntriples_node(parts[2])
             if s is not None and p is not None and o is not None:
                 store.add(Triple(s, p, o), graph=graph)
-        except Exception:
-            pass
+            else:
+                logger.warning(
+                    "N-Triples line %d skipped (unparseable node): %r",
+                    _line_num, line[:80],
+                )
+        except Exception as exc:
+            logger.warning(
+                "N-Triples line %d skipped (%s: %s): %r",
+                _line_num, type(exc).__name__, exc, line[:80],
+            )
     return store
 
 

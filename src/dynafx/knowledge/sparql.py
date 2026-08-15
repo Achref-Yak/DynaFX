@@ -19,11 +19,13 @@ Supports:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any
 
 from dynafx.knowledge._sparql_parser import (
     BGP,
+    Aggregate,
     And,
     Ask,
     BoundFunc,
@@ -53,6 +55,8 @@ from dynafx.knowledge.model import (
     TriplePattern,
 )
 from dynafx.knowledge.store import TripleStore
+
+logger = logging.getLogger(__name__)
 
 # ── Extra AST types (not produced by parser) ──────────────────────
 
@@ -103,6 +107,7 @@ class GraphPattern:
 AlgebraNode = (
     Ask | BGP | Filter | Optional_ | Union | OrderBy | Slice
     | Project | Select | Describe | Construct | Values | Bind | GraphPattern
+    | Aggregate
 )
 
 
@@ -249,12 +254,45 @@ def _eval_node(
                 reverse=(direction == "DESC"),
             )
         return results
+    if isinstance(node, Aggregate):
+        rows = _eval_node(node.inner, store, initial, with_inference)
+        value = _compute_aggregate(node.func, node.arg, rows)
+        return [{node.alias: Literal(value)}]
     if isinstance(node, Slice):
         results = _eval_node(node.inner, store, initial, with_inference)
         start = node.offset or 0
         end = start + node.limit if node.limit is not None else None
         return results[start:end]
     raise ValueError(f"Unknown algebra node: {type(node).__name__}")
+
+
+def _compute_aggregate(
+    func: str,
+    arg: str | None,
+    rows: list[Binding],
+) -> Any:
+    """Compute a SPARQL aggregate value over a solution sequence."""
+    if arg is None:
+        return float(len(rows))
+    bound_values = [row.get(arg) for row in rows if row.get(arg) is not None]
+    if func == "COUNT":
+        return float(len(bound_values))
+    values: list[float] = []
+    for node in bound_values:
+        if isinstance(node, Literal):
+            try:
+                values.append(float(node.value))
+            except (ValueError, TypeError):
+                continue
+    if func == "SUM":
+        return float(sum(values))
+    if func == "AVG":
+        return float(sum(values) / len(values)) if values else 0.0
+    if func == "MIN":
+        return float(min(values)) if values else 0.0
+    if func == "MAX":
+        return float(max(values)) if values else 0.0
+    raise ValueError(f"Unknown aggregate function: {func}")
 
 
 def _eval_bgp(
@@ -436,7 +474,9 @@ FILTER_FUNCS: dict[str, list[str]] = {
 def _eval_filter(expr: Any, binding: Binding) -> bool:
     """Evaluate a SPARQL FILTER expression against a binding.
 
-    Returns True if the filter passes (or if the expression cannot be evaluated).
+    Returns True if the filter passes. Expression evaluation errors are
+    logged and treated as a failed filter (the row is excluded), rather
+    than silently passing the row.
     """
     try:
         result = _eval_expr(expr, binding)
@@ -447,8 +487,9 @@ def _eval_filter(expr: Any, binding: Binding) -> bool:
         if result is None:
             return True
         return bool(result)
-    except (ValueError, TypeError, KeyError, AttributeError, ZeroDivisionError):
-        return True
+    except (ValueError, TypeError, KeyError, AttributeError, ZeroDivisionError) as exc:
+        logger.warning("SPARQL FILTER evaluation error (%s): %s", type(exc).__name__, exc)
+        return False
 
 
 def _eval_expr(expr: Any, binding: Binding) -> Any:

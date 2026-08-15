@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dynafx"
-version = "0.2.1"
+version = "0.3.0"
 description = "Multi-paradigm simulation framework (SD + ABM + DES) with a semantic knowledge engine — RDF/OWL/SPARQL knowledge graphs and closed-loop KB<->simulation reasoning for decision support"
 readme = "README.md"
 requires-python = ">=3.12"

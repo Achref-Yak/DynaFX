@@ -1,6 +1,5 @@
 """Tests for Production Rule Engine (kb/production.py)."""
 
-import time
 
 from dynafx.knowledge.inference import InferencePattern
 from dynafx.knowledge.model import (
@@ -11,8 +10,9 @@ from dynafx.knowledge.model import (
     TriplePattern,
 )
 from dynafx.knowledge.production import (
-    AndCondition,
     AggregationCondition,
+    AndCondition,
+    BridgeAction,
     ComparisonCondition,
     LogAction,
     NotCondition,
@@ -20,6 +20,7 @@ from dynafx.knowledge.production import (
     ProductionRule,
     ProductionRuleEngine,
     RetractAction,
+    SimulateAction,
     SparqlCondition,
     TripleAction,
     TripleCondition,
@@ -45,6 +46,13 @@ def empty_store() -> TripleStore:
 def store_with_one_triple() -> TripleStore:
     st = TripleStore()
     st.add(Triple(S, P, O))
+    return st
+
+
+def store_with_numeric_values() -> TripleStore:
+    st = TripleStore()
+    st.add(Triple(NamedNode("http://example.org/a"), NamedNode("http://example.org/val"), Literal(10.0)))
+    st.add(Triple(NamedNode("http://example.org/b"), NamedNode("http://example.org/val"), Literal(32.0)))
     return st
 
 
@@ -229,6 +237,38 @@ class TestAggregationCondition:
         result = cond.evaluate(st, {})
         assert not result.matched
 
+    def test_sum_aggregate_matches_threshold(self):
+        st = store_with_numeric_values()
+        cond = AggregationCondition(
+            "SELECT (SUM(?o) AS ?sum) WHERE { ?s ?p ?o }",
+            threshold=42.0,
+            op=">=",
+        )
+        result = cond.evaluate(st, {})
+        assert result.matched
+        assert result.bindings["_agg_result"].value == 42.0
+
+    def test_sum_aggregate_below_threshold(self):
+        st = store_with_numeric_values()
+        cond = AggregationCondition(
+            "SELECT (SUM(?o) AS ?sum) WHERE { ?s ?p ?o }",
+            threshold=100.0,
+            op=">=",
+        )
+        result = cond.evaluate(st, {})
+        assert not result.matched
+
+    def test_count_star_aggregate(self):
+        st = store_with_one_triple()
+        cond = AggregationCondition(
+            "SELECT (COUNT(*) AS ?c) WHERE { ?s ?p ?o }",
+            threshold=1.0,
+            op=">=",
+        )
+        result = cond.evaluate(st, {})
+        assert result.matched
+        assert result.bindings["_agg_result"].value == 1.0
+
 
 # ── Compound condition tests ───────────────────────────────────────
 
@@ -336,6 +376,32 @@ class TestLogAction:
         result = action.execute(TripleStore(), {"id": NamedNode("http://sc.org/C-123")})
         assert result.success
         assert "http://sc.org/C-123" in result.message
+
+
+class TestBridgeAction:
+    def test_missing_bridge_fails_gracefully(self):
+        action = BridgeAction()
+        result = action.execute(TripleStore(), {})
+        assert not result.success
+        assert "No bridge" in (result.message or "")
+
+    def test_requires_model(self):
+        action = BridgeAction(bridge=object())
+        result = action.execute(TripleStore(), {})
+        assert not result.success
+
+
+class TestSimulateAction:
+    def test_missing_model_fails_gracefully(self):
+        action = SimulateAction()
+        result = action.execute(TripleStore(), {})
+        assert not result.success
+        assert "No model" in (result.message or "")
+
+    def test_requires_method_default_euler(self):
+        action = SimulateAction(model=object())
+        result = action.execute(TripleStore(), {})
+        assert not result.success
 
 
 # ── ProductionRule and Engine tests ─────────────────────────────────

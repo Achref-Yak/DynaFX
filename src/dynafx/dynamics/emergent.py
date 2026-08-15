@@ -14,6 +14,7 @@ produce the class of bugs we hit twice in the pandemic model:
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
 from enum import Enum, auto
@@ -24,6 +25,8 @@ from dynafx.dynamics.dsl import (
     ValidationIssue,
     ValidationResult,
 )
+
+logger = logging.getLogger(__name__)
 
 # ── Emergent Property ────────────────────────────────────────────
 
@@ -87,6 +90,17 @@ class Effect:
             return base + self.value
         if self.effect_type == EffectType.SET:
             return self.value
+        if self.effect_type == EffectType.REPLACE_EXPR:
+            if not self.expr:
+                return base
+            ns: dict[str, Any] = {}
+            for k, v in dict(state).items():
+                ns[k] = v
+            try:
+                return float(eval(self.expr, {"__builtins__": {}}, ns))
+            except Exception as exc:
+                logger.warning("REPLACE_EXPR '%s' failed — %s; falling back to base", self.expr, exc)
+                return base
         return base
 
 

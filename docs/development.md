@@ -33,11 +33,12 @@ uv run pyright src/dynafx         # type check
 
 ## CI
 
-The CI workflow (`.github/workflows/ci.yml`) runs three checks on every push:
+The CI workflow (`.github/workflows/ci.yml`) runs four checks on every push:
 
 1. **Lint**: `ruff check src/`
 2. **Type check**: `pyright src/dynafx`
 3. **Test**: `pytest --no-header -q`
+4. **Docs build (strict)**: `mkdocs build --strict`
 
 ## Docs Deployment
 
@@ -45,7 +46,7 @@ Documentation is built with mkdocs (Material theme) and deployed to GitHub Pages
 
 - Workflow: `.github/workflows/deploy.yml`
 - Triggers: push to `main` touching `docs/**` or `mkdocs.yml`, or manual `workflow_dispatch`
-- Build locally: `uv run mkdocs build --strict`
+- Build (strict): `uv run mkdocs build --strict` — the Pages deploy fails on warnings/broken links too
 - Live site: <https://achref-yak.github.io/DynaFX/>
 
 The GitHub Pages source is set to **GitHub Actions** (repo → Settings → Pages). The deploy workflow builds `site/`, uploads it as an artifact, and publishes it with `actions/deploy-pages`.

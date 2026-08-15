@@ -22,6 +22,7 @@ Hybrid usage — wrap an extracted graph for annotation:
 from __future__ import annotations
 
 import logging
+from collections import defaultdict
 from typing import Any
 from uuid import UUID
 
@@ -205,9 +206,6 @@ class SystemDecomposer:
         node.orthogonal_partition = partition
         logger.info("Assigned '%s' → partition '%s'", node.text[:40], partition)
 
-    def create_partition(self, name: str) -> None:
-        pass
-
     def add_containment(self, parent_name: str, child_name: str) -> bool:
         parent = self._require_node(parent_name)
         child = self._require_node(child_name)
@@ -234,7 +232,74 @@ class SystemDecomposer:
     # ── Emergence ─────────────────────────────────────────────────
 
     def detect(self) -> list[EmergentProperty]:
-        return []
+        """Detect feedback loops (cycles) in the causal structure.
+
+        Scans the graph for simple directed cycles over causal edges and
+        raises each distinct loop to an :class:`EmergentProperty`.  The
+        condition string records the cycle path; polarity is aggregated
+        from the edges' polarity signs.
+
+        Returns:
+            Detected emergent properties (empty if the graph is acyclic).
+        """
+        self._detect_visited: set[UUID] = set()
+        discovered: dict[str, EmergentProperty] = {}
+        causal = [
+            e for e in self.graph.edges.values()
+            if e.type.name != "ASSOCIATED_WITH"
+        ]
+        adjacency: dict[UUID, list[Edge]] = defaultdict(list)
+        for e in causal:
+            adjacency[e.source_id].append(e)
+
+        stack: list[UUID] = []
+        stack_set: set[UUID] = set()
+
+        def visit(node_id: UUID) -> None:
+            for e in adjacency[node_id]:
+                if e.target_id in stack_set:
+                    cycle = [*stack[stack.index(e.target_id):], e.target_id]
+                    self._record_cycle(cycle, discovered)
+                if e.target_id in stack_set or e.target_id in self._detect_visited:
+                    continue
+                stack.append(e.target_id)
+                stack_set.add(e.target_id)
+                self._detect_visited.add(e.target_id)
+                visit(e.target_id)
+                stack.pop()
+                stack_set.discard(e.target_id)
+
+        for nid in list(self.graph.nodes.keys()):
+            if nid in self._detect_visited:
+                continue
+            self._detect_visited.add(nid)
+            stack.append(nid)
+            stack_set.add(nid)
+            visit(nid)
+            stack.pop()
+            stack_set.discard(nid)
+
+        return list(discovered.values())
+
+    def _record_cycle(self, cycle: list[UUID], discovered: dict[str, EmergentProperty]) -> None:
+        """Register a unique feedback loop as an EmergentProperty."""
+        path = [self.graph.nodes[n].text.strip() for n in cycle]
+        key = " → ".join(path)
+        if key in discovered:
+            return
+        edges = [
+            e for e in self.graph.edges.values()
+            if e.source_id in cycle and e.target_id in cycle
+        ]
+        polarities = [e.polarity for e in edges]
+        negative_count = sum(1 for p in polarities if p < 0)
+        sign = "balancing" if negative_count % 2 == 1 else "reinforcing"
+        discovered[key] = EmergentProperty(
+            name=f"feedback_loop_{len(discovered) + 1}",
+            condition=f"{key} ({sign}, {len(edges)} edges)",
+            involved_ids=list(dict.fromkeys(cycle)),
+            detected_by="cycle_detection",
+        )
 
     # ── Inspection ────────────────────────────────────────────────
 
