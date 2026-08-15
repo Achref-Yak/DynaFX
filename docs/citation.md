@@ -8,7 +8,7 @@ If DynaFX contributes to your research, please cite the software:
   title        = {DynaFX: {A} multi-paradigm simulation framework with a semantic knowledge engine},
   year         = {2026},
   url          = {https://github.com/Achref-Yak/DynaFX},
-  version      = {0.2.1},
+  version      = {0.3.0},
   license      = {MIT},
 }
 ```
@@ -16,7 +16,7 @@ If DynaFX contributes to your research, please cite the software:
 Plain text:
 
 > Achref Yakdhane. (2026). DynaFX: A multi-paradigm simulation framework with
-> a semantic knowledge engine (Version 0.2.1). https://github.com/Achref-Yak/DynaFX
+> a semantic knowledge engine (Version 0.3.0). https://github.com/Achref-Yak/DynaFX
 
 The repository also ships a machine-readable [`CITATION.cff`](https://github.com/Achref-Yak/DynaFX/blob/main/CITATION.cff),
 so GitHub shows a *Cite this repository* button on the project page.
