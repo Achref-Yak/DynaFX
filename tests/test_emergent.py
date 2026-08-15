@@ -1,20 +1,14 @@
 """Tests for emergent properties and stock-flow consistency checker."""
 
-import pytest
-from dynafx.dynamics.dsl import parse_sysd, SysdModel, StockDef, FlowDef, AuxDef
+from dynafx.dynamics.dsl import FlowDef, StockDef, SysdModel, parse_sysd
 from dynafx.dynamics.emergent import (
-    EmergentProperty,
+    ComparisonOp,
     Condition,
     Effect,
-    ComparisonOp,
     EffectType,
-    ConsistencyResult,
+    EmergentProperty,
     run_consistency_checks,
-    check_outflow_partitions,
-    check_flow_sides,
-    check_zero_divisors,
 )
-
 
 # ── Condition tests ──────────────────────────────────────────────
 
@@ -75,7 +69,10 @@ class TestEffect:
 
     def test_replace_expr(self):
         e = Effect("x", EffectType.REPLACE_EXPR, expr="y + 1")
-        # REPLACE_EXPR falls through to returning base
+        assert e.apply(5.0, {"y": 3.0}) == 4.0
+
+    def test_replace_expr_unknown_var_falls_back(self):
+        e = Effect("x", EffectType.REPLACE_EXPR, expr="y + 1")
         assert e.apply(5.0, {}) == 5.0
 
 

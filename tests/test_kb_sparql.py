@@ -6,37 +6,18 @@ from __future__ import annotations
 import pytest
 
 from dynafx.knowledge.model import (
-    BlankNode,
     Literal,
     NamedNode,
     Triple,
-    TriplePattern,
+)
+from dynafx.knowledge.sparql import (
+    Comparison,
+    Constant,
+    evaluate,
+    parse_sparql,
 )
 from dynafx.knowledge.store import TripleStore
-from dynafx.knowledge.sparql import (
-    parse_sparql,
-    evaluate,
-    QueryResult,
-    Variable,
-    SPARQLTriplePattern,
-    BGP,
-    Project,
-    Ask,
-    Construct,
-    Filter,
-    Optional_,
-    Union,
-    OrderBy,
-    Slice,
-    Comparison,
-    And,
-    Or,
-    Not,
-    VarRef,
-    Constant,
-    RegexFunc,
-    BoundFunc,
-)
+
 # ── Fixtures ─────────────────────────────────────────────────────
 
 
@@ -552,3 +533,65 @@ def test_decimal_edge_cases():
     assert not any(t[0] == "DECIMAL" for t in tokens)
     assert any(t[0] == "INTEGER" for t in tokens)
     assert any(t[0] == "DOT" for t in tokens)
+
+
+# ── 32. Aggregate projections (COUNT/SUM/AVG/MIN/MAX) ─────────────
+
+
+@pytest.fixture
+def numeric_store() -> TripleStore:
+    st = TripleStore()
+    st.add(Triple(NamedNode("http://ex/a"), NamedNode("http://ex/v"), Literal(3.0)))
+    st.add(Triple(NamedNode("http://ex/b"), NamedNode("http://ex/v"), Literal(7.0)))
+    return st
+
+
+def _agg_value(q: str, store: TripleStore) -> float:
+    result = evaluate(parse_sparql(q), store)
+    assert result.cardinality == 1
+    row = result.bindings[0]
+    return float(row[list(row)[0]].value)
+
+
+def test_aggregate_count(numeric_store):
+    assert _agg_value("SELECT (COUNT(?s) AS ?c) WHERE { ?s ?p ?o }", numeric_store) == 2.0
+
+
+def test_aggregate_count_star(numeric_store):
+    assert _agg_value("SELECT (COUNT(*) AS ?c) WHERE { ?s ?p ?o }", numeric_store) == 2.0
+
+
+def test_aggregate_sum(numeric_store):
+    assert _agg_value("SELECT (SUM(?o) AS ?s) WHERE { ?s ?p ?o }", numeric_store) == 10.0
+
+
+def test_aggregate_avg(numeric_store):
+    assert _agg_value("SELECT (AVG(?o) AS ?a) WHERE { ?s ?p ?o }", numeric_store) == 5.0
+
+
+def test_aggregate_min(numeric_store):
+    assert _agg_value("SELECT (MIN(?o) AS ?m) WHERE { ?s ?p ?o }", numeric_store) == 3.0
+
+
+def test_aggregate_max(numeric_store):
+    assert _agg_value("SELECT (MAX(?o) AS ?m) WHERE { ?s ?p ?o }", numeric_store) == 7.0
+
+
+def test_aggregate_empty_store():
+    st = TripleStore()
+    assert _agg_value("SELECT (COUNT(?s) AS ?c) WHERE { ?s ?p ?o }", st) == 0.0
+    assert _agg_value("SELECT (SUM(?o) AS ?s) WHERE { ?s ?p ?o }", st) == 0.0
+
+
+def test_aggregate_syntax_error():
+    with pytest.raises(SyntaxError):
+        parse_sparql("SELECT (SORT(?s) AS ?x) WHERE { ?s ?p ?o }")
+
+
+def test_filter_division_by_zero_excludes_row(numeric_store):
+    """FILTER errors must exclude the row, not silently let it pass."""
+    from dynafx.knowledge._sparql_parser import Operator, VarRef
+    from dynafx.knowledge.sparql import _eval_filter
+    filter_expr = Comparison(">", Operator("/", [VarRef("o"), 0]), Constant(Literal(0)))
+    row = {"o": Literal(3.0)}
+    assert _eval_filter(filter_expr, row) is False

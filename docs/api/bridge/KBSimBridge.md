@@ -70,7 +70,7 @@ Extract KB facts and convert them to simulation parameters.
 |-----------|------|---------|-------------|
 | `claim_map` | `list[tuple[NamedNode, NamedNode, object, str]]` | — | List of (subject, predicate, object, param_name) tuples |
 | `default` | `float` | `0.5` | Default value when no matching triple exists |
-| `exclude_graphs` | `set[str] \| None` | `None` | Graphs to skip (default: `{"schema", "meta", "fused"}`) |
+| `exclude_graphs` | `set[str] \| None` | `None` | Graphs to skip (default: `{"schema", "meta"}`) |
 | `type_coerce` | `dict[str, str] \| None` | `None` | Type coercion: `{"param_name": "float"}` |
 
 **Returns:** `dict[str, Any]` — parameter name → value mapping

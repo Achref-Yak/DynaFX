@@ -170,7 +170,6 @@ class ExecutionStore:
             output=getattr(action_result, "output", {}),
             status="executed" if getattr(action_result, "success", True) else "failed",
             message=getattr(action_result, "message", ""),
-            action_id=getattr(action_result, "action_id", ""),
         )
 
     def get(self, action_id: str) -> ExecutionRecord | None:

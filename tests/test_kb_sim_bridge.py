@@ -1,12 +1,16 @@
 """Tests for KB↔Sim bridge: KB_QUERY/KB_ASSERT builtins + KBSimBridge class."""
 
-from dynafx.knowledge.model import NamedNode, Literal, Triple, TriplePattern
-from dynafx.knowledge.store import TripleStore
-from dynafx.dynamics.dsl import (
-    parse_sysd, SysdModel, AgentDef, AgentPropDef, AgentRuleDef, AgentStrategy,
-)
 from dynafx.bridge import KBSimBridge
-
+from dynafx.dynamics.dsl import (
+    AgentDef,
+    AgentPropDef,
+    AgentRuleDef,
+    AgentStrategy,
+    SysdModel,
+    parse_sysd,
+)
+from dynafx.knowledge.model import Literal, NamedNode, Triple, TriplePattern
+from dynafx.knowledge.store import TripleStore
 
 # ── Helpers ─────────────────────────────────────────────────────
 
@@ -24,6 +28,30 @@ def _store_with_triples() -> TripleStore:
         graph="source_a",
     )
     return store
+
+
+def test_grade_queries_reports_failed_query(caplog):
+    """A query that fails to parse logs a warning instead of silently grading 0."""
+    from dynafx.bridge import grade_queries
+    store = TripleStore()
+    grades = grade_queries(
+        [("SELECT ?s WHERE { ?s ?p ?o", "x", 0.5, 0.0)],
+        store,
+        prefix="g_",
+    )
+    assert grades == {"g_0": 0.0}
+    assert any("grade_queries" in rec.getMessage() for rec in caplog.records)
+
+
+def test_grade_queries_healthy_query():
+    from dynafx.bridge import grade_queries
+    store = _store_with_triples()
+    grades = grade_queries(
+        [("SELECT ?o WHERE { ?s <http://example.org/predicate> ?o }", "o", 0.5, 0.0)],
+        store,
+        prefix="g_",
+    )
+    assert grades["g_0"] == 1.0
 
 
 # ── KB_QUERY in SD aux expressions ──────────────────────────────
@@ -235,7 +263,7 @@ def test_kb_query_des_arrival_rate():
 
 
 def test_bridge_params_from_kb():
-    """params_from_kb returns max belief across graphs."""
+    """params_from_kb extracts the object value for each (s, p, o) claim."""
     store = _store_with_triples()
     bridge = KBSimBridge(store)
 

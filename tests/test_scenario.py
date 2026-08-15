@@ -1,15 +1,14 @@
 """Tests for system/scenario.py — scenario comparison."""
 
-import pytest
-import math
 
-from dynafx.dynamics.dsl import SysdModel, parse_sysd, SysdModelResult
+import pytest
+
+from dynafx.dynamics.dsl import parse_sysd
 from dynafx.dynamics.scenario import (
     ScenarioComparison,
     ScenarioDef,
     ScenarioResult,
 )
-
 
 SIMPLE_MODEL = """
 Test Model
@@ -238,6 +237,33 @@ class TestEdgeCases:
         store = TripleStore()
         grades = comp.grade_scenarios([], store)
         assert grades == {"Only": {}}
+
+    def test_filter_exception_reported_and_scenario_dropped(self, model, caplog):
+        """A failing constraint query drops the scenario and is logged."""
+        from dynafx.knowledge.store import TripleStore
+        comp = ScenarioComparison(model, [
+            ScenarioDef("Only", {}),
+        ])
+        store = TripleStore()
+        comp.filter(store, ["SELECT ?s WHERE { ?s ?p ?o"])  # malformed query
+        assert len(comp.scenarios) == 0
+        assert any("constraint query failed" in rec.getMessage()
+                   for rec in caplog.records)
+
+    def test_filter_matching_constraint_keeps_scenario(self, model):
+        from dynafx.knowledge.model import NamedNode, Triple
+        from dynafx.knowledge.store import TripleStore
+        comp = ScenarioComparison(model, [
+            ScenarioDef("Only", {}),
+        ])
+        store = TripleStore()
+        store.add(Triple(
+            NamedNode("http://ex/s"),
+            NamedNode("http://ex/p"),
+            NamedNode("http://ex/o"),
+        ))
+        comp.filter(store, ["SELECT ?s WHERE { ?s ?p ?o }"])
+        assert len(comp.scenarios) == 1
 
     def test_explain_scenario_missing_name(self, model):
         """explain_scenario raises ValueError for unknown scenario."""

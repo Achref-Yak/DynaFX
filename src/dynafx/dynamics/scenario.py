@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any
 
 from dynafx.dynamics.dsl import SysdModel, SysdModelResult
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -433,7 +436,12 @@ class ScenarioComparison:
                     if qr.cardinality == 0:
                         passed = False
                         break
-                except Exception:
+                except Exception as exc:
+                    logger.warning(
+                        "Scenario filter: constraint query failed (%s: %s): %r — "
+                        "treating as not satisfied (scenario dropped)",
+                        type(exc).__name__, exc, q_str[:120],
+                    )
                     passed = False
                     break
 

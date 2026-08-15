@@ -347,6 +347,10 @@ class Graph:
         }
         if self.cta is not None:
             result["cta"] = self.cta.to_dict()
+        if self.interpretations:
+            result["interpretations"] = Graph._convert_value(self.interpretations)
+        if self.emergent_properties:
+            result["emergent_properties"] = Graph._convert_value(self.emergent_properties)
         return _strip_defaults(result, _is_top_level=True)
 
     def to_json(self, indent: int = 2) -> str:
@@ -398,14 +402,28 @@ class Graph:
             node_type = NodeType[nd.get("type", "CLAIM")]
         except KeyError:
             node_type = NodeType.CLAIM
+        payload_data = nd.get("payload") or {}
+        timestamps_data = nd.get("timestamps")
+        timestamps = TimeInfo(**timestamps_data) if timestamps_data else TimeInfo()
+        container_id = nd.get("container_id")
         return Node(
             id=node_id,
             type=node_type,
             text=nd.get("text", ""),
-            payload=Payload(text=nd.get("text", "")),
+            payload=Payload(
+                text=payload_data.get("text", nd.get("text", "")),
+                structured=payload_data.get("structured", {}),
+            ),
             span=span,
+            abstraction_level=nd.get("abstraction_level", 1),
+            salience=nd.get("salience", 0.5),
             category=nd.get("category", 2),
             embedding=nd.get("embedding"),
+            timestamps=timestamps,
+            attrs=nd.get("attrs", {}),
+            metadata=nd.get("metadata", {}),
+            container_id=UUID(container_id) if container_id else None,
+            orthogonal_partition=nd.get("orthogonal_partition"),
         )
 
     @staticmethod
@@ -458,6 +476,10 @@ class Graph:
                     source_id=UUID(ed["source_id"]),
                     target_id=UUID(ed["target_id"]),
                     type=_edge_type(ed.get("type", "SUPPORTS")),
+                    weight=ed.get("weight", 0.5),
+                    polarity=ed.get("polarity", 1),
+                    attrs=ed.get("attrs", {}),
+                    metadata=ed.get("metadata", {}),
                 )
                 edges[e.id] = e
         elif new_propositions is not None:
@@ -469,6 +491,10 @@ class Graph:
                         source_id=src_id,
                         target_id=UUID(ed["target_id"]),
                         type=_edge_type(ed.get("type", "SUPPORTS")),
+                        weight=ed.get("weight", 0.5),
+                        polarity=ed.get("polarity", 1),
+                        attrs=ed.get("attrs", {}),
+                        metadata=ed.get("metadata", {}),
                     )
                     edges[e.id] = e
 

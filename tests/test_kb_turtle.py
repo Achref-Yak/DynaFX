@@ -1,6 +1,5 @@
 """Tests for kb/turtle.py — Turtle/N-Triples parser and serializer."""
 
-import pytest
 
 from dynafx.knowledge.model import (
     BlankNode,
@@ -8,7 +7,6 @@ from dynafx.knowledge.model import (
     NamedNode,
     Triple,
     TriplePattern,
-    xsd,
 )
 from dynafx.knowledge.turtle import (
     parse_ntriples,
@@ -17,7 +15,6 @@ from dynafx.knowledge.turtle import (
     serialize_turtle,
     tokenize,
 )
-
 
 # ── Tokenizer tests ──────────────────────────────────────────────
 
@@ -255,6 +252,19 @@ class TestNTriples:
         nt = '<http://ex.org/s> <http://ex.org/p> <http://ex.org/o> .\n'
         store = parse_ntriples(nt)
         assert len(store) == 1
+
+    def test_parse_malformed_line_reported(self, caplog):
+        nt = (
+            '<http://ex.org/s1> <http://ex.org/p1> <http://ex.org/o1> .\n'
+            'this line is not ntriples\n'
+            '<http://ex.org/s2> <http://ex.org/p2>\n'
+        )
+        store = parse_ntriples(nt)
+        assert len(store) == 1
+        assert any(
+            "malformed" in rec.getMessage() or "skipped" in rec.getMessage()
+            for rec in caplog.records
+        )
 
     def test_parse_blank_node(self):
         nt = '<http://ex.org/s> <http://ex.org/p> _:b1 .\n'

@@ -3,13 +3,15 @@
 import json
 from pathlib import Path
 
-import pytest
-
+from dynafx.knowledge.hierarchy import MDM_TYPE_HIERARCHY
 from dynafx.knowledge.loader import (
-    TBox, load_tbox, validate_against_tbox,
-    GENERAL_TBOX, BUILTIN_TBOXES,
+    BUILTIN_TBOXES,
+    CATEGORY_LEVELS,
+    GENERAL_TBOX,
+    TBox,
+    load_tbox,
+    validate_against_tbox,
 )
-from dynafx.knowledge.loader import CATEGORY_LEVELS
 
 
 class TestTBox:
@@ -53,6 +55,18 @@ class TestGeneralTBox:
     def test_has_axioms(self):
         assert len(GENERAL_TBOX.axioms) >= 2
         assert GENERAL_TBOX.axioms[0]["antecedents"] == ["type_EVIDENCE", "edge_SUPPORTS"]
+
+
+class TestMdmTypeHierarchy:
+    def test_hierarchy_exported_and_rooted(self):
+        hierarchy = MDM_TYPE_HIERARCHY
+        assert len(hierarchy.types) >= 5
+        assert any(n.parent is None for n in hierarchy.types.values())
+
+    def test_is_subtype(self):
+        hierarchy = MDM_TYPE_HIERARCHY
+        names = list(hierarchy.types.keys())
+        assert hierarchy.is_subtype(names[0], names[0])
 
 
 class TestBuiltinTBoxes:

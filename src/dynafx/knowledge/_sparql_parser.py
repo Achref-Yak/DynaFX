@@ -76,6 +76,11 @@ _TOKEN_SPEC = [
     ("BOUND", r'(?i:bound)'),
     ("PREFIX", r'(?i:prefix)'),
     ("BASE", r'(?i:base)'),
+    ("COUNT", r'(?i:count)'),
+    ("SUM", r'(?i:sum)'),
+    ("AVG", r'(?i:avg)'),
+    ("MIN", r'(?i:min)'),
+    ("MAX", r'(?i:max)'),
     ("AND", r'(?i:&&)'),
     ("OR", r'(?i:\|\|)'),
     ("NOT", r'(?i:not)'),
@@ -205,6 +210,15 @@ class Slice(AlgebraNode):
     inner: AlgebraNode | None = None
 
 
+@dataclass
+class Aggregate(AlgebraNode):
+    """SPARQL aggregate projection: ``SELECT (COUNT(?s) AS ?c)``."""
+    func: str
+    arg: str | None
+    alias: str
+    inner: AlgebraNode
+
+
 # ── Filter Expression Nodes ──────────────────────────────────────
 
 
@@ -332,15 +346,27 @@ class SPARQLParser:
         self.consume("SELECT")
         distinct = self.skip("DISTINCT")
         vars_: list[str] = []
+        aggregate: Aggregate | None = None
         if self._check("STAR"):
             self.consume("STAR")
         else:
-            while self._check("VAR"):
-                var_tok = self.consume("VAR")
-                vars_.append(var_tok[1][1:])
+            while not self._check("WHERE") and not self._check("EOF"):
+                if self._check("LPAREN"):
+                    aggregate = self._parse_aggregate()
+                elif self._check("VAR"):
+                    var_tok = self.consume("VAR")
+                    vars_.append(var_tok[1][1:])
+                else:
+                    raise SyntaxError(
+                        f"Expected variable or aggregate at position {self.peek()[2]}, "
+                        f"got {self.peek()[0]}"
+                    )
         if self._check("WHERE"):
             self.consume("WHERE")
         inner = self._parse_group_graph_pattern()
+        if aggregate is not None:
+            aggregate.inner = inner
+            return Project([aggregate.alias], aggregate, distinct=distinct)
         if not vars_:
             vars_ = _collect_vars(inner)
         order_conditions: list[tuple[str, str]] = []
@@ -360,6 +386,29 @@ class SPARQLParser:
         if limit is not None or offset is not None:
             result = Slice(limit=limit, offset=offset, inner=result)
         return Project(vars_, result, distinct=distinct)
+
+    def _parse_aggregate(self) -> Aggregate:
+        self.consume("LPAREN")
+        func_tok = self.consume()
+        func = func_tok[0]
+        if func not in ("COUNT", "SUM", "AVG", "MIN", "MAX"):
+            raise SyntaxError(
+                f"Expected aggregate (COUNT/SUM/AVG/MIN/MAX) at position {func_tok[2]}, "
+                f"got {func_tok[0]}"
+            )
+        self.consume("LPAREN")
+        arg: str | None = None
+        if self._check("STAR"):
+            self.consume("STAR")
+        else:
+            var_tok = self.consume("VAR")
+            arg = var_tok[1][1:]
+        self.consume("RPAREN")
+        self.consume("AS")
+        alias_tok = self.consume("VAR")
+        alias = alias_tok[1][1:]
+        self.consume("RPAREN")
+        return Aggregate(func=func, arg=arg, alias=alias, inner=BGP([]))
 
     def _parse_order_by(self, conditions: list[tuple[str, str]]) -> None:
         self.consume("ORDER")

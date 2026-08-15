@@ -32,8 +32,8 @@ Every video is labeled by **what it does**, not by difficulty. Each is self-cont
 | 7 | [Knowledge Graphs: Memory](episodes/07-knowledge-graphs.md) | Store and query facts | 15-18 min |
 | 8 | [The Closed Loop](episodes/08-closed-loop.md) | KB ↔ Simulation connection | 18-22 min |
 | 9 | [Live Disruption](episodes/09-live-disruption.md) | Mid-simulation changes | 15-18 min |
-| 10 | [Automated Decisions](episodes/10-automated-decisions.md) | Production rules that fire themselves | 15-18 min |
-| 11 | [Finding the Best Answer](episodes/11-optimization.md) | Linear programming and calibration | 15-18 min |
+| 10 | [Cognitive Orchestration](episodes/10-cognitive-orchestration.md) | Event-driven orchestration: rules → actions | 15-18 min |
+| 11 | [Signal Cascades](episodes/11-signal-cascades.md) | Leading indicators and feedback | 15-18 min |
 | 12 | [The Full Picture](episodes/12-full-case-study.md) | Enterprise reasoning end-to-end | 20-25 min |
 
 ---

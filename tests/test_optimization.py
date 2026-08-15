@@ -1,20 +1,15 @@
 """Tests for linear programming and optimization."""
 
 import pytest
-import numpy as np
+
 from dynafx.dynamics.dsl import parse_sysd
 from dynafx.dynamics.optimization import (
-    lp_minimize,
-    lp_maximize,
     calibrate,
+    lp_maximize,
+    lp_minimize,
     optimize,
     pareto_optimize,
-    LPResult,
-    CalibrationResult,
-    OptimizationResult,
-    ParetoResult,
 )
-
 
 # ── Linear Programming Tests ──────────────────────────────────
 
@@ -330,5 +325,21 @@ model 'OptDict'
         d = result.to_dict()
         assert "best_params" in d
         assert "best_objective" in d
+
+
+class TestSafeEvalConstraint:
+    def test_invalid_expr_logs_warning(self, caplog):
+        from dynafx.dynamics.optimization import _safe_eval_constraint
+        val = _safe_eval_constraint("Rate +", {"Rate": 0.1})
+        assert val == 0.0
+        assert any(
+            "Constraint evaluation failed" in rec.getMessage()
+            for rec in caplog.records
+        )
+
+    def test_valid_expr(self):
+        from dynafx.dynamics.optimization import _safe_eval_constraint
+        assert _safe_eval_constraint("Rate - 0.05", {"Rate": 0.5}) == 0.45
+        assert _safe_eval_constraint("Rate * 2", {"Rate": 0.5}) == 1.0
 
 

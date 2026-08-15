@@ -15,11 +15,14 @@ Policy Optimization:
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -139,18 +142,6 @@ def lp_maximize(
     if result.success:
         result.objective_value = -result.objective_value
     return result
-
-
-def _simulate_model(model, params: dict[str, float], variable: str) -> list[float]:
-    """Run model simulation and return time series for a variable."""
-    result = model.simulate(params=params)
-    if variable in result["values"]:
-        return result["values"][variable]
-    # Try stocks list
-    if variable in result["stocks"]:
-        idx = result["stocks"].index(variable)
-        return [row[idx] for row in result["values"].values()]
-    return []
 
 
 def calibrate(
@@ -983,5 +974,10 @@ def _safe_eval_constraint(expr: str, params: dict[str, float]) -> float:
     _safe_ns.update(params)
     try:
         return float(eval(expr, _safe_ns))
-    except Exception:
+    except Exception as exc:
+        logger.warning(
+            "Constraint evaluation failed (%s: %s) for expr %r "
+            "with params %r — constraint treated as 0.0",
+            type(exc).__name__, exc, expr, params,
+        )
         return 0.0

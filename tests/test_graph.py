@@ -1,12 +1,21 @@
 import json
-from uuid import UUID, uuid4
-
-import pytest
+from uuid import uuid4
 
 from dynafx.core.models import (
-    Graph, Node, NodeType, Edge, EdgeType, ReasoningMode,
-    Entity, WorldRelation, Interpretation, TypedEdge,
-    Span, ConversationTree,
+    ConversationTree,
+    Edge,
+    EdgeType,
+    EmergentProperty,
+    Entity,
+    Graph,
+    Interpretation,
+    Node,
+    NodeType,
+    ReasoningMode,
+    Span,
+    TimeInfo,
+    TypedEdge,
+    WorldRelation,
 )
 
 
@@ -274,6 +283,93 @@ class TestGraphFromDict:
             assert nid in g_restored.nodes
             assert g_restored.nodes[nid].text == node.text
             assert g_restored.nodes[nid].type == node.type
+
+    def test_roundtrip_preserves_full_node_fields(self):
+        n = Node(
+            type=NodeType.STOCK,
+            text="stock",
+            abstraction_level=3,
+            salience=0.9,
+            category=1,
+            container_id=uuid4(),
+            orthogonal_partition="north",
+            attrs={"unit": "t"},
+            metadata={"owner": "alice"},
+            timestamps=TimeInfo(created=100.0, modified=200.0, temporal_anchor="t0"),
+        )
+        g = Graph(nodes={n.id: n})
+        restored = Graph.from_dict(g.to_dict())
+        rn = restored.nodes[n.id]
+        assert rn.abstraction_level == 3
+        assert rn.salience == 0.9
+        assert rn.category == 1
+        assert rn.container_id == n.container_id
+        assert rn.orthogonal_partition == "north"
+        assert rn.attrs == {"unit": "t"}
+        assert rn.metadata == {"owner": "alice"}
+        assert rn.timestamps.created == 100.0
+        assert rn.timestamps.modified == 200.0
+        assert rn.timestamps.temporal_anchor == "t0"
+
+    def test_roundtrip_preserves_edge_polarity_and_weight(self):
+        n1 = Node(type=NodeType.CLAIM, text="a")
+        n2 = Node(type=NodeType.CLAIM, text="b")
+        e = Edge(
+            source_id=n1.id,
+            target_id=n2.id,
+            type=EdgeType.CAUSES,
+            weight=0.8,
+            polarity=-1,
+            attrs={"role": "input"},
+            metadata={"note": "negates"},
+        )
+        g = Graph(nodes={n1.id: n1, n2.id: n2}, edges=[e])
+        restored = Graph.from_dict(g.to_dict())
+        re = next(iter(restored.edges.values()))
+        assert re.polarity == -1
+        assert re.weight == 0.8
+        assert re.attrs == {"role": "input"}
+        assert re.metadata == {"note": "negates"}
+        assert re.type == EdgeType.CAUSES
+
+    def test_roundtrip_preserves_interpretations(self):
+        n1 = Node(type=NodeType.CLAIM, text="a")
+        n2 = Node(type=NodeType.CLAIM, text="b")
+        te = TypedEdge(source_id=n1.id, target_id=n2.id, type="REINFORCES", metadata={"k": "v"})
+        interp = Interpretation(name="loop", roles={n1.id: "driver"}, edges=[te])
+        g = Graph(
+            nodes={n1.id: n1, n2.id: n2},
+            edges=[Edge(source_id=n1.id, target_id=n2.id, type=EdgeType.CAUSES)],
+            interpretations={"loop": interp},
+        )
+        restored = Graph.from_dict(g.to_dict())
+        assert "loop" in restored.interpretations
+        ri = restored.interpretations["loop"]
+        assert ri.name == "loop"
+        assert ri.roles == {n1.id: "driver"}
+        assert len(ri.edges) == 1
+        assert ri.edges[0].source_id == n1.id
+        assert ri.edges[0].target_id == n2.id
+        assert ri.edges[0].type == "REINFORCES"
+        assert ri.edges[0].metadata == {"k": "v"}
+
+    def test_roundtrip_preserves_emergent_properties(self):
+        ep = EmergentProperty(
+            name="runaway",
+            condition="x > 1",
+            involved_ids=[uuid4()],
+            detected_by="polarity_scan",
+            trace_ref="trace-1",
+        )
+        g = Graph(emergent_properties=[ep])
+        restored = Graph.from_dict(g.to_dict())
+        assert len(restored.emergent_properties) == 1
+        rp = restored.emergent_properties[0]
+        assert rp.name == "runaway"
+        assert rp.condition == "x > 1"
+        assert rp.involved_ids == ep.involved_ids
+        assert rp.detected_by == "polarity_scan"
+        assert rp.trace_ref == "trace-1"
 
     def test_missing_propositions_key_inherits_mode(self):
         data = {"mode": "CAUSAL", "source_text": "test"}

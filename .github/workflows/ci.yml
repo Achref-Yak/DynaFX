@@ -33,3 +33,17 @@ jobs:
 
       - name: Test
         run: uv run pytest --no-header -q
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Docs build (strict)
+        run: uv run mkdocs build --strict
