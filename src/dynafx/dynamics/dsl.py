@@ -1388,6 +1388,45 @@ class SysdModelResult:
             names += sorted(self.abm_metrics_history[-1].keys())
         return sorted(dict.fromkeys(names))
 
+    def queue_stats(self, name: str) -> Any:
+        """Return the typed ``QueueStats`` for one queue (if DES used).
+
+        Raises:
+            KeyError: If DES wasn't used or no queue named ``name`` exists.
+        """
+        if self.des_engine is None:
+            raise KeyError("This result has no DES engine (no queues defined)")
+        return self.des_engine.queue_stats(name)
+
+    def resource_stats(self, name: str) -> Any:
+        """Return the typed ``ResourceStats`` for one resource (if DES used).
+
+        Raises:
+            KeyError: If DES wasn't used or no resource named ``name`` exists.
+        """
+        if self.des_engine is None:
+            raise KeyError("This result has no DES engine (no resources defined)")
+        return self.des_engine.resource_stats(name)
+
+    def stats(self, name: str) -> Any:
+        """Return typed stats for a DES queue or resource by name.
+
+        Only queue/resource names are accepted — it never mixes the two kinds,
+        so reading a resource cannot accidentally yield a queue dict (and vice
+        versa).
+        """
+        if self.des_engine is None:
+            raise KeyError("This result has no DES engine (no queues/resources defined)")
+        if name in self.des_engine.queues:
+            return self.des_engine.queue_stats(name)
+        if name in self.des_engine.resources:
+            return self.des_engine.resource_stats(name)
+        raise KeyError(
+            f"No DES queue or resource named {name!r}. "
+            f"Queues: {sorted(self.des_engine.queues)}; "
+            f"resources: {sorted(self.des_engine.resources)}"
+        )
+
     def plot(
         self,
         path: str,

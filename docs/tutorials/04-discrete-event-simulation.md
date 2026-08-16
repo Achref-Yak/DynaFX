@@ -124,6 +124,31 @@ print(result.des_engine is not None)            # DES present
 print(len(result.abm_engine.instances))         # ABM: 3 patients
 ```
 
+## Typed DES statistics
+
+Installed queues and resources accumulate statistics. Pull them per-instance
+with dedicated typed accessors:
+
+```python
+result = model.simulate()
+
+q = result.queue_stats("Clinic")       # QueueStats — queue fields only
+r = result.resource_stats("Doctor")    # ResourceStats — resource fields only
+
+print(q.avg_length, q.max_length, q.avg_wait)
+print(r.utilization, r.total_granted)
+```
+
+`result.stats(name)` dispatches on the name and never mixes kinds: it returns
+queue stats for a queue name and resource stats for a resource name, raising
+`KeyError` (listing the valid names) otherwise. `Engine.get_all_stats()`
+returns every entry's `summary()` dict, each tagged with a `kind` key:
+
+```python
+for name, s in result.des_engine.get_all_stats().items():
+    print(name, s["kind"])             # "queue" or "resource"
+```
+
 ## What's next
 
 - Store what the system *knows* in [Knowledge Graphs](05-knowledge-graph.md).

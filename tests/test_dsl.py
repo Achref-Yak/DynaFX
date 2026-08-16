@@ -537,6 +537,44 @@ def test_series_lists_available_names_on_miss():
         assert "X" in str(exc)
 
 
+# ── typed DES stats on results ──────────────────────────────────
+
+
+def test_result_des_stats_forwarding():
+    model = SysdModel(dt=0.5, t_span=(0, 10))
+    model.queue("jobs", capacity=-1, service_time="1.0", servers=1,
+                arrival_rate="2")
+    model.resource("doctor", capacity=1)
+    result = model.simulate()
+    q = result.queue_stats("jobs")
+    r = result.resource_stats("doctor")
+    assert q.summary()["kind"] == "queue"
+    assert r.summary()["kind"] == "resource"
+    # result.stats() picks the right kind without mixing
+    assert result.stats("jobs").summary()["kind"] == "queue"
+    assert result.stats("doctor").summary()["kind"] == "resource"
+
+
+def test_result_stats_no_des_raises():
+    model = SysdModel(dt=0.5, t_span=(0, 2))
+    with model.stock("X", 10) as s:
+        s.outflow("drain", "0.1")
+    result = model.simulate()
+    with pytest.raises(KeyError):
+        result.stats("anything")
+
+
+def test_result_stats_missing_name():
+    model = SysdModel(dt=0.5, t_span=(0, 10))
+    model.queue("jobs", capacity=-1, service_time="1.0", servers=1,
+                arrival_rate="2")
+    result = model.simulate()
+    try:
+        result.stats("nope")
+    except KeyError as exc:
+        assert "jobs" in str(exc)
+
+
 def test_python_api_des():
     model = SysdModel()
     model.queue("orders", capacity=50, service_time="5.0", arrival_rate="10", initial=5)

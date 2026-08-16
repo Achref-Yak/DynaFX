@@ -753,6 +753,45 @@ class TestDESEngine:
         assert "q1" in stats
         assert "r1" in stats
 
+    def test_get_all_stats_kind_tags(self):
+        engine = DESEngine()
+        engine.add_queue(Queue("q1"))
+        engine.add_resource(Resource("r1"))
+        stats = engine.get_all_stats()
+        assert stats["q1"]["kind"] == "queue"
+        assert stats["r1"]["kind"] == "resource"
+        # queue summaries carry queue-only fields
+        assert "total_arrivals" in stats["q1"]
+
+    def test_queue_stats_typed(self):
+        engine = DESEngine()
+        engine.add_queue(Queue("q1"))
+        from dynafx.dynamics.des import QueueStats
+
+        assert isinstance(engine.queue_stats("q1"), QueueStats)
+        assert engine.queue_stats("q1").summary()["kind"] == "queue"
+
+    def test_resource_stats_typed(self):
+        engine = DESEngine()
+        engine.add_resource(Resource("r1"))
+        from dynafx.dynamics.des import ResourceStats
+
+        assert isinstance(engine.resource_stats("r1"), ResourceStats)
+        assert engine.resource_stats("r1").summary()["kind"] == "resource"
+
+    def test_queue_stats_missing_name(self):
+        engine = DESEngine()
+        engine.add_queue(Queue("q1"))
+        try:
+            engine.queue_stats("nope")
+        except KeyError as exc:
+            assert "q1" in str(exc)
+
+    def test_resource_stats_missing_name(self):
+        engine = DESEngine()
+        with pytest.raises(KeyError):
+            engine.resource_stats("nope")
+
     def test_events_outside_window_not_processed(self):
         engine = DESEngine()
         processed = []

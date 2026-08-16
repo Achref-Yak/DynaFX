@@ -53,6 +53,7 @@ class QueueStats:
 
     def summary(self) -> dict[str, Any]:
         return {
+            "kind": "queue",
             "name": self.name,
             "total_arrivals": self.total_arrivals,
             "total_departures": self.total_departures,
@@ -93,6 +94,7 @@ class ResourceStats:
 
     def summary(self) -> dict[str, Any]:
         return {
+            "kind": "resource",
             "name": self.name,
             "capacity": self.capacity,
             "cost_per_unit": self.cost_per_unit,
@@ -877,13 +879,46 @@ class DESEngine:
         return metrics
 
     def get_all_stats(self) -> dict[str, Any]:
-        """Return all queue and resource statistics."""
+        """Return all queue and resource statistics.
+
+        Entries are dicts produced by ``QueueStats.summary()`` /
+        ``ResourceStats.summary()``, each tagged with a ``kind`` key
+        (``"queue"`` or ``"resource"``) so callers can branch on the subset
+        of fields available.
+        """
         stats: dict[str, Any] = {}
         for name, q in self.queues.items():
             stats[name] = q.stats.summary()
         for name, r in self.resources.items():
             stats[name] = r.stats.summary()
         return stats
+
+    def queue_stats(self, name: str) -> QueueStats:
+        """Return the typed ``QueueStats`` for one queue.
+
+        Raises:
+            KeyError: If no queue named ``name`` exists (lists available queues).
+        """
+        q = self.queues.get(name)
+        if q is None:
+            raise KeyError(
+                f"No queue named {name!r}. Available queues: {sorted(self.queues)}"
+            )
+        return q.stats
+
+    def resource_stats(self, name: str) -> ResourceStats:
+        """Return the typed ``ResourceStats`` for one resource.
+
+        Raises:
+            KeyError: If no resource named ``name`` exists (lists available resources).
+        """
+        r = self.resources.get(name)
+        if r is None:
+            raise KeyError(
+                f"No resource named {name!r}. "
+                f"Available resources: {sorted(self.resources)}"
+            )
+        return r.stats
 
     @property
     def event_log(self) -> list[tuple[float, str, dict[str, Any]]]:
