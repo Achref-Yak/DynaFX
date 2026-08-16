@@ -87,24 +87,29 @@ class ScenarioComparison:
 
     def plot_comparison(
         self,
-        path: str,
+        path: str = "",
         stocks: list[str] | None = None,
         title: str | None = None,
         return_fig: bool = False,
-    ) -> None:
+    ) -> Any | None:
         """Overlay all scenarios for each specified stock.
 
         Args:
-            path: Output path. Ignored when return_fig=True.
+            path: Output path. Empty string or return_fig=True returns the figure.
             stocks: Stock names to include (default: all).
             title: Optional plot title.
             return_fig: If True, return the Figure instead of saving.
+
+        Returns:
+            Matplotlib figure if ``return_fig`` or ``path`` is empty, else ``None``.
         """
         plt = self._get_mpl()
         if plt is None:
-            return
+            raise ImportError(
+                "matplotlib is required for plotting. Install with: pip install matplotlib"
+            )
         if not self.scenarios:
-            return
+            raise ValueError("No scenarios to plot — run at least one simulation first")
         stock_names = stocks or self.scenarios[0].result.stocks
         t = self.times
         n = len(stock_names)
@@ -122,36 +127,42 @@ class ScenarioComparison:
             ax.grid(True)
         axes[-1].set_xlabel("Time")
         fig.tight_layout()
-        if return_fig:
+        if return_fig or not path:
             return fig
         fig.savefig(path)
         plt.close(fig)
+        return None
 
     # ── Deviation plot ────────────────────────────────────────────
 
     def plot_deviation(
         self,
-        path: str,
+        path: str = "",
         stocks: list[str] | None = None,
         baseline: int = 0,
         mode: str = "absolute",
         title: str | None = None,
         return_fig: bool = False,
-    ) -> None:
+    ) -> Any | None:
         """Plot deviation of each scenario from a baseline.
 
         Args:
-            path: Output path. Ignored when return_fig=True.
+            path: Output path. Empty string or return_fig=True returns the figure.
             stocks: Stock names to include (default: all).
             baseline: Index of the baseline scenario (default: 0).
             mode: "absolute" or "relative" (fractional deviation).
             return_fig: If True, return the Figure instead of saving.
+
+        Returns:
+            Matplotlib figure if ``return_fig`` or ``path`` is empty, else ``None``.
         """
         plt = self._get_mpl()
         if plt is None:
-            return
+            raise ImportError(
+                "matplotlib is required for plotting. Install with: pip install matplotlib"
+            )
         if not self.scenarios:
-            return
+            raise ValueError("No scenarios to plot — run at least one simulation first")
         baseline_sc = self.scenarios[baseline]
         stock_names = stocks or self.scenarios[0].result.stocks
         t = self.times
@@ -181,23 +192,24 @@ class ScenarioComparison:
             ax.grid(True)
         axes[-1].set_xlabel("Time")
         fig.tight_layout()
-        if return_fig:
+        if return_fig or not path:
             return fig
         fig.savefig(path)
         plt.close(fig)
+        return None
 
     # ── Tornado diagram ───────────────────────────────────────────
 
     def tornado(
         self,
-        path: str,
-        param_ranges: dict[str, tuple[float, float]],
-        output_stock: str,
+        path: str = "",
+        param_ranges: dict[str, tuple[float, float]] | None = None,
+        output_stock: str = "",
         t: float | None = None,
         n_steps: int = 20,
         title: str | None = None,
         return_fig: bool = False,
-    ) -> None:
+    ) -> Any | None:
         """Generate a tornado diagram for parameter sensitivity.
 
         Each parameter is varied between its low and high bound
@@ -205,18 +217,23 @@ class ScenarioComparison:
         The output_stock value at time t is measured for each extreme.
 
         Args:
-            path: Output path. Ignored when return_fig=True.
+            path: Output path. Empty string or return_fig=True returns the figure.
             param_ranges: param_name -> (low, high).
             output_stock: The stock whose value to measure.
             t: Time point to measure (default: final time).
             n_steps: Number of steps between low and high for the sweep.
             return_fig: If True, return the Figure instead of saving.
+
+        Returns:
+            Matplotlib figure if ``return_fig`` or ``path`` is empty, else ``None``.
         """
         plt = self._get_mpl()
         if plt is None:
-            return
+            raise ImportError(
+                "matplotlib is required for plotting. Install with: pip install matplotlib"
+            )
         if not self.scenarios:
-            return
+            raise ValueError("No scenarios to plot — run at least one simulation first")
 
         baseline_sc = self.scenarios[0]
         base_params = dict(baseline_sc.params)
@@ -269,10 +286,11 @@ class ScenarioComparison:
                    color="gray", linestyle="--", linewidth=0.5)
         ax.grid(True, axis="x")
         fig.tight_layout()
-        if return_fig:
-            return fig, impacts
+        if return_fig or not path:
+            return fig
         fig.savefig(path)
         plt.close(fig)
+        return None
 
     # ── Grading per scenario ───────────────────────────────────────
 

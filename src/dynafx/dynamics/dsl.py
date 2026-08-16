@@ -1429,70 +1429,120 @@ class SysdModelResult:
 
     def plot(
         self,
-        path: str,
+        path: str = "",
         stocks: list[str] | None = None,
         subplots: bool = False,
         title: str | None = None,
-    ) -> None:
+        figsize: tuple[float, float] = (8, 4),
+        return_fig: bool = False,
+    ) -> Any | None:
+        """Plot tracked quantities (stocks, auxes, DES or ABM metrics).
+
+        Names are resolved via :meth:`series`, so ``stocks`` may name any
+        tracked quantity — a stock, an aux, a ``{queue}_{metric}`` DES metric,
+        or an ``{AgentType}_{prop}_{agg}`` ABM metric.
+
+        Args:
+            path: Save path. Empty string (or ``return_fig=True``) returns
+                the figure instead of saving.
+            stocks: Quantity names to plot (default: all stocks).
+            subplots: One subplot per series instead of overlaid lines.
+            title: Optional title.
+            figsize: Figure dimensions.
+            return_fig: If True, return the Figure instead of saving.
+
+        Returns:
+            Matplotlib figure if ``return_fig`` or ``path`` is empty, else ``None``.
+        """
         try:
             import matplotlib
             matplotlib.use("Agg")
             import matplotlib.pyplot as plt
         except ImportError:
-            print("matplotlib not installed — skipping plot. Install with: pip install matplotlib")
-            return
-        names = stocks or self.stocks
+            raise ImportError(
+                "matplotlib is required for plotting. Install with: pip install matplotlib"
+            ) from None
+        names = list(stocks) if stocks else list(self.stocks)
+        if not names:
+            raise ValueError("No quantities available to plot")
         if subplots:
-            fig, axes = plt.subplots(len(names), 1, figsize=(8, 2 * len(names)), sharex=True)
+            fig, axes = plt.subplots(len(names), 1, figsize=(figsize[0], 2 * len(names)), sharex=True)
             if len(names) == 1:
                 axes = [axes]
             for ax, name in zip(axes, names, strict=False):
-                ax.plot(self.times, self.values[name], label=name)
+                _, v = self.series(name)
+                ax.plot(self.times, v, label=name)
                 ax.set_ylabel(name)
                 ax.legend()
                 ax.grid(True)
             axes[-1].set_xlabel("Time")
         else:
-            fig, ax = plt.subplots(figsize=(8, 4))
+            fig, ax = plt.subplots(figsize=figsize)
             for name in names:
-                ax.plot(self.times, self.values[name], label=name)
+                _, v = self.series(name)
+                ax.plot(self.times, v, label=name)
             ax.set_xlabel("Time")
             ax.set_ylabel("Value")
             ax.set_title(title or self.model_name)
             ax.legend()
             ax.grid(True)
         fig.tight_layout()
+        if return_fig or not path:
+            return fig
         fig.savefig(path)
         plt.close(fig)
+        return None
 
     def plot_with_bands(
         self,
-        path: str,
-        mean: dict[str, list[float]],
-        std: dict[str, list[float]],
-        p5: dict[str, list[float]],
-        p95: dict[str, list[float]],
-    ) -> None:
+        path: str = "",
+        mean: dict[str, list[float]] | None = None,
+        std: dict[str, list[float]] | None = None,
+        p5: dict[str, list[float]] | None = None,
+        p95: dict[str, list[float]] | None = None,
+        return_fig: bool = False,
+    ) -> Any | None:
+        """Plot each stock as a mean line with 5th–95th percentile band.
+
+        Args:
+            path: Save path. Empty string (or ``return_fig=True``) returns
+                the figure instead of saving.
+            mean/std/p5/p95: dicts of ``{stock: values}`` (e.g. from a
+                sensitivity ensemble). ``mean`` is required.
+            return_fig: If True, return the Figure instead of saving.
+
+        Returns:
+            Matplotlib figure if ``return_fig`` or ``path`` is empty, else ``None``.
+        """
+        if mean is None:
+            raise ValueError("mean is required — pass per-stock mean series")
         try:
             import matplotlib
             matplotlib.use("Agg")
             import matplotlib.pyplot as plt
         except ImportError:
-            print("matplotlib not installed — skipping plot. Install with: pip install matplotlib")
-            return
+            raise ImportError(
+                "matplotlib is required for plotting. Install with: pip install matplotlib"
+            ) from None
+        p95 = p95 or {}
+        p5 = p5 or {}
         fig, ax = plt.subplots(figsize=(10, 5))
         t = self.times
         for stock in self.stocks:
             ax.plot(t, mean[stock], label=stock)
-            ax.fill_between(t, p5[stock], p95[stock], alpha=0.2)
+            if stock in p5 and stock in p95:
+                ax.fill_between(t, p5[stock], p95[stock], alpha=0.2)
         ax.set_xlabel("Time")
         ax.set_ylabel("Value")
         ax.set_title(f"{self.model_name} — Sensitivity (5th–95th percentile)")
         ax.legend()
         ax.grid(True)
         fig.tight_layout()
+        if return_fig or not path:
+            return fig
         fig.savefig(path)
         plt.close(fig)
+        return None
 
     def export_results(self, path: str) -> None:
         """Export simulation results to a CSV file.

@@ -168,9 +168,23 @@ class TestPlots:
             ScenarioDef("High", {"pop_growth": 0.05}),
         ])
         out = tmp_path / "comp.png"
-        comp.plot_comparison(str(out), stocks=["Population"])
-        # matplotlib may or may not be installed — just test no crash
-        assert True
+        ret = comp.plot_comparison(str(out), stocks=["Population"])
+        assert ret is None
+        assert out.exists()
+
+    def test_plot_comparison_returns_fig(self, model):
+        comp = ScenarioComparison(model, [
+            ScenarioDef("Base", {}),
+            ScenarioDef("High", {"pop_growth": 0.05}),
+        ])
+        fig = comp.plot_comparison("", stocks=["Population"])
+        assert fig is not None
+        fig2 = comp.plot_comparison(return_fig=True, stocks=["Population"])
+        assert fig2 is not None
+        import matplotlib.pyplot as plt
+
+        plt.close(fig)
+        plt.close(fig2)
 
     def test_plot_deviation_no_error(self, model, tmp_path):
         comp = ScenarioComparison(model, [
@@ -178,9 +192,10 @@ class TestPlots:
             ScenarioDef("High", {"pop_growth": 0.05}),
         ])
         out = tmp_path / "dev.png"
-        comp.plot_deviation(str(out), stocks=["Population"],
-                            mode="absolute")
-        assert True
+        ret = comp.plot_deviation(str(out), stocks=["Population"],
+                                  mode="absolute")
+        assert ret is None
+        assert out.exists()
 
     def test_plot_deviation_relative(self, model, tmp_path):
         comp = ScenarioComparison(model, [
@@ -188,9 +203,21 @@ class TestPlots:
             ScenarioDef("High", {"pop_growth": 0.05}),
         ])
         out = tmp_path / "dev_rel.png"
-        comp.plot_deviation(str(out), stocks=["Population"],
-                            mode="relative")
-        assert True
+        ret = comp.plot_deviation(str(out), stocks=["Population"],
+                                  mode="relative")
+        assert ret is None
+        assert out.exists()
+
+    def test_plot_deviation_returns_fig(self, model):
+        comp = ScenarioComparison(model, [
+            ScenarioDef("Base", {}),
+            ScenarioDef("High", {"pop_growth": 0.05}),
+        ])
+        fig = comp.plot_deviation("", stocks=["Population"])
+        assert fig is not None
+        import matplotlib.pyplot as plt
+
+        plt.close(fig)
 
     def test_tornado_no_error(self, model, tmp_path):
         comp = ScenarioComparison(model, [

@@ -119,21 +119,27 @@ The DES engine if queues/resources were defined, otherwise `None`.
 
 ## Methods
 
-### `plot(path, stocks=None, subplots=False, title=None)`
+### `plot(path="", stocks=None, subplots=False, title=None, figsize=(8,4), return_fig=False)`
 
-Save a plot of stock trajectories to a file.
+Plot trajectories of tracked quantities (stocks, auxes, DES metrics, ABM
+metrics) to a file or return the Figure. Series names are resolved via
+`result.series()`, so any valid series name works.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `path` | `str` | — | Output file path (required) |
-| `stocks` | `list[str] \| None` | `None` | Stocks to plot (default: all) |
-| `subplots` | `bool` | `False` | If `True`, each stock gets its own subplot |
+| `path` | `str` | `""` | Output file path; empty string returns the Figure |
+| `stocks` | `list[str] \| None` | `None` | Series names to plot (default: all stocks) |
+| `subplots` | `bool` | `False` | If `True`, each series gets its own subplot |
 | `title` | `str \| None` | `None` | Plot title (default: model name) |
+| `figsize` | `tuple[float, float]` | `(8, 4)` | Figure dimensions |
+| `return_fig` | `bool` | `False` | If `True`, return the Figure instead of saving |
 
-**Returns:** `None` (saves file to disk)
+**Returns:** Matplotlib `Figure` if `return_fig` is True or `path` is empty,
+otherwise `None` (saves file to disk).
 
 **Raises:**
 - `ImportError` — If matplotlib is not installed
+- `ValueError` — If no quantities are available to plot
 
 **Example:**
 ```python
@@ -143,28 +149,34 @@ result.plot("output.png")
 # Plot specific stocks
 result.plot("inventory.png", stocks=["Inventory"])
 
+# Plot a DES metric alongside an aux (resolved via series())
+result.plot("queue.png", stocks=["queue_length", "congestion"])
+
 # Plot with subplots (each stock separate)
 result.plot("all_stocks.png", subplots=True)
 
-# Custom title
-result.plot("results.png", title="Scenario A Results")
+# Return the Figure for inline display (notebooks)
+fig = result.plot(return_fig=True)
+display(fig)  # or plt.show()
 ```
 
 ---
 
-### `plot_with_bands(path, mean, std, p5, p95)`
+### `plot_with_bands(path="", mean, std=None, p5=None, p95=None, return_fig=False)`
 
 Plot trajectories with confidence bands (for sensitivity analysis).
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `path` | `str` | — | Output file path (required) |
-| `mean` | `dict[str, list[float]]` | — | Mean trajectories |
-| `std` | `dict[str, list[float]]` | — | Standard deviation |
-| `p5` | `dict[str, list[float]]` | — | 5th percentile |
-| `p95` | `dict[str, list[float]]` | — | 95th percentile |
+| `path` | `str` | `""` | Output file path; empty string returns the Figure |
+| `mean` | `dict[str, list[float]]` | — | Mean trajectories (required) |
+| `std` | `dict[str, list[float]] \| None` | `None` | Standard deviation |
+| `p5` | `dict[str, list[float]] \| None` | `None` | 5th percentile |
+| `p95` | `dict[str, list[float]] \| None` | `None` | 95th percentile |
+| `return_fig` | `bool` | `False` | If `True`, return the Figure instead of saving |
 
-**Returns:** `None` (saves file to disk)
+**Returns:** Matplotlib `Figure` if `return_fig` is True or `path` is empty,
+otherwise `None` (saves file to disk).
 
 **Example:**
 ```python

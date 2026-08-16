@@ -575,6 +575,95 @@ def test_result_stats_missing_name():
         assert "jobs" in str(exc)
 
 
+# ── plotting contract ───────────────────────────────────────────
+
+
+def test_plot_returns_fig_when_no_path():
+    model = SysdModel(dt=0.5, t_span=(0, 2))
+    with model.stock("X", 10) as s:
+        s.outflow("drain", "0.1")
+    result = model.simulate()
+    fig = result.plot()
+    assert fig is not None
+    import matplotlib.pyplot as plt
+
+    plt.close(fig)
+
+
+def test_plot_return_fig_flag():
+    model = SysdModel(dt=0.5, t_span=(0, 2))
+    with model.stock("X", 10) as s:
+        s.outflow("drain", "0.1")
+    result = model.simulate()
+    fig = result.plot(path="ignored.png", return_fig=True)
+    assert fig is not None
+    import matplotlib.pyplot as plt
+
+    plt.close(fig)
+
+
+def test_plot_saves_and_returns_none(tmp_path):
+    model = SysdModel(dt=0.5, t_span=(0, 2))
+    with model.stock("X", 10) as s:
+        s.outflow("drain", "0.1")
+    result = model.simulate()
+    out = tmp_path / "plot.png"
+    ret = result.plot(str(out))
+    assert ret is None
+    assert out.exists()
+
+
+def test_plot_resolves_aux_and_des_via_series():
+    model = SysdModel(dt=0.5, t_span=(0, 5))
+    with model.stock("X", 10) as s:
+        s.outflow("drain", "0.1")
+    model.aux("watch", "X")
+    model.queue("jobs", capacity=-1, service_time="1.0", servers=1,
+                arrival_rate="2")
+    result = model.simulate()
+    import matplotlib.pyplot as plt
+
+    fig = result.plot(stocks=["watch", "jobs_length"])
+    assert fig is not None
+    plt.close(fig)
+
+
+def test_plot_with_bands_returns_fig_and_saves():
+    model = SysdModel(dt=0.5, t_span=(0, 2))
+    with model.stock("X", 10) as s:
+        s.outflow("drain", "0.1")
+    result = model.simulate()
+    mean = {"X": result.values["X"]}
+    p5 = {"X": [v * 0.9 for v in mean["X"]]}
+    p95 = {"X": [v * 1.1 for v in mean["X"]]}
+    import matplotlib.pyplot as plt
+
+    fig = result.plot_with_bands(mean=mean, p5=p5, p95=p95)
+    assert fig is not None
+    plt.close(fig)
+    ret = result.plot_with_bands(str("/tmp/opencode/bands.png"), mean=mean, p5=p5, p95=p95)
+    assert ret is None
+
+
+def test_plot_missing_matplotlib_raises(tmp_path, monkeypatch):
+    import builtins
+
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "matplotlib":
+            raise ImportError("no matplotlib")
+        return real_import(name, *args, **kwargs)
+
+    model = SysdModel(dt=0.5, t_span=(0, 2))
+    with model.stock("X", 10) as s:
+        s.outflow("drain", "0.1")
+    result = model.simulate()
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    with pytest.raises(ImportError):
+        result.plot()
+
+
 def test_python_api_des():
     model = SysdModel()
     model.queue("orders", capacity=50, service_time="5.0", arrival_rate="10", initial=5)
