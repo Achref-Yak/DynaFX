@@ -243,6 +243,13 @@ class _AgentCtx:
         pass
 
     def prop(self, name: str, initial: float = 0.0, min_val: float = 0.0, max_val: float = 1e18) -> _AgentCtx:
+        if isinstance(initial, str):
+            raise TypeError(
+                f"agent property '{name}' initial={initial!r} is a string; "
+                f"agent properties are numeric. Use a number here (e.g. "
+                f"a.prop('{name}', 0.5)) — expression-based simulation is provided "
+                f"by rules and strategies, not prop initializers."
+            )
         self._agent.properties.append(AgentPropDef(name, initial, min_val, max_val))
         return self
 
@@ -747,6 +754,7 @@ class SysdModel:
         dt: float | None = None,
         params: dict[str, Any] | None = None,
         kb: Any = None,
+        raise_on_compile_error: bool = False,
     ) -> SysdModelResult:
         """Run a simulation and return the trajectory.
 
@@ -757,6 +765,9 @@ class SysdModel:
             params: Parameter overrides (name → value).
             kb: Optional TripleStore — enables KB_QUERY/KB_ASSERT builtins
                 for expressions, ABM rules, and DES rates.
+            raise_on_compile_error: If True, a DES `service_time`/`arrival_rate`
+                expression that fails to compile raises instead of the default
+                fail-soft behavior (warn + fallback service time / no injection).
 
         Returns:
             SysdModelResult with stocks, values, times, and optional
@@ -834,6 +845,11 @@ class SysdModel:
                             _c, {"__builtins__": {}}, {**params, **dict(zip(stock_names, y0, strict=False))}
                         )
                     except Exception as _e:
+                        if raise_on_compile_error:
+                            raise ValueError(
+                                f"Failed to compile service_time '{q.service_time}' "
+                                f"for queue '{q.name}' — {_e}"
+                            ) from _e
                         logger.warning("Failed to compile service_time '%s' — %s", q.service_time, _e)
                 des_engine.add_queue(q_obj)
             for r in self.resources:
@@ -863,6 +879,11 @@ class SysdModel:
                         des_arrival_injectors.append((q.name, ar_code))
                         des_arrival_accum[q.name] = 0.0
                     except Exception as _e:
+                        if raise_on_compile_error:
+                            raise ValueError(
+                                f"Failed to compile arrival_rate '{q.arrival_rate}' "
+                                f"for queue '{q.name}' — {_e}"
+                            ) from _e
                         logger.warning("Failed to compile arrival_rate '%s' — %s", q.arrival_rate, _e)
 
         t0, t_end = t_span

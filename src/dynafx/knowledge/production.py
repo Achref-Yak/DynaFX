@@ -135,6 +135,20 @@ class SparqlCondition(Condition):
     query: str
     min_results: int = 1
 
+    def __post_init__(self) -> None:
+        """Parse the query at construction time so bad SPARQL fails loudly."""
+        if not isinstance(self.query, str) or not self.query.strip():
+            raise ValueError(
+                "SparqlCondition.query must be a non-empty SPARQL query string"
+            )
+        try:
+            _parse_sparql(self.query)
+        except Exception as _exc:
+            raise ValueError(
+                f"SparqlCondition query failed to parse: {self.query[:120]!r} "
+                f"({type(_exc).__name__}: {_exc})"
+            ) from _exc
+
     def evaluate(
         self,
         store: TripleStore,
@@ -175,6 +189,24 @@ class ComparisonCondition(Condition):
         "<": operator.lt, "<=": operator.le,
         "==": operator.eq, "!=": operator.ne,
     }
+
+    def __post_init__(self) -> None:
+        if self.op not in self._OPS:
+            raise ValueError(
+                f"ComparisonCondition op={self.op!r} is invalid; "
+                f"expected one of {sorted(self._OPS)}"
+            )
+        for name, val in (("left", self.left), ("right", self.right)):
+            if isinstance(val, str) and not val.startswith(("?", "$")):
+                raise ValueError(
+                    f"ComparisonCondition.{name}={val!r} is invalid; "
+                    "expected a number or a bound variable ('?name' / '$name')"
+                )
+            elif not isinstance(val, (int, float, str)):
+                raise TypeError(
+                    f"ComparisonCondition.{name} must be a number, '?var', or "
+                    f"'$var', got {type(val).__name__}"
+                )
 
     def evaluate(
         self,
@@ -340,6 +372,20 @@ class TripleAction(Action):
     belief: float = 1.0
     disbelief: float = 0.0
     uncertainty: float = 0.0
+
+    def __post_init__(self) -> None:
+        """Validate node types at construction so bad triples fail loud & early."""
+        for name, val in (("subject", self.subject),
+                          ("predicate", self.predicate),
+                          ("object_", self.object_)):
+            if isinstance(val, (NamedNode, BlankNode, Literal)):
+                continue
+            if isinstance(val, str) and val.startswith("?"):
+                continue  # bound-variable reference resolved at fire time
+            raise TypeError(
+                f"TripleAction.{name}={val!r} must be a NamedNode, BlankNode, "
+                f"Literal, or a '?var' reference; got {type(val).__name__}"
+            )
 
     def execute(
         self,

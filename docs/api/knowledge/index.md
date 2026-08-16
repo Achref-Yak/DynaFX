@@ -101,11 +101,24 @@ engine.run()  # Applies inference to fixpoint
 
 ```python
 from dynafx.knowledge import ProductionRule, ProductionRuleEngine, TripleCondition, TripleAction
+from dynafx.knowledge.model import NamedNode, Literal
+from dynafx.knowledge.inference import InferencePattern
 
 rule = ProductionRule(
     name="alert",
-    condition=TripleCondition(predicate="ex:revenue", object_=Literal(1000)),
-    actions=[TripleAction(predicate="ex:alert", object_=Literal(True))],
+    body=[
+        TripleCondition(InferencePattern(
+            predicate=NamedNode("http://ex.org/revenue"),
+            object_=Literal(1000),
+        )),
+    ],
+    head=[
+        TripleAction(
+            subject=NamedNode("http://ex.org/system"),
+            predicate=NamedNode("http://ex.org/alert"),
+            object_=Literal(True),
+        ),
+    ],
 )
 engine = ProductionRuleEngine(store)
 engine.add_rule(rule)

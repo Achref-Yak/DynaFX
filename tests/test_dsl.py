@@ -1,7 +1,8 @@
 """Tests for the .sysd DSL parser and simulation."""
 
-from dynafx.dynamics.dsl import SysdModel, parse_sysd, ExprParser, _compile_system
+import pytest
 
+from dynafx.dynamics.dsl import ExprParser, SysdModel, _compile_system, parse_sysd
 
 # ── Expression parser ─────────────────────────────────────────
 
@@ -455,6 +456,22 @@ def test_python_api_agent():
     assert len(model.agents[0].rules) == 1
     assert model.agents[0].rules[0].name == "churn"
     assert model.agents[0].rules[0].priority == 1
+
+
+def test_python_api_agent_prop_rejects_string_initial():
+    """Phase 1 UX: string prop initializers fail at definition time."""
+    model = SysdModel()
+    with pytest.raises(TypeError), model.agent("patient", 10) as a:
+        a.prop("severity", "random()", min_val=0, max_val=1)
+
+
+def test_des_compile_error_opt_in_raises():
+    """Phase 1 UX: raise_on_compile_error surfaces bad DES expressions."""
+    model = SysdModel(dt=0.1, t_span=(0, 10))
+    model.queue("jobs", capacity=-1, service_time="NOT_A_FUNCTION((", servers=1,
+                arrival_rate="5")
+    with pytest.raises(ValueError):
+        model.simulate(raise_on_compile_error=True)
 
 
 def test_python_api_des():

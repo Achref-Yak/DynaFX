@@ -134,11 +134,24 @@ Return status of all registered rules.
 ```python
 from dynafx.bridge import CognitiveOrchestrator
 from dynafx.knowledge import ProductionRule, TripleCondition, TripleAction
+from dynafx.knowledge.model import NamedNode, Literal
+from dynafx.knowledge.inference import InferencePattern
 
 rule = ProductionRule(
     name="delay_alert",
-    condition=TripleCondition(predicate="ex:delay_days", object_=Literal(5)),
-    actions=[TripleAction(predicate="ex:alert", object_=Literal(True))],
+    body=[
+        TripleCondition(InferencePattern(
+            predicate=NamedNode("http://ex.org/delay_days"),
+            object_=Literal(5),
+        )),
+    ],
+    head=[
+        TripleAction(
+            subject=NamedNode("http://ex.org/system"),
+            predicate=NamedNode("http://ex.org/alert"),
+            object_=Literal(True),
+        ),
+    ],
 )
 
 orb = CognitiveOrchestrator(store)
