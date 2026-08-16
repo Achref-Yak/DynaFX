@@ -474,6 +474,69 @@ def test_des_compile_error_opt_in_raises():
         model.simulate(raise_on_compile_error=True)
 
 
+# ── series() canonical accessor ──────────────────────────────────
+
+
+def test_series_stock_aligned():
+    model = SysdModel(dt=0.5, t_span=(0, 2))
+    with model.stock("X", 10) as s:
+        s.outflow("drain", "X * 0.1")
+    result = model.simulate()
+    t, v = result.series("X")
+    assert t == result.times
+    assert v == result.values["X"]
+    assert len(t) == len(v)
+
+
+def test_series_aux():
+    model = SysdModel(dt=0.5, t_span=(0, 2))
+    with model.stock("X", 10) as s:
+        s.outflow("drain", "0.1")
+    model.aux("watch", "X")
+    result = model.simulate()
+    t, v = result.series("watch")
+    assert v == result.aux_values["watch"]
+    assert len(t) == len(v)
+
+
+def test_series_des_skips_seed_and_fills_sparse():
+    model = SysdModel(dt=0.5, t_span=(0, 5))
+    model.queue("jobs", capacity=-1, service_time="1.0", servers=2,
+                arrival_rate="5")
+    result = model.simulate()
+    # des_metrics_history[0] is the empty seed dict — series() must not expose it.
+    t_len, q = result.series("jobs_length")
+    assert len(t_len) == len(q) == len(result.times)
+    assert q[0] >= 0  # seed step filled, not KeyError
+    # `_departed` is sparse (only present on departure steps) — fills with 0.
+    t_dep, dep = result.series("jobs_departed")
+    assert len(t_dep) == len(dep) == len(result.times)
+    assert all(d >= 0 for d in dep)
+
+
+def test_series_unknown_raises():
+    model = SysdModel(dt=0.5, t_span=(0, 2))
+    with model.stock("X", 10) as s:
+        s.outflow("drain", "0.1")
+    result = model.simulate()
+    with pytest.raises(KeyError):
+        result.series("nope")
+    # existing names still resolve
+    _, v = result.series("X")
+    assert v == result.values["X"]
+
+
+def test_series_lists_available_names_on_miss():
+    model = SysdModel(dt=0.5, t_span=(0, 2))
+    with model.stock("X", 10) as s:
+        s.outflow("drain", "0.1")
+    result = model.simulate()
+    try:
+        result.series("nope")
+    except KeyError as exc:
+        assert "X" in str(exc)
+
+
 def test_python_api_des():
     model = SysdModel()
     model.queue("orders", capacity=50, service_time="5.0", arrival_rate="10", initial=5)

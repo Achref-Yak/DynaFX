@@ -69,6 +69,32 @@ result = model.simulate()
 print(max(result.aux_values["watch"]))    # peak queue length > 0
 ```
 
+## Reading aligned time series: `result.series(name)`
+
+`series()` is the canonical way to pull a time series from a result, regardless of
+whether the quantity is a stock, an aux, a DES metric (`{queue}_{metric}`), or an
+ABM metric (`{AgentType}_{prop}_{agg}`). It always returns an aligned
+`(times, values)` pair:
+
+```python
+model = SysdModel("monitor")
+model.dt = 1.0
+model.t_span = (0, 10)
+model.queue("Support", capacity=50, service_time="2.0", servers=3, arrival_rate="5")
+model.aux("congestion", "Support_length")
+
+result = model.simulate()
+
+t, length = result.series("Support_length")  # DES metric
+t, watch  = result.series("congestion")       # aux
+print(max(length))     # peak queue depth
+print(len(t) == len(length))  # True — aligned with result.times
+```
+
+Behind the scenes `series()` skips the DES seed step, fills sparse
+`_departed`/`_arrivals` keys with `0`, and raises `KeyError` listing the
+available names for typos.
+
 ## Combined SD + DES + ABM
 
 All three paradigms share one state dict. This model has a stock, a queue, and

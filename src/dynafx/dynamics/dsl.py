@@ -1315,7 +1315,9 @@ class SysdModel:
 class SysdModelResult:
     """Returned by ``SysdModel.simulate()`` — holds the full trajectory.
 
-    Access per-stock values via ``result.values[stock_name]``.
+    Use :meth:`series` to pull an aligned ``(times, values)`` pair for any
+    tracked quantity (stock, aux, DES ``{queue}_{metric}``, or ABM metric).
+    ``result.values[stock_name]`` remains for direct per-stock access.
     Supports dict-style access (``result["times"]``) for backward compat.
     """
 
@@ -1337,6 +1339,54 @@ class SysdModelResult:
 
     def __contains__(self, key: str) -> bool:
         return hasattr(self, key)
+
+    def series(self, name: str) -> tuple[list[float], list[float]]:
+        """Return an aligned (times, values) pair for a tracked quantity.
+
+        This is the canonical accessor — it hides the differences between the
+        four sources and their quirks:
+
+        - **stocks**   → ``result.values``
+        - **aux vars** → ``result.aux_values``
+        - **DES metrics** → ``des_metrics_history`` (skips the empty seed step,
+          fills sparse ``_departed``/``_arrivals`` keys with 0)
+        - **ABM metrics** → ``abm_metrics_history``
+
+        All sources are already aligned with ``result.times``.
+
+        Args:
+            name: Stock name, aux name, ``{queue}_{metric}`` (e.g.
+                ``"jobs_length"``), or ``{AgentType}_{prop}_{agg}``.
+
+        Returns:
+            ``(times, values)`` where ``len(times) == len(values)``.
+
+        Raises:
+            KeyError: If ``name`` is not a tracked quantity.
+        """
+        if name in self.values:
+            return list(self.times), list(self.values[name])
+        if name in self.aux_values:
+            return list(self.times), list(self.aux_values[name])
+        if self.des_metrics_history and name in self.des_metrics_history[-1]:
+            return (list(self.times),
+                    [step.get(name, 0) for step in self.des_metrics_history])
+        if self.abm_metrics_history and name in self.abm_metrics_history[-1]:
+            return (list(self.times),
+                    [step.get(name, 0) for step in self.abm_metrics_history])
+        raise KeyError(
+            f"No tracked quantity named {name!r}. "
+            f"Available: {self._series_names()}"
+        )
+
+    def _series_names(self) -> list[str]:
+        """All names addressable via :meth:`series`."""
+        names = list(self.stocks) + list(self.aux_values.keys())
+        if self.des_metrics_history:
+            names += sorted(self.des_metrics_history[-1].keys())
+        if self.abm_metrics_history:
+            names += sorted(self.abm_metrics_history[-1].keys())
+        return sorted(dict.fromkeys(names))
 
     def plot(
         self,
