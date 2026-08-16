@@ -30,9 +30,7 @@ def create_n_echelon_model(
     initial_inventory_factor: float = 2.0,
     **kwargs: Any,
 ) -> SysdModel:
-    model = SysdModel(name=f"{'_'.join(echelons)}_SupplyChain")
-    model.dt = 1.0
-    model.t_span = (0.0, 200.0)
+    model = SysdModel(name=f"{'_'.join(echelons)}_SupplyChain", dt=1.0, t_span=(0.0, 200.0))
 
     model.aux_vars.append(AuxDef(name="base_demand", expr=str(base_demand)))
     model.aux_vars.append(AuxDef(name="shipping_delay", expr=str(shipping_delay)))

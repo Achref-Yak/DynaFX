@@ -281,6 +281,8 @@ class Queue:
         FIFO (default): First-In, First-Out.
         SPT: Shortest Processing Time first. Evaluates service time at enqueue.
         EDD: Earliest Due Date first. Uses entity.due_date or entity["due_date"].
+        PRIORITY (or PRIO): Entity priority first (lowest number first).
+            Uses entity.priority or entity["priority"], defaulting to 0.
 
     Supports multiple servers that process entities in parallel.
     With ``servers=1`` (default), behavior is identical to single-server.
@@ -334,6 +336,10 @@ class Queue:
             if isinstance(entity, dict):
                 return entity.get("due_date", float("inf"))
             return getattr(entity, "due_date", float("inf"))
+        if self.discipline in ("PRIORITY", "PRIO"):
+            if isinstance(entity, dict):
+                return float(entity.get("priority", 0))
+            return float(getattr(entity, "priority", 0))
         return 0.0  # FIFO: all equal
 
     def _make_eval_ns(self, entity: EntityData | Entity,
@@ -792,12 +798,14 @@ class DESEngine:
             return handler(event, self)
         return {}
 
-    def _process_queue_departures(self, t: float, dt: float) -> dict[str, float]:
+    def _process_queue_departures(self, t: float, dt: float, state: dict[str, Any] | None = None) -> dict[str, float]:
         """Process queue departures using multi-step service tracking.
 
         Advances each queue's services by dt. When a service completes,
-        the entity is dequeued. Free servers immediately start serving
-        the next entity in line.
+        the entity is dequeued. If the queue has routing rules, the first
+        matching rule re-routes the entity into the target queue (an arrival
+        there); otherwise it counts as a departure.
+        Free servers immediately start serving the next entity in line.
 
         With multi-server queues, up to N completions per step are
         possible (one per server).
@@ -805,6 +813,7 @@ class DESEngine:
         Args:
             t: Current end-of-step time.
             dt: Time step size.
+            state: Optional shared state dict passed to routing conditions.
 
         Returns:
             Metrics dict with departure counts.
@@ -822,11 +831,15 @@ class DESEngine:
             for server_i in completed_indices:
                 entity = q.dequeue_completed(server_i, t)
                 if entity is not None:
-                    metrics[f"{q.name}_departed"] = metrics.get(f"{q.name}_departed", 0) + 1
+                    target = q.route(entity, t, state) if q._routing_rules else None
+                    if target and target in self.queues and target != q.name:
+                        self.queues[target].enqueue(entity, t, self.event_queue)
+                    else:
+                        metrics[f"{q.name}_departed"] = metrics.get(f"{q.name}_departed", 0) + 1
             q.fill_servers(t)
         return metrics
 
-    def step(self, t: float, dt: float) -> dict[str, float]:
+    def step(self, t: float, dt: float, state: dict[str, Any] | None = None) -> dict[str, float]:
         """Process all events in [t, t+dt). Returns aggregated metrics."""
         end_time = t + dt
         metrics: dict[str, float] = {}
@@ -851,7 +864,7 @@ class DESEngine:
             self.process_event(event)
 
         # Process time-sliced queue departures
-        self._process_queue_departures(end_time, dt)
+        self._process_queue_departures(end_time, dt, state)
 
         self.clock.time = end_time
 

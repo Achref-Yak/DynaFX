@@ -31,6 +31,7 @@ import logging
 import math
 import random
 import re
+import warnings
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -142,6 +143,18 @@ class QueueDef:
     arrival_rate: str = ""   # optional arrival rate expression
     servers: int = 1         # number of parallel servers
     event_driven: bool = False  # use event-driven (vs time-sliced) service
+    discipline: str = "FIFO"      # FIFO, SPT, EDD, PRIORITY
+    priority: int = 0            # baseline entity priority for PRIORITY discipline
+    routes: list[RouteDef] = field(default_factory=list)
+
+
+@dataclass
+class RouteDef:
+    """DES routing rule: when an entity departs ``from_queue`` and
+    ``condition`` evaluates truthy, re-enqueue it into ``to_queue``."""
+    from_queue: str
+    condition: str = ""
+    to_queue: str = ""
 
 
 @dataclass
@@ -344,12 +357,14 @@ class SysdModel:
     Parse from a ``.sysd`` file with ``parse_sysd_file()`` or construct
     programmatically via the Python-native DSL::
 
-        model = SysdModel("vibration")
+        model = SysdModel("vibration", dt=0.01, t_span=(0.0, 100.0))
         with model.stock("x", 0.0) as s:
             s.inflow("dx", "v")
         model.aux("v", "dx/dt")
-        model.dt = 0.01
         result = model.simulate()
+
+    Setting ``dt``/``t_span`` after construction is deprecated — pass them
+    to the constructor instead.
     """
 
     name: str = ""
@@ -369,6 +384,34 @@ class SysdModel:
     func_defs: list[FuncDef] = field(default_factory=list)
     _compiled_cache: Any = field(default=None, repr=False)
     _model_revision: int = 0
+    _constructed: bool = field(default=False, repr=False, init=False)
+
+    def __new__(cls, *args: Any, **kwargs: Any) -> SysdModel:
+        obj = super().__new__(cls)
+        object.__setattr__(obj, "_constructed", False)
+        return obj
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "_constructed", True)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Warn when setting dt/t_span after construction.
+
+        The canonical idiom is the constructor form::
+
+            SysdModel("x", dt=0.5, t_span=(0, 10))
+
+        Post-init assignment (the old ``model.dt = 0.5`` idiom) still works
+        but emits a DeprecationWarning.
+        """
+        if name in ("dt", "t_span") and self.__dict__.get("_constructed", False):
+            warnings.warn(
+                f"Setting SysdModel.{name} after construction is deprecated; "
+                f"pass {name}=... to the SysdModel(...) constructor instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        object.__setattr__(self, name, value)
 
     def _bump_revision(self) -> None:
         self._model_revision += 1
@@ -510,9 +553,51 @@ class SysdModel:
 
     def queue(self, name: str, capacity: int = -1, service_time: str = "",
               arrival_rate: str = "", initial: int = 0, servers: int = 1,
-              event_driven: bool = False) -> SysdModel:
-        """Add a DES queue."""
-        self.queues.append(QueueDef(name, capacity, initial, service_time, arrival_rate, servers, event_driven))
+              event_driven: bool = False, discipline: str = "FIFO",
+              priority: int = 0) -> SysdModel:
+        """Add a DES queue.
+
+        Args:
+            discipline: Service ordering — FIFO (default), SPT, EDD, PRIORITY.
+            priority: Baseline entity priority for PRIORITY discipline.
+        """
+        self.queues.append(QueueDef(name, capacity, initial, service_time,
+                                    arrival_rate, servers, event_driven,
+                                    discipline, priority))
+        return self
+
+    def route(self, from_queue: str, condition: str, to_queue: str) -> SysdModel:
+        """Route departing entities from one queue into another.
+
+        When an entity completes service in ``from_queue``, ``condition`` is
+        evaluated; if it is truthy the entity is re-enqueued into ``to_queue``
+        (counting as an arrival there) rather than departing the system.
+        Rules are evaluated in registration order; the first match wins.
+
+        Args:
+            from_queue: Source queue name.
+            condition: Expression string with entity/e/t/state/len/abs/min/max
+                plus all registered builtins in scope.
+            to_queue: Destination queue name.
+
+        Raises:
+            ValueError: If ``from_queue`` or ``to_queue`` are not defined
+                queues on the model.
+        """
+        from_queue = from_queue.strip()
+        to_queue = to_queue.strip()
+        if not any(q.name == from_queue for q in self.queues):
+            raise ValueError(
+                f"Unknown source queue '{from_queue}' for route — "
+                f"defined queues: {[q.name for q in self.queues]}"
+            )
+        if not any(q.name == to_queue for q in self.queues):
+            raise ValueError(
+                f"Unknown target queue '{to_queue}' for route from "
+                f"'{from_queue}' — defined queues: {[q.name for q in self.queues]}"
+            )
+        q = next(q for q in self.queues if q.name == from_queue)
+        q.routes.append(RouteDef(from_queue, condition, to_queue))
         return self
 
     def resource(self, name: str, capacity: int = 1, cost_per_unit: float = 0.0) -> SysdModel:
@@ -834,7 +919,10 @@ class SysdModel:
             )
             des_engine = DESEngine()
             for q in self.queues:
-                q_obj = Queue(q.name, q.capacity, q.service_time, servers=q.servers, event_driven=q.event_driven)
+                q_obj = Queue(q.name, q.capacity, q.service_time, servers=q.servers, event_driven=q.event_driven,
+                              discipline=q.discipline)
+                for rdef in q.routes:
+                    q_obj.add_route(rdef.condition, rdef.to_queue)
                 # Compile service_time expression if provided
                 if q.service_time:
                     try:
@@ -993,7 +1081,7 @@ class SysdModel:
                             )
                         except Exception as _e:
                             logger.warning("Failed to recompile service_time '%s' — %s", q.service_time, _e)
-                des_metrics = des_engine.step(max(t0, 0.0), actual_step)
+                des_metrics = des_engine.step(max(t0, 0.0), actual_step, state=shared_state)
                 des_metrics_history.append(dict(des_metrics))
                 step_params = {**params, **des_metrics}
                 # Mirror the ABM merge (line above) so params_history — and the
@@ -2376,7 +2464,7 @@ def _build_tree(lines: list[_TokenLine]) -> SysdModel:
                 stack.pop()
             continue
         if keyword == "dt":
-            model.dt = float(args)
+            object.__setattr__(model, "dt", float(args))
             continue
         if keyword == "from":
             parts = args.split()
@@ -2384,9 +2472,9 @@ def _build_tree(lines: list[_TokenLine]) -> SysdModel:
                 t0 = float(parts[0])
                 if len(parts) >= 3 and parts[1] == "to":
                     t1 = float(parts[2])
-                    model.t_span = (t0, t1)
+                    object.__setattr__(model, "t_span", (t0, t1))
                 else:
-                    model.t_span = (t0, model.t_span[1])
+                    object.__setattr__(model, "t_span", (t0, model.t_span[1]))
             continue
         if keyword == "stock":
             name, initial = _parse_name_value(args)
@@ -2568,6 +2656,7 @@ def _build_tree(lines: list[_TokenLine]) -> SysdModel:
             service_time = ""
             servers = 1
             event_driven = False
+            discipline = "FIFO"
             if ":" in args:
                 after_colon = args.split(":", 1)[1]
                 for part in after_colon.split(","):
@@ -2601,7 +2690,16 @@ def _build_tree(lines: list[_TokenLine]) -> SysdModel:
                                 servers = max(1, int(float(val.strip())))
                     elif pl.startswith("event_driven") or pl == "event_driven":
                         event_driven = True
-            qd = QueueDef(name=name, capacity=capacity, service_time=service_time, servers=servers, event_driven=event_driven)
+                    elif pl.startswith("discipline"):
+                        val = ""
+                        if "=" in part:
+                            val = part.split("=", 1)[1]
+                        elif " " in part:
+                            val = part.split(None, 1)[1]
+                        if val:
+                            discipline = val.strip().upper()
+            qd = QueueDef(name=name, capacity=capacity, service_time=service_time, servers=servers, event_driven=event_driven,
+                          discipline=discipline)
             model.queues.append(qd)
             while stack and stack[-1][0] >= indent:
                 stack.pop()
@@ -2619,6 +2717,15 @@ def _build_tree(lines: list[_TokenLine]) -> SysdModel:
             if isinstance(parent, QueueDef):
                 parent.arrival_rate = _split_expr(args)
             continue
+
+        if keyword == "route":
+            parent = stack[-1][1] if stack else None
+            if isinstance(parent, QueueDef):
+                cond, _, target = args.partition("->")
+                cond = cond.strip()
+                target = _STRIP_RE.sub("", target.strip())
+                if cond and target:
+                    parent.routes.append(RouteDef(parent.name, cond, target))
 
         if keyword == "resource":
             name, _ = _parse_name_value(args)

@@ -179,7 +179,7 @@ with model.agent("Worker", 50) as a:
 
 ---
 
-### `queue(name, capacity=-1, service_time="", arrival_rate="", servers=1, event_driven=False)`
+### `queue(name, capacity=-1, service_time="", arrival_rate="", servers=1, event_driven=False, discipline="FIFO", priority=0)`
 
 Define a DES queue for discrete event simulation.
 
@@ -191,6 +191,8 @@ Define a DES queue for discrete event simulation.
 | `arrival_rate` | `str` | `""` | Arrival rate expression |
 | `servers` | `int` | `1` | Number of parallel service channels |
 | `event_driven` | `bool` | `False` | Use event-driven vs time-sliced service |
+| `discipline` | `str` | `"FIFO"` | Ordering: `FIFO`, `SPT`, `EDD`, `PRIORITY` |
+| `priority` | `int` | `0` | Default entity priority (PRIORITY discipline) |
 
 **Returns:** `SysdModel` — self (for chaining)
 
@@ -204,6 +206,47 @@ model.queue("assembly", capacity=-1, arrival_rate="10")
 
 # Event-driven queue
 model.queue("processing", service_time="5", event_driven=True)
+
+# Shortest-processing-time-first ordering
+model.queue("jobs", service_time="1.0", servers=2, discipline="SPT")
+```
+
+---
+
+### `route(from_queue, condition, to_queue)`
+
+Route entities that complete service in `from_queue` into `to_queue` when the
+condition is truthy. Rules are evaluated in registration order; the first
+match wins. A routed entity is re-enqueued into the target queue (counting as
+an arrival there) rather than departing the system.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `from_queue` | `str` | Source queue name (required) |
+| `condition` | `str` | Expression with `entity`/`e`, `t`, `state`, `len`, `abs`, `min`, `max`, plus all registered builtins |
+| `to_queue` | `str` | Destination queue name (required) |
+
+**Raises:** `ValueError` — if either queue is not defined on the model.
+
+**Returns:** `SysdModel` — self (for chaining)
+
+**Example:**
+```python
+model.queue("triage", capacity=-1, service_time="1.0", arrival_rate="4")
+model.queue("intensive", capacity=-1, service_time="4.0")
+model.queue("routine", capacity=-1, service_time="2.0")
+
+model.route("triage", "entity.get('priority', 0) >= 3", "intensive")
+model.route("triage", "True", "routine")   # fallback for the rest
+```
+
+The `.sysd` text DSL supports `route <condition> -> "<queue>"` nested under a
+queue block:
+
+```sysd
+queue "triage": capacity -1, service_time 1.0
+  arrival_rate 4
+  route entity.priority >= 3 -> "intensive"
 ```
 
 ---

@@ -22,9 +22,7 @@ queue "Support": capacity 50, service_time 2.0, servers 3
 ```python
 from dynafx.dynamics import SysdModel
 
-model = SysdModel("ServiceDesk")
-model.dt = 1.0
-model.t_span = (0, 20)
+model = SysdModel("ServiceDesk", dt=1.0, t_span=(0, 20))
 model.queue("Support", capacity=50, service_time="2.0",
             servers=3, arrival_rate="5")
 
@@ -41,9 +39,7 @@ Resources have capacity and optional cost. Queues and resources share names in
 DES stats, so inspect the dict keys.
 
 ```python
-model = SysdModel("Desk")
-model.dt = 1.0
-model.t_span = (0, 20)
+model = SysdModel("Desk", dt=1.0, t_span=(0, 20))
 model.queue("Support", capacity=50, service_time="2.0", servers=3, arrival_rate="5")
 model.resource("Agents", capacity=5, cost_per_unit=1.0)
 
@@ -52,6 +48,41 @@ stats = result.des_engine.get_all_stats()
 print(sorted(stats.keys()))      # ['Agents', 'Support']
 ```
 
+## Routing between queues
+
+Use `model.route(from_queue, condition, to_queue)` to route entities that
+complete service in one queue into another. The condition has `entity` (or `e`),
+`t`, `state`, `len`, `abs`, `min`, `max`, and all registered builtins in scope:
+
+```python
+model = SysdModel("Desk", dt=0.5, t_span=(0, 20))
+model.queue("triage", capacity=-1, service_time="1.0", arrival_rate="4")
+model.queue("intensive", capacity=-1, service_time="4.0")
+model.queue("routine", capacity=-1, service_time="2.0")
+
+model.route("triage", "entity.get('priority', 0) >= 3", "intensive")
+model.route("triage", "True", "routine")            # fallback: everything else
+
+result = model.simulate()
+print(result.des_engine.queue_stats("intensive").total_arrivals)
+```
+
+Rules are evaluated in registration order; the first match wins. A routed entity
+is re-enqueued into the target queue (an arrival there) rather than departing
+the system. Route conditions are also available in the `.sysd` text DSL:
+
+```sysd
+queue "triage": capacity -1, service_time 1.0
+  arrival_rate 4
+  route entity.priority >= 3 -> "intensive"
+```
+
+## Ordering disciplines
+
+Set the `discipline` when declaring a queue: `FIFO` (default), `SPT`
+(shortest processing time), `EDD` (earliest due date), or `PRIORITY`
+(entity `priority` field, lowest first):
+
 ## DES metrics in aux expressions
 
 Queue metrics are exposed to SD auxes with the naming
@@ -59,9 +90,7 @@ Queue metrics are exposed to SD auxes with the naming
 financial or operational auxes react to congestion:
 
 ```python
-model = SysdModel("monitor")
-model.dt = 1.0
-model.t_span = (0, 10)
+model = SysdModel("monitor", dt=1.0, t_span=(0, 10))
 model.queue("Orders", capacity=-1, service_time="1.0", servers=2, arrival_rate="10")
 model.aux("watch", "Orders_length")
 
@@ -77,9 +106,7 @@ ABM metric (`{AgentType}_{prop}_{agg}`). It always returns an aligned
 `(times, values)` pair:
 
 ```python
-model = SysdModel("monitor")
-model.dt = 1.0
-model.t_span = (0, 10)
+model = SysdModel("monitor", dt=1.0, t_span=(0, 10))
 model.queue("Support", capacity=50, service_time="2.0", servers=3, arrival_rate="5")
 model.aux("congestion", "Support_length")
 

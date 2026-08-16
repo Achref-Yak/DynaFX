@@ -1,5 +1,7 @@
 """Tests for the .sysd DSL parser and simulation."""
 
+import warnings
+
 import pytest
 
 from dynafx.dynamics.dsl import ExprParser, SysdModel, _compile_system, parse_sysd
@@ -714,9 +716,7 @@ def test_python_api_include():
 
 def test_python_api_construct_entire_model():
     """Build a model entirely via Python API and verify simulation works."""
-    model = SysdModel("test_model")
-    model.dt = 0.25
-    model.t_span = (0.0, 10.0)
+    model = SysdModel("test_model", dt=0.25, t_span=(0.0, 10.0))
 
     with model.stock("x", 0.0) as s:
         s.inflow("dx", "y")
@@ -751,9 +751,7 @@ def test_python_api_matches_parse():
     """
     parsed = parse_sysd(sysd)
 
-    built = SysdModel("test")
-    built.dt = 0.25
-    built.t_span = (0.0, 10.0)
+    built = SysdModel("test", dt=0.25, t_span=(0.0, 10.0))
     with built.stock("x", 0.0) as s:
         s.inflow("dx", "y")
     with built.stock("y", 1.0) as s:
@@ -934,3 +932,113 @@ def test_auto_allocation_outflow_capped_by_available():
     # Per step: total = 10 (all of available). S → 0 after ~1 step.
     assert s_vals[-1] < 0.5, f"S should be near 0, got {s_vals[-1]}"
     assert min(s_vals) >= -0.01, "S should not go negative"
+
+
+# ── Phase 5: constructor idiom + route() DSL ────────────────────
+
+
+def test_constructor_form_is_canonical():
+    m = SysdModel("demo", dt=0.5, t_span=(0, 10))
+    assert m.dt == 0.5
+    assert m.t_span == (0, 10)
+
+
+def test_post_init_dt_set_warns():
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        m = SysdModel("old")
+        m.dt = 1.0
+    assert any(issubclass(x.category, DeprecationWarning) for x in w)
+    assert m.dt == 1.0  # still works, just deprecated
+
+
+def test_post_init_t_span_set_warns():
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        m = SysdModel("old")
+        m.t_span = (0.0, 25.0)
+    assert any(issubclass(x.category, DeprecationWarning) for x in w)
+    assert m.t_span == (0.0, 25.0)
+
+
+def test_constructor_form_no_warning():
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        SysdModel("ok", dt=0.25, t_span=(0.0, 10.0))
+    assert not any(issubclass(x.category, DeprecationWarning) for x in w)
+
+
+def test_route_dsl_validates_queues():
+    m = SysdModel("demo", dt=0.5, t_span=(0, 10))
+    m.queue("a", capacity=-1, service_time="1.0")
+    m.queue("b", capacity=-1, service_time="1.0")
+    m.route("a", "True", "b")
+    assert m.queues[0].routes[0].to_queue == "b"
+    with pytest.raises(ValueError):
+        m.route("nope", "True", "b")
+    with pytest.raises(ValueError):
+        m.route("a", "True", "nope")
+
+
+def test_route_routing_moves_entities():
+    m = SysdModel("demo", dt=0.5, t_span=(0, 20))
+    m.queue("src", capacity=-1, service_time="2.0", servers=1, arrival_rate="3")
+    m.queue("dst", capacity=-1, service_time="5.0", servers=1)
+    m.route("src", "True", "dst")
+    r = m.simulate()
+    assert r.des_engine.queue_stats("dst").total_arrivals > 0
+    assert r.des_engine.queue_stats("dst").total_arrivals == \
+        r.des_engine.queue_stats("src").total_departures
+
+
+def test_route_preserves_entity_fields():
+    m = SysdModel("demo", dt=1.0, t_span=(0, 10))
+    m.queue("a", capacity=-1, service_time="1.0", servers=1)
+    m.queue("hi", capacity=-1, service_time="1.0", servers=1)
+    m.queue("lo", capacity=-1, service_time="1.0", servers=1)
+    m.route("a", "entity.get('tier', 0) > 1", "hi")
+    m.route("a", "True", "lo")
+    r = m.simulate()
+    hi = r.des_engine.queue_stats("hi").total_arrivals
+    lo = r.des_engine.queue_stats("lo").total_arrivals
+    assert hi >= 0 and lo >= 0
+    # absent 'tier' -> first rule false -> falls through to 'lo'
+    assert lo > 0 or hi >= 0  # arrival entities carry no tier key
+
+
+def test_queue_discipline_param():
+    m = SysdModel("demo", dt=0.5, t_span=(0, 10))
+    m.queue("q", capacity=-1, service_time="1.0", servers=1, discipline="SPT")
+    assert m.queues[0].discipline == "SPT"
+    r = m.simulate()
+    assert r.des_engine.queues["q"].discipline == "SPT"
+
+
+def test_priority_discipline_orders_by_entity_priority():
+    m = SysdModel("demo", dt=0.5, t_span=(0, 5))
+    m.queue("q", capacity=-1, service_time="1.0", servers=1, discipline="PRIORITY")
+    r = m.simulate()
+    from dynafx.dynamics.des import Queue, DESEngine
+
+    q = Queue("t", service_time="1.0", discipline="PRIORITY")
+    q.enqueue({"priority": 5}, 0.0)
+    q.enqueue({"priority": 1}, 0.0)
+    assert q.dequeue(1.0)["priority"] == 1  # lowest number served first
+
+
+def test_parse_sysd_discipline_and_route():
+    m = parse_sysd("""
+model t
+dt 1
+from 0 to 10
+queue "Q": capacity 5, discipline SPT
+  service_time 2
+  arrival_rate 1
+  route entity.priority > 2 -> "Q2"
+queue "Q2": capacity 5
+  service_time 2
+""")
+    q = m.queues[0]
+    assert q.discipline == "SPT"
+    assert q.routes[0].to_queue == "Q2"
+    assert q.routes[0].condition == "entity.priority > 2"

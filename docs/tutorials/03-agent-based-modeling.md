@@ -152,9 +152,7 @@ The same agent can be defined programmatically, without the text DSL:
 ```python
 from dynafx.dynamics import SysdModel
 
-model = SysdModel("p")
-model.dt = 1.0
-model.t_span = (0, 5)
+model = SysdModel("p", dt=1.0, t_span=(0, 5))
 
 with model.agent("Buyer", 3) as a:
     a.prop("budget", 500.0, min_val=0.0)

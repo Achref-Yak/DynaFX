@@ -813,6 +813,30 @@ class TestDESEngine:
         engine.step(0.0, 3.0)
         assert engine.clock.time == 3.0
 
+    def test_departures_with_routing_reenqueue(self):
+        engine = DESEngine()
+        a = Queue("a", service_time="1.0")
+        b = Queue("b", service_time="5.0")
+        a.add_route("True", "b")
+        engine.add_queue(a)
+        engine.add_queue(b)
+        # seed one entity with a compiled service time by setting it manually
+        a._compiled_service_time = lambda: 1.0
+        b._compiled_service_time = lambda: 5.0
+        a.enqueue({"id": 1}, 0.0)
+        engine.step(0.0, 2.0)
+        assert b.stats.total_arrivals == 1
+        assert a.stats.total_departures == 1
+
+    def test_departures_no_route_counts_departed(self):
+        engine = DESEngine()
+        a = Queue("a", service_time="1.0")
+        engine.add_queue(a)
+        a._compiled_service_time = lambda: 1.0
+        a.enqueue({"id": 1}, 0.0)
+        engine.step(0.0, 2.0)
+        assert a.stats.total_departures == 1
+
 
 # ── DSL Integration ──────────────────────────────────────────────
 
