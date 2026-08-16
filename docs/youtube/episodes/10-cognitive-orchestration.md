@@ -21,25 +21,69 @@
 ### 2:30 - CognitiveOrchestrator (4 min)
 ```python
 from dynafx.bridge import CognitiveOrchestrator
+from dynafx.knowledge.model import NamedNode, Literal
+from dynafx.knowledge.production import (
+    ProductionRule, SparqlCondition, ComparisonCondition, TripleAction,
+)
 
 orchestrator = CognitiveOrchestrator(store)
-orchestrator.add_rule(
+
+# SparqlCondition binds ?v from the query; ComparisonCondition applies the threshold.
+rule = ProductionRule(
     name="reduce_production",
-    condition="KB_QUERY('PREFIX ex: <http://ex.org/> SELECT ?v WHERE { ex:portfolio ex:reliability ?v }') < 0.5",
-    actions=[
-        "SET_KB('http://ex.org/production_rate', 200)",
+    body=[
+        SparqlCondition(
+            query="PREFIX ex: <http://ex.org/> SELECT ?v WHERE { ex:portfolio ex:reliability ?v }",
+        ),
+        ComparisonCondition(left="?v", op="<", right=0.5),
     ],
-    priority=10
+    head=[
+        TripleAction(
+            subject=NamedNode("http://ex.org/portfolio"),
+            predicate=NamedNode("http://ex.org/production_rate"),
+            object_=Literal(200),
+        ),
+    ],
+    priority=10,
 )
+orchestrator.add_rule(rule)
 ```
 - Named rules
-- Conditions as SPARQL or expressions
+- Conditions via SPARQL + comparisons
 - Actions that modify the KB
 
 ### 6:30 - Rule Priority (2 min)
 ```python
-orchestrator.add_rule("emergency", "reliability < 0.3", ["SET_KB('http://ex.org/emergency', true)"], priority=100)
-orchestrator.add_rule("slow_down", "reliability < 0.5", ["SET_KB('http://ex.org/production_rate', 300)"], priority=50)
+orchestrator.add_rule(ProductionRule(
+    name="emergency",
+    body=[
+        SparqlCondition(
+            query="PREFIX ex: <http://ex.org/> SELECT ?v WHERE { ex:portfolio ex:reliability ?v }",
+        ),
+        ComparisonCondition(left="?v", op="<", right=0.3),
+    ],
+    head=[TripleAction(
+        subject=NamedNode("http://ex.org/portfolio"),
+        predicate=NamedNode("http://ex.org/emergency"),
+        object_=Literal(True),
+    )],
+    priority=100,
+))
+orchestrator.add_rule(ProductionRule(
+    name="slow_down",
+    body=[
+        SparqlCondition(
+            query="PREFIX ex: <http://ex.org/> SELECT ?v WHERE { ex:portfolio ex:reliability ?v }",
+        ),
+        ComparisonCondition(left="?v", op="<", right=0.5),
+    ],
+    head=[TripleAction(
+        subject=NamedNode("http://ex.org/portfolio"),
+        predicate=NamedNode("http://ex.org/production_rate"),
+        object_=Literal(300),
+    )],
+    priority=50,
+))
 ```
 - Multiple rules can fire
 - Priority determines order
@@ -47,13 +91,25 @@ orchestrator.add_rule("slow_down", "reliability < 0.5", ["SET_KB('http://ex.org/
 
 ### 8:30 - Integration with Simulation (4 min)
 ```python
+from dynafx.dynamics import SysdModel
+from dynafx.bridge import KBSimBridge
+
+bridge = KBSimBridge(store)
+
 model = SysdModel(dt=1.0, t_span=(0, 100))
-model.aux("reliability", "KB_QUERY('PREFIX ex: <http://ex.org/> SELECT ?v WHERE { ex:portfolio ex:reliability ?v }')")
-model.aux("production_rate", "KB_QUERY('PREFIX ex: <http://ex.org/> SELECT ?v WHERE { ex:portfolio ex:production_rate ?v }')")
+model.aux("reliability", "KB_QUERY(reliability_query)")
+model.aux("production_rate", "KB_QUERY(prod_rate_query)")
 
 with model.stock("Inventory", 1000) as s:
     s.inflow("supply", "production_rate")
     s.outflow("demand", "300")
+
+# SPARQL queries are passed by name via params — KB_QUERY takes a param name,
+# not an inline query string.
+result = bridge.run_with_kb(model, params={
+    "reliability_query": "PREFIX ex: <http://ex.org/> SELECT ?v WHERE { ex:portfolio ex:reliability ?v }",
+    "prod_rate_query": "PREFIX ex: <http://ex.org/> SELECT ?v WHERE { ex:portfolio ex:production_rate ?v }",
+})
 ```
 
 - Orchestrator evaluates rules between timesteps
@@ -62,10 +118,22 @@ with model.stock("Inventory", 1000) as s:
 
 ### 12:30 - ClosedLoopReasoner (2 min)
 ```python
-from dynafx.bridge import ClosedLoopReasoner
+from dynafx.bridge import ClosedLoopReasoner, ReasoningPass
 
-reasoner = ClosedLoopReasoner(bridge=bridge, orchestrator=orchestrator)
-result = reasoner.run(model)
+passes = [
+    ReasoningPass(
+        name="baseline",
+        claim_map=[],  # (s, p, o, param) tuples pulled into params
+        evidence_map=[],  # (stock, subject, predicate, score_fn) written back to KB
+        # KB_QUERY(params) read their SPARQL from these named params:
+        params_override={
+            "reliability_query": "PREFIX ex: <http://ex.org/> SELECT ?v WHERE { ex:portfolio ex:reliability ?v }",
+            "prod_rate_query": "PREFIX ex: <http://ex.org/> SELECT ?v WHERE { ex:portfolio ex:production_rate ?v }",
+        },
+    ),
+]
+reasoner = ClosedLoopReasoner(bridge, model, passes=passes)
+result = reasoner.run()
 ```
 - Combines bridge + orchestrator
 - "One command, full loop."
@@ -85,6 +153,9 @@ result = reasoner.run(model)
 from dynafx.bridge import CognitiveOrchestrator
 from dynafx.knowledge import TripleStore
 from dynafx.knowledge.model import NamedNode, Literal, Triple
+from dynafx.knowledge.production import (
+    ProductionRule, SparqlCondition, ComparisonCondition, TripleAction,
+)
 
 store = TripleStore()
 store.add(Triple(
@@ -96,43 +167,65 @@ store.add(Triple(
 orchestrator = CognitiveOrchestrator(store)
 
 # Rule: reduce production when reliability is low
-orchestrator.add_rule(
+orchestrator.add_rule(ProductionRule(
     name="reduce_production",
-    condition="reliability < 0.5",
-    actions=["SET_KB('http://ex.org/production_rate', 200)"],
-    priority=10
-)
+    body=[
+        SparqlCondition(
+            query="PREFIX ex: <http://ex.org/> SELECT ?v WHERE { ex:portfolio ex:reliability ?v }",
+        ),
+        ComparisonCondition(left="?v", op="<", right=0.5),
+    ],
+    head=[TripleAction(
+        subject=NamedNode("http://ex.org/portfolio"),
+        predicate=NamedNode("http://ex.org/production_rate"),
+        object_=Literal(200),
+    )],
+    priority=10,
+))
 
 # Rule: emergency protocol
-orchestrator.add_rule(
+orchestrator.add_rule(ProductionRule(
     name="emergency",
-    condition="reliability < 0.3",
-    actions=[
-        "SET_KB('http://ex.org/emergency', true)",
-        "SET_KB('http://ex.org/production_rate', 100)",
+    body=[
+        SparqlCondition(
+            query="PREFIX ex: <http://ex.org/> SELECT ?v WHERE { ex:portfolio ex:reliability ?v }",
+        ),
+        ComparisonCondition(left="?v", op="<", right=0.3),
     ],
-    priority=100
-)
+    head=[
+        TripleAction(
+            subject=NamedNode("http://ex.org/portfolio"),
+            predicate=NamedNode("http://ex.org/emergency"),
+            object_=Literal(True),
+        ),
+        TripleAction(
+            subject=NamedNode("http://ex.org/portfolio"),
+            predicate=NamedNode("http://ex.org/production_rate"),
+            object_=Literal(100),
+        ),
+    ],
+    priority=100,
+))
 ```
 
 ### With Simulation
 ```python
 from dynafx.dynamics import SysdModel
-from dynafx.bridge import KBSimBridge, ClosedLoopReasoner
+from dynafx.bridge import KBSimBridge
 
 model = SysdModel(dt=1.0, t_span=(0, 100))
-model.aux("reliability", "KB_QUERY('PREFIX ex: <http://ex.org/> SELECT ?v WHERE { ex:portfolio ex:reliability ?v }')")
-model.aux("production_rate", "KB_QUERY('PREFIX ex: <http://ex.org/> SELECT ?v WHERE { ex:portfolio ex:production_rate ?v }')")
+model.aux("reliability", "KB_QUERY(reliability_query)")
+model.aux("production_rate", "KB_QUERY(prod_rate_query)")
 
 with model.stock("Inventory", 1000) as s:
     s.inflow("supply", "production_rate")
     s.outflow("demand", "300")
 
 bridge = KBSimBridge(store)
-orchestrator = CognitiveOrchestrator(store)
-
-reasoner = ClosedLoopReasoner(bridge=bridge, orchestrator=orchestrator)
-result = reasoner.run(model)
+result = bridge.run_with_kb(model, params={
+    "reliability_query": "PREFIX ex: <http://ex.org/> SELECT ?v WHERE { ex:portfolio ex:reliability ?v }",
+    "prod_rate_query": "PREFIX ex: <http://ex.org/> SELECT ?v WHERE { ex:portfolio ex:production_rate ?v }",
+})
 ```
 
 ---
