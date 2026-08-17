@@ -24,7 +24,7 @@
 model = SysdModel(dt=0.25, t_span=(0, 24))
 
 with model.agent("Patient", 10) as a:
-    a.prop("severity", "random()", min_val=0, max_val=1)
+    a.prop("severity", 0.5, min_val=0, max_val=1)
     a.prop("wait_time", 0.0)
     a.rule("arrive", "always", ["wait_time = 0"])
     a.rule("treat", "severity < 0.5 AND beds_available > 0", ["severity = 0", "beds_available -= 1"])
@@ -107,7 +107,7 @@ model.resource("bed", capacity=20, cost_per_unit=200)
 
 # Agents
 with model.agent("Patient", 10) as a:
-    a.prop("severity", "random()", min_val=0, max_val=1)
+    a.prop("severity", 0.5, min_val=0, max_val=1)
     a.prop("wait_time", 0.0)
     a.rule("treat", "severity < 0.5 AND beds_available > 0", ["severity = 0"])
     a.rule("escalate", "severity >= 0.8", ["severity = 1.0"])
@@ -120,6 +120,8 @@ result = bridge.run_with_kb(model)
 result.plot("ed_simulation.png")
 stats = result.des_engine.get_all_stats()
 for queue, data in stats.items():
+    if "avg_wait" not in data:
+        continue  # resources report utilization only
     print(f"{queue}: avg_wait={data['avg_wait']:.1f}, utilization={data['utilization']:.1%}")
 ```
 

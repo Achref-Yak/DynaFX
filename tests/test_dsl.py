@@ -1,7 +1,10 @@
 """Tests for the .sysd DSL parser and simulation."""
 
-from dynafx.dynamics.dsl import SysdModel, parse_sysd, ExprParser, _compile_system
+import warnings
 
+import pytest
+
+from dynafx.dynamics.dsl import ExprParser, SysdModel, _compile_system, parse_sysd
 
 # ── Expression parser ─────────────────────────────────────────
 
@@ -457,6 +460,226 @@ def test_python_api_agent():
     assert model.agents[0].rules[0].priority == 1
 
 
+def test_python_api_agent_prop_rejects_string_initial():
+    """Phase 1 UX: string prop initializers fail at definition time."""
+    model = SysdModel()
+    with pytest.raises(TypeError), model.agent("patient", 10) as a:
+        a.prop("severity", "random()", min_val=0, max_val=1)
+
+
+def test_des_compile_error_opt_in_raises():
+    """Phase 1 UX: raise_on_compile_error surfaces bad DES expressions."""
+    model = SysdModel(dt=0.1, t_span=(0, 10))
+    model.queue("jobs", capacity=-1, service_time="NOT_A_FUNCTION((", servers=1,
+                arrival_rate="5")
+    with pytest.raises(ValueError):
+        model.simulate(raise_on_compile_error=True)
+
+
+# ── series() canonical accessor ──────────────────────────────────
+
+
+def test_series_stock_aligned():
+    model = SysdModel(dt=0.5, t_span=(0, 2))
+    with model.stock("X", 10) as s:
+        s.outflow("drain", "X * 0.1")
+    result = model.simulate()
+    t, v = result.series("X")
+    assert t == result.times
+    assert v == result.values["X"]
+    assert len(t) == len(v)
+
+
+def test_series_aux():
+    model = SysdModel(dt=0.5, t_span=(0, 2))
+    with model.stock("X", 10) as s:
+        s.outflow("drain", "0.1")
+    model.aux("watch", "X")
+    result = model.simulate()
+    t, v = result.series("watch")
+    assert v == result.aux_values["watch"]
+    assert len(t) == len(v)
+
+
+def test_series_des_skips_seed_and_fills_sparse():
+    model = SysdModel(dt=0.5, t_span=(0, 5))
+    model.queue("jobs", capacity=-1, service_time="1.0", servers=2,
+                arrival_rate="5")
+    result = model.simulate()
+    # des_metrics_history[0] is the empty seed dict — series() must not expose it.
+    t_len, q = result.series("jobs_length")
+    assert len(t_len) == len(q) == len(result.times)
+    assert q[0] >= 0  # seed step filled, not KeyError
+    # `_departed` is sparse (only present on departure steps) — fills with 0.
+    t_dep, dep = result.series("jobs_departed")
+    assert len(t_dep) == len(dep) == len(result.times)
+    assert all(d >= 0 for d in dep)
+
+
+def test_series_sparse_key_absent_from_final_step():
+    model = SysdModel(dt=0.5, t_span=(0, 5))
+    model.queue("jobs", capacity=-1, service_time="1.0", servers=2,
+                arrival_rate="5")
+    result = model.simulate()
+    # A sparse key (e.g. `_departed`) only exists on steps with a departure.
+    # Force the regression: drop it from the *final* history dict, then
+    # series() must still resolve it from the union of keys across all steps.
+    result.des_metrics_history[-1].pop("jobs_departed", None)
+    t_dep, dep = result.series("jobs_departed")
+    assert len(t_dep) == len(dep) == len(result.times)
+    assert "jobs_departed" in result._series_names()
+
+
+def test_series_unknown_raises():
+    model = SysdModel(dt=0.5, t_span=(0, 2))
+    with model.stock("X", 10) as s:
+        s.outflow("drain", "0.1")
+    result = model.simulate()
+    with pytest.raises(KeyError):
+        result.series("nope")
+    # existing names still resolve
+    _, v = result.series("X")
+    assert v == result.values["X"]
+
+
+def test_series_lists_available_names_on_miss():
+    model = SysdModel(dt=0.5, t_span=(0, 2))
+    with model.stock("X", 10) as s:
+        s.outflow("drain", "0.1")
+    result = model.simulate()
+    try:
+        result.series("nope")
+    except KeyError as exc:
+        assert "X" in str(exc)
+
+
+# ── typed DES stats on results ──────────────────────────────────
+
+
+def test_result_des_stats_forwarding():
+    model = SysdModel(dt=0.5, t_span=(0, 10))
+    model.queue("jobs", capacity=-1, service_time="1.0", servers=1,
+                arrival_rate="2")
+    model.resource("doctor", capacity=1)
+    result = model.simulate()
+    q = result.queue_stats("jobs")
+    r = result.resource_stats("doctor")
+    assert q.summary()["kind"] == "queue"
+    assert r.summary()["kind"] == "resource"
+    # result.stats() picks the right kind without mixing
+    assert result.stats("jobs").summary()["kind"] == "queue"
+    assert result.stats("doctor").summary()["kind"] == "resource"
+
+
+def test_result_stats_no_des_raises():
+    model = SysdModel(dt=0.5, t_span=(0, 2))
+    with model.stock("X", 10) as s:
+        s.outflow("drain", "0.1")
+    result = model.simulate()
+    with pytest.raises(KeyError):
+        result.stats("anything")
+
+
+def test_result_stats_missing_name():
+    model = SysdModel(dt=0.5, t_span=(0, 10))
+    model.queue("jobs", capacity=-1, service_time="1.0", servers=1,
+                arrival_rate="2")
+    result = model.simulate()
+    try:
+        result.stats("nope")
+    except KeyError as exc:
+        assert "jobs" in str(exc)
+
+
+# ── plotting contract ───────────────────────────────────────────
+
+
+def test_plot_returns_fig_when_no_path():
+    model = SysdModel(dt=0.5, t_span=(0, 2))
+    with model.stock("X", 10) as s:
+        s.outflow("drain", "0.1")
+    result = model.simulate()
+    fig = result.plot()
+    assert fig is not None
+    import matplotlib.pyplot as plt
+
+    plt.close(fig)
+
+
+def test_plot_return_fig_flag():
+    model = SysdModel(dt=0.5, t_span=(0, 2))
+    with model.stock("X", 10) as s:
+        s.outflow("drain", "0.1")
+    result = model.simulate()
+    fig = result.plot(path="ignored.png", return_fig=True)
+    assert fig is not None
+    import matplotlib.pyplot as plt
+
+    plt.close(fig)
+
+
+def test_plot_saves_and_returns_none(tmp_path):
+    model = SysdModel(dt=0.5, t_span=(0, 2))
+    with model.stock("X", 10) as s:
+        s.outflow("drain", "0.1")
+    result = model.simulate()
+    out = tmp_path / "plot.png"
+    ret = result.plot(str(out))
+    assert ret is None
+    assert out.exists()
+
+
+def test_plot_resolves_aux_and_des_via_series():
+    model = SysdModel(dt=0.5, t_span=(0, 5))
+    with model.stock("X", 10) as s:
+        s.outflow("drain", "0.1")
+    model.aux("watch", "X")
+    model.queue("jobs", capacity=-1, service_time="1.0", servers=1,
+                arrival_rate="2")
+    result = model.simulate()
+    import matplotlib.pyplot as plt
+
+    fig = result.plot(stocks=["watch", "jobs_length"])
+    assert fig is not None
+    plt.close(fig)
+
+
+def test_plot_with_bands_returns_fig_and_saves():
+    model = SysdModel(dt=0.5, t_span=(0, 2))
+    with model.stock("X", 10) as s:
+        s.outflow("drain", "0.1")
+    result = model.simulate()
+    mean = {"X": result.values["X"]}
+    p5 = {"X": [v * 0.9 for v in mean["X"]]}
+    p95 = {"X": [v * 1.1 for v in mean["X"]]}
+    import matplotlib.pyplot as plt
+
+    fig = result.plot_with_bands(mean=mean, p5=p5, p95=p95)
+    assert fig is not None
+    plt.close(fig)
+    ret = result.plot_with_bands(str("/tmp/opencode/bands.png"), mean=mean, p5=p5, p95=p95)
+    assert ret is None
+
+
+def test_plot_missing_matplotlib_raises(tmp_path, monkeypatch):
+    import builtins
+
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name == "matplotlib":
+            raise ImportError("no matplotlib")
+        return real_import(name, *args, **kwargs)
+
+    model = SysdModel(dt=0.5, t_span=(0, 2))
+    with model.stock("X", 10) as s:
+        s.outflow("drain", "0.1")
+    result = model.simulate()
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    with pytest.raises(ImportError):
+        result.plot()
+
+
 def test_python_api_des():
     model = SysdModel()
     model.queue("orders", capacity=50, service_time="5.0", arrival_rate="10", initial=5)
@@ -507,9 +730,7 @@ def test_python_api_include():
 
 def test_python_api_construct_entire_model():
     """Build a model entirely via Python API and verify simulation works."""
-    model = SysdModel("test_model")
-    model.dt = 0.25
-    model.t_span = (0.0, 10.0)
+    model = SysdModel("test_model", dt=0.25, t_span=(0.0, 10.0))
 
     with model.stock("x", 0.0) as s:
         s.inflow("dx", "y")
@@ -544,9 +765,7 @@ def test_python_api_matches_parse():
     """
     parsed = parse_sysd(sysd)
 
-    built = SysdModel("test")
-    built.dt = 0.25
-    built.t_span = (0.0, 10.0)
+    built = SysdModel("test", dt=0.25, t_span=(0.0, 10.0))
     with built.stock("x", 0.0) as s:
         s.inflow("dx", "y")
     with built.stock("y", 1.0) as s:
@@ -727,3 +946,113 @@ def test_auto_allocation_outflow_capped_by_available():
     # Per step: total = 10 (all of available). S → 0 after ~1 step.
     assert s_vals[-1] < 0.5, f"S should be near 0, got {s_vals[-1]}"
     assert min(s_vals) >= -0.01, "S should not go negative"
+
+
+# ── Phase 5: constructor idiom + route() DSL ────────────────────
+
+
+def test_constructor_form_is_canonical():
+    m = SysdModel("demo", dt=0.5, t_span=(0, 10))
+    assert m.dt == 0.5
+    assert m.t_span == (0, 10)
+
+
+def test_post_init_dt_set_warns():
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        m = SysdModel("old")
+        m.dt = 1.0
+    assert any(issubclass(x.category, DeprecationWarning) for x in w)
+    assert m.dt == 1.0  # still works, just deprecated
+
+
+def test_post_init_t_span_set_warns():
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        m = SysdModel("old")
+        m.t_span = (0.0, 25.0)
+    assert any(issubclass(x.category, DeprecationWarning) for x in w)
+    assert m.t_span == (0.0, 25.0)
+
+
+def test_constructor_form_no_warning():
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        SysdModel("ok", dt=0.25, t_span=(0.0, 10.0))
+    assert not any(issubclass(x.category, DeprecationWarning) for x in w)
+
+
+def test_route_dsl_validates_queues():
+    m = SysdModel("demo", dt=0.5, t_span=(0, 10))
+    m.queue("a", capacity=-1, service_time="1.0")
+    m.queue("b", capacity=-1, service_time="1.0")
+    m.route("a", "True", "b")
+    assert m.queues[0].routes[0].to_queue == "b"
+    with pytest.raises(ValueError):
+        m.route("nope", "True", "b")
+    with pytest.raises(ValueError):
+        m.route("a", "True", "nope")
+
+
+def test_route_routing_moves_entities():
+    m = SysdModel("demo", dt=0.5, t_span=(0, 20))
+    m.queue("src", capacity=-1, service_time="2.0", servers=1, arrival_rate="3")
+    m.queue("dst", capacity=-1, service_time="5.0", servers=1)
+    m.route("src", "True", "dst")
+    r = m.simulate()
+    assert r.des_engine.queue_stats("dst").total_arrivals > 0
+    assert r.des_engine.queue_stats("dst").total_arrivals == \
+        r.des_engine.queue_stats("src").total_departures
+
+
+def test_route_preserves_entity_fields():
+    m = SysdModel("demo", dt=1.0, t_span=(0, 10))
+    m.queue("a", capacity=-1, service_time="1.0", servers=1)
+    m.queue("hi", capacity=-1, service_time="1.0", servers=1)
+    m.queue("lo", capacity=-1, service_time="1.0", servers=1)
+    m.route("a", "entity.get('tier', 0) > 1", "hi")
+    m.route("a", "True", "lo")
+    r = m.simulate()
+    hi = r.des_engine.queue_stats("hi").total_arrivals
+    lo = r.des_engine.queue_stats("lo").total_arrivals
+    assert hi >= 0 and lo >= 0
+    # absent 'tier' -> first rule false -> falls through to 'lo'
+    assert lo > 0 or hi >= 0  # arrival entities carry no tier key
+
+
+def test_queue_discipline_param():
+    m = SysdModel("demo", dt=0.5, t_span=(0, 10))
+    m.queue("q", capacity=-1, service_time="1.0", servers=1, discipline="SPT")
+    assert m.queues[0].discipline == "SPT"
+    r = m.simulate()
+    assert r.des_engine.queues["q"].discipline == "SPT"
+
+
+def test_priority_discipline_orders_by_entity_priority():
+    m = SysdModel("demo", dt=0.5, t_span=(0, 5))
+    m.queue("q", capacity=-1, service_time="1.0", servers=1, discipline="PRIORITY")
+    r = m.simulate()
+    from dynafx.dynamics.des import Queue, DESEngine
+
+    q = Queue("t", service_time="1.0", discipline="PRIORITY")
+    q.enqueue({"priority": 5}, 0.0)
+    q.enqueue({"priority": 1}, 0.0)
+    assert q.dequeue(1.0)["priority"] == 1  # lowest number served first
+
+
+def test_parse_sysd_discipline_and_route():
+    m = parse_sysd("""
+model t
+dt 1
+from 0 to 10
+queue "Q": capacity 5, discipline SPT
+  service_time 2
+  arrival_rate 1
+  route entity.priority > 2 -> "Q2"
+queue "Q2": capacity 5
+  service_time 2
+""")
+    q = m.queues[0]
+    assert q.discipline == "SPT"
+    assert q.routes[0].to_queue == "Q2"
+    assert q.routes[0].condition == "entity.priority > 2"

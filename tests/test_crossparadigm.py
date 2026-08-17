@@ -82,9 +82,7 @@ class TestSDAndDES:
     def test_des_metrics_visible_in_aux_replay(self):
         """Auxes referencing DES queue metrics must resolve in the post-hoc
         aux_values replay (not silently default to 0.0)."""
-        m = SysdModel("des_aux_visible")
-        m.dt = 1
-        m.t_span = (0, 5)
+        m = SysdModel("des_aux_visible", dt=1, t_span=(0, 5))
         m.aux("watch", "Orders_length")
         m.queue("Orders", capacity=-1, service_time="1.0",
                 servers=2, arrival_rate="10")

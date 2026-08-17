@@ -18,8 +18,8 @@ keywords:
   - semantic simulation
 license: MIT
 type: software
-version: 0.2.1
-date-released: "2026-08-14"
+version: 0.4.1
+date-released: "2026-08-17"
 authors:
   - family-names: Yakdhane
     given-names: Achref

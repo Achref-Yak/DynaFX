@@ -1,6 +1,8 @@
 """Tests for Production Rule Engine (kb/production.py)."""
 
 
+import pytest
+
 from dynafx.knowledge.inference import InferencePattern
 from dynafx.knowledge.model import (
     BlankNode,
@@ -211,6 +213,69 @@ class TestComparisonCondition:
         cond = ComparisonCondition("?val", ">", 0.0)
         result = cond.evaluate(st, {"val": Literal("abc")})
         assert not result.matched  # 0.0 > 0.0 is False
+
+
+# ── Eager construction-time validation tests ────────────────────────
+
+
+class TestEagerValidation:
+    """Phase 1 UX: invalid conditions/actions fail at construction, not fire time."""
+
+    def test_sparqlcondition_rejects_non_string(self):
+        with pytest.raises(ValueError):
+            SparqlCondition(123)
+
+    def test_sparqlcondition_rejects_empty(self):
+        with pytest.raises(ValueError):
+            SparqlCondition("   ")
+
+    def test_sparqlcondition_rejects_bad_syntax(self):
+        with pytest.raises(ValueError):
+            SparqlCondition("SELECT WHERE { <http://ex.org/s> }")
+
+    def test_sparqlcondition_accepts_valid(self):
+        cond = SparqlCondition(
+            "SELECT ?s WHERE { ?s <http://example.org/p> <http://example.org/o> }"
+        )
+        assert cond.min_results == 1
+
+    def test_comparisoncondition_rejects_bad_op(self):
+        with pytest.raises(ValueError):
+            ComparisonCondition(1.0, "===", 1.0)
+
+    def test_comparisoncondition_rejects_bad_left(self):
+        with pytest.raises(ValueError):
+            ComparisonCondition("not_a_var", "<", 1.0)
+
+    def test_comparisoncondition_rejects_bad_right_type(self):
+        with pytest.raises(TypeError):
+            ComparisonCondition(1.0, "<", object())
+
+    def test_comparisoncondition_accepts_var_refs(self):
+        cond = ComparisonCondition("?val", "<", 10.0)
+        assert cond.op == "<"
+
+    def test_tripleaction_rejects_plain_string_node(self):
+        with pytest.raises(TypeError):
+            TripleAction("http://ex.org/portfolio",
+                         NamedNode("http://ex.org/p"),
+                         Literal(200))
+
+    def test_tripleaction_rejects_bad_object(self):
+        with pytest.raises(TypeError):
+            TripleAction(NamedNode("http://ex.org/s"),
+                         NamedNode("http://ex.org/p"),
+                         200)  # bare int is not a node type
+
+    def test_tripleaction_accepts_named_nodes(self):
+        action = TripleAction(NamedNode("http://ex.org/s"),
+                              NamedNode("http://ex.org/p"),
+                              Literal(True))
+        assert action.object_ == Literal(True)
+
+    def test_tripleaction_accepts_var_reference(self):
+        action = TripleAction("?s", NamedNode("http://ex.org/p"), Literal(200))
+        assert action.subject == "?s"
 
 
 # ── AggregationCondition tests (require SPARQL with aggregates) ────
