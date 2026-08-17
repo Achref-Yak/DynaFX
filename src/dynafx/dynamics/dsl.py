@@ -31,6 +31,7 @@ import logging
 import math
 import random
 import re
+import warnings
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -142,6 +143,18 @@ class QueueDef:
     arrival_rate: str = ""   # optional arrival rate expression
     servers: int = 1         # number of parallel servers
     event_driven: bool = False  # use event-driven (vs time-sliced) service
+    discipline: str = "FIFO"      # FIFO, SPT, EDD, PRIORITY
+    priority: int = 0            # baseline entity priority for PRIORITY discipline
+    routes: list[RouteDef] = field(default_factory=list)
+
+
+@dataclass
+class RouteDef:
+    """DES routing rule: when an entity departs ``from_queue`` and
+    ``condition`` evaluates truthy, re-enqueue it into ``to_queue``."""
+    from_queue: str
+    condition: str = ""
+    to_queue: str = ""
 
 
 @dataclass
@@ -243,6 +256,13 @@ class _AgentCtx:
         pass
 
     def prop(self, name: str, initial: float = 0.0, min_val: float = 0.0, max_val: float = 1e18) -> _AgentCtx:
+        if isinstance(initial, str):
+            raise TypeError(
+                f"agent property '{name}' initial={initial!r} is a string; "
+                f"agent properties are numeric. Use a number here (e.g. "
+                f"a.prop('{name}', 0.5)) — expression-based simulation is provided "
+                f"by rules and strategies, not prop initializers."
+            )
         self._agent.properties.append(AgentPropDef(name, initial, min_val, max_val))
         return self
 
@@ -337,12 +357,14 @@ class SysdModel:
     Parse from a ``.sysd`` file with ``parse_sysd_file()`` or construct
     programmatically via the Python-native DSL::
 
-        model = SysdModel("vibration")
+        model = SysdModel("vibration", dt=0.01, t_span=(0.0, 100.0))
         with model.stock("x", 0.0) as s:
             s.inflow("dx", "v")
         model.aux("v", "dx/dt")
-        model.dt = 0.01
         result = model.simulate()
+
+    Setting ``dt``/``t_span`` after construction is deprecated — pass them
+    to the constructor instead.
     """
 
     name: str = ""
@@ -362,6 +384,34 @@ class SysdModel:
     func_defs: list[FuncDef] = field(default_factory=list)
     _compiled_cache: Any = field(default=None, repr=False)
     _model_revision: int = 0
+    _constructed: bool = field(default=False, repr=False, init=False)
+
+    def __new__(cls, *args: Any, **kwargs: Any) -> SysdModel:
+        obj = super().__new__(cls)
+        object.__setattr__(obj, "_constructed", False)
+        return obj
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "_constructed", True)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Warn when setting dt/t_span after construction.
+
+        The canonical idiom is the constructor form::
+
+            SysdModel("x", dt=0.5, t_span=(0, 10))
+
+        Post-init assignment (the old ``model.dt = 0.5`` idiom) still works
+        but emits a DeprecationWarning.
+        """
+        if name in ("dt", "t_span") and self.__dict__.get("_constructed", False):
+            warnings.warn(
+                f"Setting SysdModel.{name} after construction is deprecated; "
+                f"pass {name}=... to the SysdModel(...) constructor instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        object.__setattr__(self, name, value)
 
     def _bump_revision(self) -> None:
         self._model_revision += 1
@@ -503,9 +553,51 @@ class SysdModel:
 
     def queue(self, name: str, capacity: int = -1, service_time: str = "",
               arrival_rate: str = "", initial: int = 0, servers: int = 1,
-              event_driven: bool = False) -> SysdModel:
-        """Add a DES queue."""
-        self.queues.append(QueueDef(name, capacity, initial, service_time, arrival_rate, servers, event_driven))
+              event_driven: bool = False, discipline: str = "FIFO",
+              priority: int = 0) -> SysdModel:
+        """Add a DES queue.
+
+        Args:
+            discipline: Service ordering — FIFO (default), SPT, EDD, PRIORITY.
+            priority: Baseline entity priority for PRIORITY discipline.
+        """
+        self.queues.append(QueueDef(name, capacity, initial, service_time,
+                                    arrival_rate, servers, event_driven,
+                                    discipline, priority))
+        return self
+
+    def route(self, from_queue: str, condition: str, to_queue: str) -> SysdModel:
+        """Route departing entities from one queue into another.
+
+        When an entity completes service in ``from_queue``, ``condition`` is
+        evaluated; if it is truthy the entity is re-enqueued into ``to_queue``
+        (counting as an arrival there) rather than departing the system.
+        Rules are evaluated in registration order; the first match wins.
+
+        Args:
+            from_queue: Source queue name.
+            condition: Expression string with entity/e/t/state/len/abs/min/max
+                plus all registered builtins in scope.
+            to_queue: Destination queue name.
+
+        Raises:
+            ValueError: If ``from_queue`` or ``to_queue`` are not defined
+                queues on the model.
+        """
+        from_queue = from_queue.strip()
+        to_queue = to_queue.strip()
+        if not any(q.name == from_queue for q in self.queues):
+            raise ValueError(
+                f"Unknown source queue '{from_queue}' for route — "
+                f"defined queues: {[q.name for q in self.queues]}"
+            )
+        if not any(q.name == to_queue for q in self.queues):
+            raise ValueError(
+                f"Unknown target queue '{to_queue}' for route from "
+                f"'{from_queue}' — defined queues: {[q.name for q in self.queues]}"
+            )
+        q = next(q for q in self.queues if q.name == from_queue)
+        q.routes.append(RouteDef(from_queue, condition, to_queue))
         return self
 
     def resource(self, name: str, capacity: int = 1, cost_per_unit: float = 0.0) -> SysdModel:
@@ -747,6 +839,7 @@ class SysdModel:
         dt: float | None = None,
         params: dict[str, Any] | None = None,
         kb: Any = None,
+        raise_on_compile_error: bool = False,
     ) -> SysdModelResult:
         """Run a simulation and return the trajectory.
 
@@ -757,6 +850,9 @@ class SysdModel:
             params: Parameter overrides (name → value).
             kb: Optional TripleStore — enables KB_QUERY/KB_ASSERT builtins
                 for expressions, ABM rules, and DES rates.
+            raise_on_compile_error: If True, a DES `service_time`/`arrival_rate`
+                expression that fails to compile raises instead of the default
+                fail-soft behavior (warn + fallback service time / no injection).
 
         Returns:
             SysdModelResult with stocks, values, times, and optional
@@ -823,7 +919,10 @@ class SysdModel:
             )
             des_engine = DESEngine()
             for q in self.queues:
-                q_obj = Queue(q.name, q.capacity, q.service_time, servers=q.servers, event_driven=q.event_driven)
+                q_obj = Queue(q.name, q.capacity, q.service_time, servers=q.servers, event_driven=q.event_driven,
+                              discipline=q.discipline)
+                for rdef in q.routes:
+                    q_obj.add_route(rdef.condition, rdef.to_queue)
                 # Compile service_time expression if provided
                 if q.service_time:
                     try:
@@ -834,6 +933,11 @@ class SysdModel:
                             _c, {"__builtins__": {}}, {**params, **dict(zip(stock_names, y0, strict=False))}
                         )
                     except Exception as _e:
+                        if raise_on_compile_error:
+                            raise ValueError(
+                                f"Failed to compile service_time '{q.service_time}' "
+                                f"for queue '{q.name}' — {_e}"
+                            ) from _e
                         logger.warning("Failed to compile service_time '%s' — %s", q.service_time, _e)
                 des_engine.add_queue(q_obj)
             for r in self.resources:
@@ -863,6 +967,11 @@ class SysdModel:
                         des_arrival_injectors.append((q.name, ar_code))
                         des_arrival_accum[q.name] = 0.0
                     except Exception as _e:
+                        if raise_on_compile_error:
+                            raise ValueError(
+                                f"Failed to compile arrival_rate '{q.arrival_rate}' "
+                                f"for queue '{q.name}' — {_e}"
+                            ) from _e
                         logger.warning("Failed to compile arrival_rate '%s' — %s", q.arrival_rate, _e)
 
         t0, t_end = t_span
@@ -972,7 +1081,7 @@ class SysdModel:
                             )
                         except Exception as _e:
                             logger.warning("Failed to recompile service_time '%s' — %s", q.service_time, _e)
-                des_metrics = des_engine.step(max(t0, 0.0), actual_step)
+                des_metrics = des_engine.step(max(t0, 0.0), actual_step, state=shared_state)
                 des_metrics_history.append(dict(des_metrics))
                 step_params = {**params, **des_metrics}
                 # Mirror the ABM merge (line above) so params_history — and the
@@ -1294,7 +1403,9 @@ class SysdModel:
 class SysdModelResult:
     """Returned by ``SysdModel.simulate()`` — holds the full trajectory.
 
-    Access per-stock values via ``result.values[stock_name]``.
+    Use :meth:`series` to pull an aligned ``(times, values)`` pair for any
+    tracked quantity (stock, aux, DES ``{queue}_{metric}``, or ABM metric).
+    ``result.values[stock_name]`` remains for direct per-stock access.
     Supports dict-style access (``result["times"]``) for backward compat.
     """
 
@@ -1317,72 +1428,225 @@ class SysdModelResult:
     def __contains__(self, key: str) -> bool:
         return hasattr(self, key)
 
+    def series(self, name: str) -> tuple[list[float], list[float]]:
+        """Return an aligned (times, values) pair for a tracked quantity.
+
+        This is the canonical accessor — it hides the differences between the
+        four sources and their quirks:
+
+        - **stocks**   → ``result.values``
+        - **aux vars** → ``result.aux_values``
+        - **DES metrics** → ``des_metrics_history`` (skips the empty seed step,
+          fills sparse ``_departed``/``_arrivals`` keys with 0)
+        - **ABM metrics** → ``abm_metrics_history``
+
+        All sources are already aligned with ``result.times``.
+
+        Args:
+            name: Stock name, aux name, ``{queue}_{metric}`` (e.g.
+                ``"jobs_length"``), or ``{AgentType}_{prop}_{agg}``.
+
+        Returns:
+            ``(times, values)`` where ``len(times) == len(values)``.
+
+        Raises:
+            KeyError: If ``name`` is not a tracked quantity.
+        """
+        if name in self.values:
+            return list(self.times), list(self.values[name])
+        if name in self.aux_values:
+            return list(self.times), list(self.aux_values[name])
+        if self.des_metrics_history and name in self._des_metric_names():
+            return (list(self.times),
+                    [step.get(name, 0) for step in self.des_metrics_history])
+        if self.abm_metrics_history and name in self._abm_metric_names():
+            return (list(self.times),
+                    [step.get(name, 0) for step in self.abm_metrics_history])
+        raise KeyError(
+            f"No tracked quantity named {name!r}. "
+            f"Available: {self._series_names()}"
+        )
+
+    def _series_names(self) -> list[str]:
+        """All names addressable via :meth:`series`."""
+        names = list(self.stocks) + list(self.aux_values.keys())
+        if self.des_metrics_history:
+            names += sorted(self._des_metric_names())
+        if self.abm_metrics_history:
+            names += sorted(self._abm_metric_names())
+        return sorted(dict.fromkeys(names))
+
+    def _des_metric_names(self) -> set[str]:
+        """Union of keys seen across all DES history steps.
+
+        Per-step dicts are sparse (``{queue}_departed`` exists only on steps
+        with a departure), so a key may be absent from the final step.
+        """
+        if self.des_metrics_history:
+            return set().union(*self.des_metrics_history)
+        return set()
+
+    def _abm_metric_names(self) -> set[str]:
+        """Union of keys seen across all ABM history steps."""
+        if self.abm_metrics_history:
+            return set().union(*self.abm_metrics_history)
+        return set()
+
+    def queue_stats(self, name: str) -> Any:
+        """Return the typed ``QueueStats`` for one queue (if DES used).
+
+        Raises:
+            KeyError: If DES wasn't used or no queue named ``name`` exists.
+        """
+        if self.des_engine is None:
+            raise KeyError("This result has no DES engine (no queues defined)")
+        return self.des_engine.queue_stats(name)
+
+    def resource_stats(self, name: str) -> Any:
+        """Return the typed ``ResourceStats`` for one resource (if DES used).
+
+        Raises:
+            KeyError: If DES wasn't used or no resource named ``name`` exists.
+        """
+        if self.des_engine is None:
+            raise KeyError("This result has no DES engine (no resources defined)")
+        return self.des_engine.resource_stats(name)
+
+    def stats(self, name: str) -> Any:
+        """Return typed stats for a DES queue or resource by name.
+
+        Only queue/resource names are accepted — it never mixes the two kinds,
+        so reading a resource cannot accidentally yield a queue dict (and vice
+        versa).
+        """
+        if self.des_engine is None:
+            raise KeyError("This result has no DES engine (no queues/resources defined)")
+        if name in self.des_engine.queues:
+            return self.des_engine.queue_stats(name)
+        if name in self.des_engine.resources:
+            return self.des_engine.resource_stats(name)
+        raise KeyError(
+            f"No DES queue or resource named {name!r}. "
+            f"Queues: {sorted(self.des_engine.queues)}; "
+            f"resources: {sorted(self.des_engine.resources)}"
+        )
+
     def plot(
         self,
-        path: str,
+        path: str = "",
         stocks: list[str] | None = None,
         subplots: bool = False,
         title: str | None = None,
-    ) -> None:
+        figsize: tuple[float, float] = (8, 4),
+        return_fig: bool = False,
+    ) -> Any | None:
+        """Plot tracked quantities (stocks, auxes, DES or ABM metrics).
+
+        Names are resolved via :meth:`series`, so ``stocks`` may name any
+        tracked quantity — a stock, an aux, a ``{queue}_{metric}`` DES metric,
+        or an ``{AgentType}_{prop}_{agg}`` ABM metric.
+
+        Args:
+            path: Save path. Empty string (or ``return_fig=True``) returns
+                the figure instead of saving.
+            stocks: Quantity names to plot (default: all stocks).
+            subplots: One subplot per series instead of overlaid lines.
+            title: Optional title.
+            figsize: Figure dimensions.
+            return_fig: If True, return the Figure instead of saving.
+
+        Returns:
+            Matplotlib figure if ``return_fig`` or ``path`` is empty, else ``None``.
+        """
         try:
             import matplotlib
             matplotlib.use("Agg")
             import matplotlib.pyplot as plt
         except ImportError:
-            print("matplotlib not installed — skipping plot. Install with: pip install matplotlib")
-            return
-        names = stocks or self.stocks
+            raise ImportError(
+                "matplotlib is required for plotting. Install with: pip install matplotlib"
+            ) from None
+        names = list(stocks) if stocks else list(self.stocks)
+        if not names:
+            raise ValueError("No quantities available to plot")
         if subplots:
-            fig, axes = plt.subplots(len(names), 1, figsize=(8, 2 * len(names)), sharex=True)
+            fig, axes = plt.subplots(len(names), 1, figsize=(figsize[0], 2 * len(names)), sharex=True)
             if len(names) == 1:
                 axes = [axes]
             for ax, name in zip(axes, names, strict=False):
-                ax.plot(self.times, self.values[name], label=name)
+                _, v = self.series(name)
+                ax.plot(self.times, v, label=name)
                 ax.set_ylabel(name)
                 ax.legend()
                 ax.grid(True)
             axes[-1].set_xlabel("Time")
         else:
-            fig, ax = plt.subplots(figsize=(8, 4))
+            fig, ax = plt.subplots(figsize=figsize)
             for name in names:
-                ax.plot(self.times, self.values[name], label=name)
+                _, v = self.series(name)
+                ax.plot(self.times, v, label=name)
             ax.set_xlabel("Time")
             ax.set_ylabel("Value")
             ax.set_title(title or self.model_name)
             ax.legend()
             ax.grid(True)
         fig.tight_layout()
+        if return_fig or not path:
+            return fig
         fig.savefig(path)
         plt.close(fig)
+        return None
 
     def plot_with_bands(
         self,
-        path: str,
-        mean: dict[str, list[float]],
-        std: dict[str, list[float]],
-        p5: dict[str, list[float]],
-        p95: dict[str, list[float]],
-    ) -> None:
+        path: str = "",
+        mean: dict[str, list[float]] | None = None,
+        std: dict[str, list[float]] | None = None,
+        p5: dict[str, list[float]] | None = None,
+        p95: dict[str, list[float]] | None = None,
+        return_fig: bool = False,
+    ) -> Any | None:
+        """Plot each stock as a mean line with 5th–95th percentile band.
+
+        Args:
+            path: Save path. Empty string (or ``return_fig=True``) returns
+                the figure instead of saving.
+            mean/std/p5/p95: dicts of ``{stock: values}`` (e.g. from a
+                sensitivity ensemble). ``mean`` is required.
+            return_fig: If True, return the Figure instead of saving.
+
+        Returns:
+            Matplotlib figure if ``return_fig`` or ``path`` is empty, else ``None``.
+        """
+        if mean is None:
+            raise ValueError("mean is required — pass per-stock mean series")
         try:
             import matplotlib
             matplotlib.use("Agg")
             import matplotlib.pyplot as plt
         except ImportError:
-            print("matplotlib not installed — skipping plot. Install with: pip install matplotlib")
-            return
+            raise ImportError(
+                "matplotlib is required for plotting. Install with: pip install matplotlib"
+            ) from None
+        p95 = p95 or {}
+        p5 = p5 or {}
         fig, ax = plt.subplots(figsize=(10, 5))
         t = self.times
         for stock in self.stocks:
             ax.plot(t, mean[stock], label=stock)
-            ax.fill_between(t, p5[stock], p95[stock], alpha=0.2)
+            if stock in p5 and stock in p95:
+                ax.fill_between(t, p5[stock], p95[stock], alpha=0.2)
         ax.set_xlabel("Time")
         ax.set_ylabel("Value")
         ax.set_title(f"{self.model_name} — Sensitivity (5th–95th percentile)")
         ax.legend()
         ax.grid(True)
         fig.tight_layout()
+        if return_fig or not path:
+            return fig
         fig.savefig(path)
         plt.close(fig)
+        return None
 
     def export_results(self, path: str) -> None:
         """Export simulation results to a CSV file.
@@ -2216,7 +2480,7 @@ def _build_tree(lines: list[_TokenLine]) -> SysdModel:
                 stack.pop()
             continue
         if keyword == "dt":
-            model.dt = float(args)
+            object.__setattr__(model, "dt", float(args))
             continue
         if keyword == "from":
             parts = args.split()
@@ -2224,9 +2488,9 @@ def _build_tree(lines: list[_TokenLine]) -> SysdModel:
                 t0 = float(parts[0])
                 if len(parts) >= 3 and parts[1] == "to":
                     t1 = float(parts[2])
-                    model.t_span = (t0, t1)
+                    object.__setattr__(model, "t_span", (t0, t1))
                 else:
-                    model.t_span = (t0, model.t_span[1])
+                    object.__setattr__(model, "t_span", (t0, model.t_span[1]))
             continue
         if keyword == "stock":
             name, initial = _parse_name_value(args)
@@ -2408,6 +2672,7 @@ def _build_tree(lines: list[_TokenLine]) -> SysdModel:
             service_time = ""
             servers = 1
             event_driven = False
+            discipline = "FIFO"
             if ":" in args:
                 after_colon = args.split(":", 1)[1]
                 for part in after_colon.split(","):
@@ -2441,7 +2706,16 @@ def _build_tree(lines: list[_TokenLine]) -> SysdModel:
                                 servers = max(1, int(float(val.strip())))
                     elif pl.startswith("event_driven") or pl == "event_driven":
                         event_driven = True
-            qd = QueueDef(name=name, capacity=capacity, service_time=service_time, servers=servers, event_driven=event_driven)
+                    elif pl.startswith("discipline"):
+                        val = ""
+                        if "=" in part:
+                            val = part.split("=", 1)[1]
+                        elif " " in part:
+                            val = part.split(None, 1)[1]
+                        if val:
+                            discipline = val.strip().upper()
+            qd = QueueDef(name=name, capacity=capacity, service_time=service_time, servers=servers, event_driven=event_driven,
+                          discipline=discipline)
             model.queues.append(qd)
             while stack and stack[-1][0] >= indent:
                 stack.pop()
@@ -2459,6 +2733,15 @@ def _build_tree(lines: list[_TokenLine]) -> SysdModel:
             if isinstance(parent, QueueDef):
                 parent.arrival_rate = _split_expr(args)
             continue
+
+        if keyword == "route":
+            parent = stack[-1][1] if stack else None
+            if isinstance(parent, QueueDef):
+                cond, _, target = args.partition("->")
+                cond = cond.strip()
+                target = _STRIP_RE.sub("", target.strip())
+                if cond and target:
+                    parent.routes.append(RouteDef(parent.name, cond, target))
 
         if keyword == "resource":
             name, _ = _parse_name_value(args)

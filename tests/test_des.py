@@ -753,6 +753,45 @@ class TestDESEngine:
         assert "q1" in stats
         assert "r1" in stats
 
+    def test_get_all_stats_kind_tags(self):
+        engine = DESEngine()
+        engine.add_queue(Queue("q1"))
+        engine.add_resource(Resource("r1"))
+        stats = engine.get_all_stats()
+        assert stats["q1"]["kind"] == "queue"
+        assert stats["r1"]["kind"] == "resource"
+        # queue summaries carry queue-only fields
+        assert "total_arrivals" in stats["q1"]
+
+    def test_queue_stats_typed(self):
+        engine = DESEngine()
+        engine.add_queue(Queue("q1"))
+        from dynafx.dynamics.des import QueueStats
+
+        assert isinstance(engine.queue_stats("q1"), QueueStats)
+        assert engine.queue_stats("q1").summary()["kind"] == "queue"
+
+    def test_resource_stats_typed(self):
+        engine = DESEngine()
+        engine.add_resource(Resource("r1"))
+        from dynafx.dynamics.des import ResourceStats
+
+        assert isinstance(engine.resource_stats("r1"), ResourceStats)
+        assert engine.resource_stats("r1").summary()["kind"] == "resource"
+
+    def test_queue_stats_missing_name(self):
+        engine = DESEngine()
+        engine.add_queue(Queue("q1"))
+        try:
+            engine.queue_stats("nope")
+        except KeyError as exc:
+            assert "q1" in str(exc)
+
+    def test_resource_stats_missing_name(self):
+        engine = DESEngine()
+        with pytest.raises(KeyError):
+            engine.resource_stats("nope")
+
     def test_events_outside_window_not_processed(self):
         engine = DESEngine()
         processed = []
@@ -773,6 +812,30 @@ class TestDESEngine:
         engine = DESEngine()
         engine.step(0.0, 3.0)
         assert engine.clock.time == 3.0
+
+    def test_departures_with_routing_reenqueue(self):
+        engine = DESEngine()
+        a = Queue("a", service_time="1.0")
+        b = Queue("b", service_time="5.0")
+        a.add_route("True", "b")
+        engine.add_queue(a)
+        engine.add_queue(b)
+        # seed one entity with a compiled service time by setting it manually
+        a._compiled_service_time = lambda: 1.0
+        b._compiled_service_time = lambda: 5.0
+        a.enqueue({"id": 1}, 0.0)
+        engine.step(0.0, 2.0)
+        assert b.stats.total_arrivals == 1
+        assert a.stats.total_departures == 1
+
+    def test_departures_no_route_counts_departed(self):
+        engine = DESEngine()
+        a = Queue("a", service_time="1.0")
+        engine.add_queue(a)
+        a._compiled_service_time = lambda: 1.0
+        a.enqueue({"id": 1}, 0.0)
+        engine.step(0.0, 2.0)
+        assert a.stats.total_departures == 1
 
 
 # ── DSL Integration ──────────────────────────────────────────────

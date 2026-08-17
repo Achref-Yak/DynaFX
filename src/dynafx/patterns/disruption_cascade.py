@@ -93,8 +93,7 @@ class DisruptionCascade:
             target_stock_multiplier: Target stock = consumption * this in normal.
             crisis_target_multiplier: Target stock = consumption * this in crisis.
         """
-        model = SysdModel(name)
-        model.dt = 1.0
+        model = SysdModel(name, dt=1.0)
         model.t_start = 0.0
         model.t_end = float(t_end)
 

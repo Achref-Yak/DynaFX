@@ -457,8 +457,7 @@ def test_kb_query_template_in_abm_condition():
 
     template = f"ASK {{ <$subject> <{NS}status> \"critical\" }}"
 
-    model = SysdModel("test_abm_template")
-    model.dt = 1.0
+    model = SysdModel("test_abm_template", dt=1.0)
     model.t_start = 0.0
     model.t_end = 5.0
 

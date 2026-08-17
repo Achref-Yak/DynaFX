@@ -13,12 +13,12 @@ import math
 def test_exponential_decay_analytical():
     """stock decaying with outflow proportional to itself → S(t) = S0 * exp(-k*t)."""
     mdl = """Exponential Decay
+  dt 0.5
+  from 0 to 10
   stock "S": 1000
     - "Decay": S * decay
 """
     m = parse_sysd(mdl)
-    m.dt = 0.5
-    m.t_span = (0.0, 10.0)
     r = m.simulate(params={"decay": 0.1})
 
     t_end = 10.0
@@ -32,12 +32,12 @@ def test_exponential_decay_analytical():
 def test_linear_growth_analytical():
     """stock with constant inflow → X(t) = X0 + rate * t."""
     mdl = """Linear Growth
+  dt 1.0
+  from 0 to 50
   stock "X": 0
     + "Growth": rate
 """
     m = parse_sysd(mdl)
-    m.dt = 1.0
-    m.t_span = (0.0, 50.0)
     r = m.simulate(params={"rate": 3.0})
 
     x_analytical = 0.0 + 3.0 * 50.0  # = 150.0
@@ -50,6 +50,8 @@ def test_linear_growth_analytical():
 def test_sir_peak_infected():
     """SIR model peak infected count vs analytical R0 prediction."""
     mdl = """Simple SIR
+  dt 0.1
+  from 0 to 200
   stock "Susceptible": 990
     - "Infection_Rate": beta * Susceptible * Infected
   stock "Infected": 10
@@ -59,8 +61,6 @@ def test_sir_peak_infected():
     + "Recovery_Rate": gamma * Infected
 """
     m = parse_sysd(mdl)
-    m.dt = 0.1
-    m.t_span = (0.0, 200.0)
     r = m.simulate(params={"beta": 0.002, "gamma": 0.1})
 
     i_values = r["values"]["Infected"]
@@ -84,6 +84,8 @@ def test_sir_peak_infected():
 def test_population_conservation():
     """SIR total population (S+I+R) must be conserved."""
     mdl = """Conservation Test
+  dt 0.25
+  from 0 to 100
   stock "Susceptible": 990
     - "Infection_Rate": beta * Susceptible * Infected
   stock "Infected": 10
@@ -93,8 +95,6 @@ def test_population_conservation():
     + "Recovery_Rate": gamma * Infected
 """
     m = parse_sysd(mdl)
-    m.dt = 0.25
-    m.t_span = (0.0, 100.0)
     r = m.simulate(params={"beta": 0.003, "gamma": 0.1})
 
     total_0 = 990.0 + 10.0 + 0.0
@@ -113,14 +113,14 @@ def test_population_conservation():
 def test_smooth_approaches_input():
     """SMOOTH(input, delay) should converge to input after several delays."""
     mdl = """SMOOTH Test
+  dt 1.0
+  from 0 to 50
   stock "Raw": 100
   stock "Smoothed": 0
     + "Raw": Raw
     - "Smoothed": SMOOTH(Smoothed, delay_time)
 """
     m = parse_sysd(mdl)
-    m.dt = 1.0
-    m.t_span = (0.0, 50.0)
     r = m.simulate(params={"delay_time": 5.0})
 
     smoothed_final = r["values"]["Smoothed"][-1]
@@ -135,12 +135,13 @@ def test_smooth_approaches_input():
 def test_euler_vs_rk4_stability():
     """For a stiff system, RK4 should be more accurate than Euler."""
     mdl = """Stiff Test
+  dt 0.5
+  from 0 to 100
   stock "A": 100
     + "Slow_Input": slow_input
     - "Decay": A * fast_rate
 """
     m = parse_sysd(mdl)
-    m.dt = 0.5
 
     r_rk4 = m.simulate(method="rk4", params={"fast_rate": 2.0, "slow_input": 50.0})
     r_euler = m.simulate(method="euler", params={"fast_rate": 2.0, "slow_input": 50.0})
@@ -157,14 +158,14 @@ def test_euler_vs_rk4_stability():
 def test_multi_stock_conservation():
     """Two-stock system with transfer: total must be conserved."""
     mdl = """Transfer Test
+  dt 1.0
+  from 0 to 50
   stock "Source": 1000
     - "Transfer_Rate": Source * transfer_fraction
   stock "Sink": 0
     + "Transfer_Rate": Source * transfer_fraction
 """
     m = parse_sysd(mdl)
-    m.dt = 1.0
-    m.t_span = (0.0, 50.0)
     r = m.simulate(params={"transfer_fraction": 0.1})
 
     for t_idx in range(len(r["times"])):
@@ -177,6 +178,8 @@ def test_multi_stock_conservation():
 def test_table_interpolation():
     """Table lookup values should interpolate correctly."""
     mdl = """Table Test
+  dt 1.0
+  from 0 to 100
   table "demand"
     x: [0, 50, 100]
     y: [100, 150, 50]
@@ -184,8 +187,6 @@ def test_table_interpolation():
     + "demand": demand
 """
     m = parse_sysd(mdl)
-    m.dt = 1.0
-    m.t_span = (0.0, 100.0)
     r = m.simulate()
 
     # Stock is integral of demand, so just check it's monotonically increasing

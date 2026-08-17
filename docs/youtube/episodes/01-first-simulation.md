@@ -16,7 +16,7 @@
 
 ### 0:30 - Install (1 min)
 ```bash
-pip install https://github.com/Achref-Yak/DynaFX/releases/download/v0.3.0/dynafx-0.3.0-py3-none-any.whl
+pip install https://github.com/Achref-Yak/DynaFX/releases/download/v0.4.1/dynafx-0.4.1-py3-none-any.whl
 ```
 - "One command. No databases, no servers, no config files."
 
@@ -123,7 +123,7 @@ plt.show()
 ```
 Your first DynaFX simulation in 5 minutes. No setup, no config, no servers.
 
-Install: pip install https://github.com/Achref-Yak/DynaFX/releases/download/v0.3.0/dynafx-0.3.0-py3-none-any.whl
+Install: pip install https://github.com/Achref-Yak/DynaFX/releases/download/v0.4.1/dynafx-0.4.1-py3-none-any.whl
 Docs: https://achref-yak.github.io/DynaFX/
 GitHub: https://github.com/Achref-Yak/DynaFX
 

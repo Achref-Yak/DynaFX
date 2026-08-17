@@ -47,9 +47,7 @@ You can also build the same model in pure Python, without any text parsing:
 ```python
 from dynafx.dynamics import SysdModel
 
-model = SysdModel("T")
-model.dt = 1.0
-model.t_span = (0, 10)
+model = SysdModel("T", dt=1.0, t_span=(0, 10))
 
 with model.stock("X", 100) as s:
     s.outflow("Out", "X * 0.1")
