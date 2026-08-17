@@ -644,7 +644,7 @@ def test_plot_resolves_aux_and_des_via_series():
     plt.close(fig)
 
 
-def test_plot_with_bands_returns_fig_and_saves():
+def test_plot_with_bands_returns_fig_and_saves(tmp_path):
     model = SysdModel(dt=0.5, t_span=(0, 2))
     with model.stock("X", 10) as s:
         s.outflow("drain", "0.1")
@@ -657,8 +657,10 @@ def test_plot_with_bands_returns_fig_and_saves():
     fig = result.plot_with_bands(mean=mean, p5=p5, p95=p95)
     assert fig is not None
     plt.close(fig)
-    ret = result.plot_with_bands(str("/tmp/opencode/bands.png"), mean=mean, p5=p5, p95=p95)
+    out = tmp_path / "bands.png"
+    ret = result.plot_with_bands(str(out), mean=mean, p5=p5, p95=p95)
     assert ret is None
+    assert out.exists()
 
 
 def test_plot_missing_matplotlib_raises(tmp_path, monkeypatch):
