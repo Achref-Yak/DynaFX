@@ -1456,10 +1456,10 @@ class SysdModelResult:
             return list(self.times), list(self.values[name])
         if name in self.aux_values:
             return list(self.times), list(self.aux_values[name])
-        if self.des_metrics_history and name in self.des_metrics_history[-1]:
+        if self.des_metrics_history and name in self._des_metric_names():
             return (list(self.times),
                     [step.get(name, 0) for step in self.des_metrics_history])
-        if self.abm_metrics_history and name in self.abm_metrics_history[-1]:
+        if self.abm_metrics_history and name in self._abm_metric_names():
             return (list(self.times),
                     [step.get(name, 0) for step in self.abm_metrics_history])
         raise KeyError(
@@ -1471,10 +1471,26 @@ class SysdModelResult:
         """All names addressable via :meth:`series`."""
         names = list(self.stocks) + list(self.aux_values.keys())
         if self.des_metrics_history:
-            names += sorted(self.des_metrics_history[-1].keys())
+            names += sorted(self._des_metric_names())
         if self.abm_metrics_history:
-            names += sorted(self.abm_metrics_history[-1].keys())
+            names += sorted(self._abm_metric_names())
         return sorted(dict.fromkeys(names))
+
+    def _des_metric_names(self) -> set[str]:
+        """Union of keys seen across all DES history steps.
+
+        Per-step dicts are sparse (``{queue}_departed`` exists only on steps
+        with a departure), so a key may be absent from the final step.
+        """
+        if self.des_metrics_history:
+            return set().union(*self.des_metrics_history)
+        return set()
+
+    def _abm_metric_names(self) -> set[str]:
+        """Union of keys seen across all ABM history steps."""
+        if self.abm_metrics_history:
+            return set().union(*self.abm_metrics_history)
+        return set()
 
     def queue_stats(self, name: str) -> Any:
         """Return the typed ``QueueStats`` for one queue (if DES used).

@@ -516,6 +516,20 @@ def test_series_des_skips_seed_and_fills_sparse():
     assert all(d >= 0 for d in dep)
 
 
+def test_series_sparse_key_absent_from_final_step():
+    model = SysdModel(dt=0.5, t_span=(0, 5))
+    model.queue("jobs", capacity=-1, service_time="1.0", servers=2,
+                arrival_rate="5")
+    result = model.simulate()
+    # A sparse key (e.g. `_departed`) only exists on steps with a departure.
+    # Force the regression: drop it from the *final* history dict, then
+    # series() must still resolve it from the union of keys across all steps.
+    result.des_metrics_history[-1].pop("jobs_departed", None)
+    t_dep, dep = result.series("jobs_departed")
+    assert len(t_dep) == len(dep) == len(result.times)
+    assert "jobs_departed" in result._series_names()
+
+
 def test_series_unknown_raises():
     model = SysdModel(dt=0.5, t_span=(0, 2))
     with model.stock("X", 10) as s:
